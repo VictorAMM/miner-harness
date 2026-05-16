@@ -1,0 +1,276 @@
+"""PromptManager — construção de prompts para os agentes.
+
+Gerencia templates, injeção segura de dados geológicos e
+construção de contexto para cada passo do framework Dr. Valen.
+
+Ref: RFC-002 §5.3, §7 (ContextBuilder)
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from miner_harness.connectors.geosgb.sanitizer import sanitize_for_llm
+from miner_harness.connectors.ollama.client import ChatMessage
+from miner_harness.core.types import AnalysisStep
+
+# ---------------------------------------------------------------------------
+# System prompts por agente
+# ---------------------------------------------------------------------------
+
+_PERSONA_BASE = """\
+Você é o Dr. Augusto Valen, um geólogo exploracionista e geofísico de elite \
+com 25+ anos de experiência em prospecção mineral. Você combina rigor acadêmico \
+com intuição de campo. Sua análise é sempre baseada em dados, nunca especulativa \
+sem evidência."""
+
+_AGENT_PROMPTS: dict[str, str] = {
+    "structural_geologist": (
+        f"{_PERSONA_BASE}\n\n"
+        "Sua especialidade é geologia estrutural e tectônica. "
+        "Analise a história tectônica e arquitetura estrutural da região, "
+        "identificando províncias metalogenéticas, zonas de cisalhamento, "
+        "falhas maiores e corredores estruturais favoráveis à mineralização."
+    ),
+    "geophysicist": (
+        f"{_PERSONA_BASE}\n\n"
+        "Sua especialidade é geofísica aplicada à exploração mineral. "
+        "Analise anomalias gravimétricas, padrões magnéticos e dados "
+        "aerogeofísicos, correlacionando com estruturas e potencial mineral."
+    ),
+    "geochemist": (
+        f"{_PERSONA_BASE}\n\n"
+        "Sua especialidade é geoquímica exploratória. "
+        "Analise assinaturas geoquímicas, pathfinder elements, padrões "
+        "de alteração hidrotermal e fertilidade magmática a partir dos dados."
+    ),
+    "remote_sensing": (
+        f"{_PERSONA_BASE}\n\n"
+        "Sua especialidade é sensoriamento remoto geológico. "
+        "Analise lineamentos, mapeamento espectral e anomalias de "
+        "vegetação que possam indicar mineralização subsuperficial."
+    ),
+    "evaluator": (
+        f"{_PERSONA_BASE}\n\n"
+        "Você é o integrador final. Receba os resultados dos 4 passos "
+        "anteriores e integre-os em uma análise multidisciplinar coerente. "
+        "Identifique contradições, valide hipóteses e ranqueie alvos de "
+        "prospecção por prioridade. Seja crítico e honesto sobre limitações."
+    ),
+}
+
+# ---------------------------------------------------------------------------
+# Templates de instrução por passo
+# ---------------------------------------------------------------------------
+
+_STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
+    AnalysisStep.TECTONIC_HISTORY: (
+        "PASSO 1 — HISTÓRIA TECTÔNICA\n"
+        "Analise os dados de litoestratigrafia e geocronologia fornecidos.\n"
+        "Identifique:\n"
+        "- Principais unidades geológicas e suas idades\n"
+        "- Eventos tectônicos que moldaram a região\n"
+        "- Províncias metalogenéticas relevantes\n"
+        "- Potencial para sistemas minerais baseado na evolução crustal"
+    ),
+    AnalysisStep.STRUCTURAL_ARCHITECTURE: (
+        "PASSO 2 — ARQUITETURA ESTRUTURAL\n"
+        "Analise as estruturas geológicas da região.\n"
+        "Identifique:\n"
+        "- Zonas de cisalhamento e falhas maiores\n"
+        "- Corredores estruturais favoráveis\n"
+        "- Interseções estruturais (armadilhas potenciais)\n"
+        "- Controle estrutural sobre mineralizações conhecidas"
+    ),
+    AnalysisStep.MAGMATIC_FERTILITY: (
+        "PASSO 3 — FERTILIDADE MAGMÁTICA\n"
+        "Analise dados geoquímicos e geofísicos para fertilidade magmática.\n"
+        "Identifique:\n"
+        "- Intrusões com assinatura fértil (anomalias de Cu, Au, Mo, etc.)\n"
+        "- Anomalias gravimétricas associadas a corpos intrusivos\n"
+        "- Padrões magnéticos indicativos de alteração\n"
+        "- Correlação entre geoquímica e geofísica"
+    ),
+    AnalysisStep.INDIRECT_EVIDENCE: (
+        "PASSO 4 — EVIDÊNCIAS INDIRETAS\n"
+        "Busque evidências indiretas de mineralização.\n"
+        "Identifique:\n"
+        "- Anomalias de pathfinder elements\n"
+        "- Padrões de alteração hidrotermal\n"
+        "- Anomalias sutis em dados geofísicos\n"
+        "- Ocorrências minerais próximas e seus contextos"
+    ),
+    AnalysisStep.TOTAL_INTEGRATION: (
+        "PASSO 5 — INTEGRAÇÃO TOTAL\n"
+        "Integre os resultados dos 4 passos anteriores.\n"
+        "Produza:\n"
+        "- Síntese multidisciplinar coerente\n"
+        "- Lista ranqueada de alvos de prospecção\n"
+        "- Para cada alvo: localização, commodities, sistema mineral, "
+        "confiança, e justificativa integrada\n"
+        "- Limitações e lacunas de dados\n"
+        "- Recomendações de follow-up para cada alvo"
+    ),
+}
+
+# ---------------------------------------------------------------------------
+# Formato de resposta esperado
+# ---------------------------------------------------------------------------
+
+_RESPONSE_FORMAT = """\
+Responda OBRIGATORIAMENTE neste formato JSON:
+{
+  "summary": "Resumo conciso do passo (2-3 frases)",
+  "findings": ["Achado 1", "Achado 2", ...],
+  "confidence": "high|medium|low|insufficient",
+  "data_sources_used": ["fonte1", "fonte2"],
+  "data_gaps": ["dado faltante 1", "dado faltante 2"],
+  "targets": [
+    {
+      "name": "Nome do Alvo",
+      "longitude": -50.0,
+      "latitude": -6.0,
+      "radius_km": 5.0,
+      "commodities": ["Cu", "Au"],
+      "mineral_system": "IOCG",
+      "confidence": "medium",
+      "priority": 2,
+      "rationale": "Justificativa integrada...",
+      "recommended_followup": ["Ação 1", "Ação 2"]
+    }
+  ]
+}
+O campo "targets" é obrigatório apenas no Passo 5 (Integração Total). \
+Nos demais passos, pode ser uma lista vazia."""
+
+
+class PromptManager:
+    """Gerencia construção de prompts para os agentes."""
+
+    def system_prompt(self, agent_name: str) -> str:
+        """Retorna o system prompt para um agente.
+
+        Args:
+            agent_name: Nome do agente (ex: "structural_geologist").
+
+        Returns:
+            System prompt completo com persona e especialidade.
+        """
+        return _AGENT_PROMPTS.get(agent_name, _PERSONA_BASE)
+
+    def build_messages(
+        self,
+        agent_name: str,
+        step: AnalysisStep,
+        geological_data: str,
+        previous_results: str = "",
+    ) -> list[ChatMessage]:
+        """Constrói lista de mensagens para uma chamada de chat.
+
+        Args:
+            agent_name: Nome do agente.
+            step: Passo do framework.
+            geological_data: Dados geológicos formatados (XML-tagged).
+            previous_results: Resultados de passos anteriores (resumidos).
+
+        Returns:
+            Lista de ChatMessage pronta para envio ao LLM.
+        """
+        system = self.system_prompt(agent_name)
+        instruction = _STEP_INSTRUCTIONS.get(step, "Analise os dados fornecidos.")
+
+        user_content = f"{instruction}\n\n"
+
+        if previous_results:
+            user_content += f"<previous_analysis>\n{previous_results}\n</previous_analysis>\n\n"
+
+        user_content += (
+            f"<geological_data>\n{geological_data}\n</geological_data>\n\n{_RESPONSE_FORMAT}"
+        )
+
+        return [
+            ChatMessage(role="system", content=system),
+            ChatMessage(role="user", content=user_content),
+        ]
+
+    @staticmethod
+    def format_geological_data(
+        records: list[dict[str, Any]],
+        source: str,
+        max_records: int = 50,
+        max_chars: int = 8000,
+    ) -> str:
+        """Formata dados geológicos para injeção segura no prompt.
+
+        Args:
+            records: Lista de registros (dicts com campos do modelo).
+            source: Nome da fonte (ex: "GeoSGB/ocorrencias").
+            max_records: Máximo de registros a incluir.
+            max_chars: Máximo de caracteres total.
+
+        Returns:
+            String formatada com dados sanitizados.
+        """
+        lines: list[str] = [f'<dataset source="{source}" count="{len(records)}">']
+        chars_used = len(lines[0])
+        included = 0
+
+        for record in records[:max_records]:
+            entry_lines = [f'  <record objectid="{record.get("objectid", "?")}">']
+            for key, value in record.items():
+                if key == "objectid":
+                    continue
+                sanitized = sanitize_for_llm(str(value), max_length=200)
+                entry_lines.append(f"    {key}: {sanitized}")
+            entry_lines.append("  </record>")
+            entry = "\n".join(entry_lines)
+
+            if chars_used + len(entry) > max_chars:
+                lines.append(
+                    f"  <!-- {len(records) - included} registros omitidos por limite de tamanho -->"
+                )
+                break
+
+            lines.append(entry)
+            chars_used += len(entry)
+            included += 1
+
+        lines.append("</dataset>")
+        return "\n".join(lines)
+
+    @staticmethod
+    def summarize_previous_results(
+        results: list[dict[str, Any]],
+        max_chars: int = 2000,
+    ) -> str:
+        """Resume resultados de passos anteriores para contexto.
+
+        Args:
+            results: Lista de StepResult como dicts.
+            max_chars: Máximo de caracteres.
+
+        Returns:
+            Resumo textual dos passos anteriores.
+        """
+        lines: list[str] = []
+        chars = 0
+
+        for r in results:
+            step = r.get("step", "unknown")
+            summary = sanitize_for_llm(r.get("summary", ""), max_length=300)
+            confidence = r.get("confidence", "unknown")
+            findings = r.get("findings", [])
+            findings_str = "; ".join(str(f) for f in findings[:5])
+
+            entry = (
+                f"[{step}] (confiança: {confidence})\n"
+                f"  Resumo: {summary}\n"
+                f"  Achados: {findings_str}\n"
+            )
+
+            if chars + len(entry) > max_chars:
+                break
+            lines.append(entry)
+            chars += len(entry)
+
+        return "\n".join(lines)
