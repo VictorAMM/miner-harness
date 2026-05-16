@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "miner-harness"
 version = "0.1.0"
-description = "Sistema de prospecção mineral inteligente com agentes de IA e LLMs locais"
+description = "Sistema de prospeccao mineral inteligente com agentes de IA e LLMs locais"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -42,6 +42,7 @@ dev = [
     "bandit>=1.8",
     "mypy>=1.13",
     "pip-audit>=2.7",
+    "hypothesis>=6.0",
 ]
 
 [project.scripts]

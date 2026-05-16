@@ -21,7 +21,7 @@ if sys.version_info >= (3, 11):  # noqa: UP036
     from enum import StrEnum  # noqa: F811
 else:
 
-    class StrEnum(str, Enum):  # type: ignore[no-redef]  # noqa: UP042
+    class StrEnum(str, Enum):  # noqa: UP042
         """Compatibility shim — project requires 3.11+ but CI sandbox may differ."""
 
 
