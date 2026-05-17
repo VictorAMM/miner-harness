@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import sqlite3
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -120,8 +120,9 @@ class TestCheckDiskSpace:
     """Test disk space check."""
 
     def test_disk_space_check(self, tmp_path: Path) -> None:
-        result = check_disk_space(tmp_path)
-        # Should always succeed on a valid path
+        with patch("shutil.disk_usage") as mock_du:
+            mock_du.return_value = MagicMock(free=50 * 1024**3, total=100 * 1024**3)
+            result = check_disk_space(tmp_path)
         assert result.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED)
         assert "free" in result.message or "Cannot" in result.message
 
