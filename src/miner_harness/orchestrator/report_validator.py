@@ -224,7 +224,9 @@ class ReportValidator:
                     ValidationIssue(
                         severity="warning",
                         step=step.step,
-                        message="INSUFFICIENT confidence but has findings -- review confidence level",
+                        message=(
+                            "INSUFFICIENT confidence but has findings -- review confidence level"
+                        ),
                         field="confidence",
                     )
                 )
@@ -288,7 +290,9 @@ class ReportValidator:
             result.add(
                 ValidationIssue(
                     severity="error",
-                    message=f"Target {index} ({target.name}) has invalid radius: {target.radius_km}",
+                    message=(
+                        f"Target {index} ({target.name}) has invalid radius: {target.radius_km}"
+                    ),
                     field="targets",
                 )
             )
