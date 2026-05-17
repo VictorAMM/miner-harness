@@ -43,55 +43,60 @@ class ServiceEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# Serviços conhecidos — descobertos na Fase 1 (Discovery)
+# Serviços — caminhos verificados via catalog REST em 2026-05-17
+# Todos migrados para FeatureServer (mais estável que MapServer/identify)
 # ---------------------------------------------------------------------------
 
 OCORRENCIAS = ServiceEndpoint(
     name="ocorrencias",
-    path="GEOSGB/ocorrencias_minerais",
-    server_type="MapServer",
-    default_layers=[0],
-    supports_query=False,
+    path="geologia/ocorrencias",
+    server_type="FeatureServer",
+    default_layers=[0],  # "Ocorrências minerais"
+    supports_query=True,
 )
 
 GRAVIMETRIA = ServiceEndpoint(
     name="gravimetria",
-    path="GEOSGB/dados_gravimetricos",
+    path="geofisica/gravimetria",
     server_type="FeatureServer",
-    default_layers=[0],
-    supports_query=True,  # Único FeatureServer funcional no GeoSGB
+    default_layers=[0],  # "Dados gravimétricos"
+    supports_query=True,
 )
 
+# Layers relevantes para prospecção mineral:
+# 2=Sedimento de Corrente, 4=Rocha, 5=Solo
 GEOQUIMICA = ServiceEndpoint(
     name="geoquimica",
-    path="GEOSGB/geoquimica",
-    server_type="MapServer",
-    default_layers=list(range(9)),  # 9 layers (tipos de amostra)
-    supports_query=False,
+    path="geoquimica/geoquimica_integrada",
+    server_type="FeatureServer",
+    default_layers=[2, 4, 5],
+    supports_query=True,
 )
 
 GEOCRONOLOGIA = ServiceEndpoint(
     name="geocronologia",
-    path="GEOSGB/geocronologia",
-    server_type="MapServer",
-    default_layers=[0],
-    supports_query=False,
+    path="geologia/geocronologia",
+    server_type="FeatureServer",
+    default_layers=[0],  # "Datações geocronológicas"
+    supports_query=True,
 )
 
+# Escala 1:1.000.000 — adequada para análise regional de prospecção
 LITOESTRATIGRAFIA = ServiceEndpoint(
     name="litoestratigrafia",
-    path="GEOSGB/unidades_litoestratigraficas",
-    server_type="MapServer",
-    default_layers=[0],
-    supports_query=False,
+    path="geologia/litoestratigrafia_1000000",
+    server_type="FeatureServer",
+    default_layers=[0],  # "Unidades litoestratigráficas - 1:1.000.000 [2004]"
+    supports_query=True,
 )
 
+# 4 séries históricas de levantamentos aerogeofísicos
 AEROGEOFISICA = ServiceEndpoint(
     name="aerogeofisica",
-    path="GEOSGB/projetos_aerogeofisicos",
-    server_type="MapServer",
-    default_layers=[0],
-    supports_query=False,
+    path="geofisica/aerogeofisica",
+    server_type="FeatureServer",
+    default_layers=[0, 1, 2, 3],
+    supports_query=True,
 )
 
 # Registry indexado por nome
