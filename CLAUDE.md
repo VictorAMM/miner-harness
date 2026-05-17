@@ -51,8 +51,11 @@ Fase 7  — Testing Swarm ✅ CONCLUÍDA (2026-05-16)
 Fase 8  — Governed CI/CD ✅ CONCLUÍDA (2026-05-16)
 Fase 9  — Observabilidade ✅ CONCLUÍDA (2026-05-16)
 Fase 10 — RCA Autônomo ✅ CONCLUÍDA (2026-05-17)
-Fase 11 — Self-Improvement ← PRÓXIMA
+Fase 11 — Self-Improvement ✅ CONCLUÍDA (2026-05-17)
+Wizard  — Instalação Guiada ✅ CONCLUÍDA (2026-05-17)
 ```
+
+**Status**: Todas as fases concluídas. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
 
 ## Grafo de Rastreabilidade
 
