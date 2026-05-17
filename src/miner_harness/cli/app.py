@@ -166,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(
                 cmd_analyze(
                     region=args.region,
-                    bbox=tuple(args.bbox),  # type: ignore[arg-type]
+                    bbox=tuple(args.bbox),
                     model=args.model,
                     output_path=args.output,
                 )
