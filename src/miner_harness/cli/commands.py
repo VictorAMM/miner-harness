@@ -220,3 +220,25 @@ def _print_report_summary(report: ProspectionReport) -> None:
             print(f"    - {c}")
 
     print(f"\n{'=' * 60}")
+
+
+async def cmd_health() -> int:
+    """Run system health checks."""
+    from miner_harness.observability.health import HealthStatus, run_health_checks
+
+    config = StorageConfig()
+    report = await run_health_checks(config.miner_home)
+
+    status_icons = {
+        HealthStatus.HEALTHY: "[OK]",
+        HealthStatus.DEGRADED: "[!!]",
+        HealthStatus.UNHEALTHY: "[XX]",
+    }
+
+    print(f"\nSystem Health: {report.overall_status.value.upper()}")
+    print("-" * 40)
+    for check in report.checks:
+        icon = status_icons.get(check.status, "[??]")
+        print(f"  {icon} {check.name}: {check.message}")
+
+    return 0 if report.is_healthy else 1

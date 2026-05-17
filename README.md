@@ -47,7 +47,7 @@ Este projeto segue o **Agentic SDLC Operating System v3** (ASO v3). Consulte `CL
 
 ## Status
 
-**Fase atual**: 9 — Observabilidade
+**Fase atual**: 11 — Self-Improvement
 
 Fases concluídas:
 - Fase 0 — Fundação e Governança ✅
@@ -59,6 +59,8 @@ Fases concluídas:
 - Fase 6 — Validation Harness ✅
 - Fase 7 — Testing Swarm ✅
 - Fase 8 — Governed CI/CD ✅
+- Fase 9 — Observabilidade ✅
+- Fase 10 — RCA Autônomo ✅
 
 ## Licença
 

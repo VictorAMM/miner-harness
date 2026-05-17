@@ -24,6 +24,7 @@ from miner_harness.cli.commands import (
     cmd_analyze,
     cmd_cache_clear,
     cmd_cache_stats,
+    cmd_health,
     cmd_index_stats,
     cmd_validate,
 )
@@ -98,6 +99,12 @@ def _build_parser() -> argparse.ArgumentParser:
     index_sub = index_parser.add_subparsers(dest="index_command")
     index_sub.add_parser("stats", help="Show index statistics")
 
+    # --- health ---
+    subparsers.add_parser(
+        "health",
+        help="Run system health checks (Ollama, cache, index, disk)",
+    )
+
     return parser
 
 
@@ -151,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
                 return cmd_index_stats()
             parser.parse_args(["index", "--help"])
             return 1
+        if args.command == "health":
+            return asyncio.run(cmd_health())
     except KeyboardInterrupt:
         print("\nInterrupted.")
         return 130
