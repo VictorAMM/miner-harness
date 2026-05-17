@@ -59,6 +59,9 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+markers = [
+    "e2e: end-to-end tests requiring live GeoSGB API and/or Ollama (opt-in via MINER_E2E=1)",
+]
 
 [tool.mypy]
 python_version = "3.11"
