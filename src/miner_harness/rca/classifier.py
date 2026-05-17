@@ -73,44 +73,57 @@ class ClassifiedError:
 
 
 # Classification rules: (exception_pattern, category, severity, recoverable, action)
-_CLASSIFICATION_RULES: list[
-    tuple[str, ErrorCategory, ErrorSeverity, bool, str]
-] = [
+_CLASSIFICATION_RULES: list[tuple[str, ErrorCategory, ErrorSeverity, bool, str]] = [
     # Network errors
-    ("ConnectError", ErrorCategory.NETWORK, ErrorSeverity.HIGH,
-     True, "Retry with backoff"),
-    ("TimeoutException", ErrorCategory.NETWORK, ErrorSeverity.HIGH,
-     True, "Retry with backoff"),
-    ("HTTPStatusError", ErrorCategory.NETWORK, ErrorSeverity.MEDIUM,
-     True, "Check service status"),
-    ("ConnectionRefused", ErrorCategory.NETWORK, ErrorSeverity.HIGH,
-     True, "Verify service is running"),
+    ("ConnectError", ErrorCategory.NETWORK, ErrorSeverity.HIGH, True, "Retry with backoff"),
+    ("TimeoutException", ErrorCategory.NETWORK, ErrorSeverity.HIGH, True, "Retry with backoff"),
+    ("HTTPStatusError", ErrorCategory.NETWORK, ErrorSeverity.MEDIUM, True, "Check service status"),
+    (
+        "ConnectionRefused",
+        ErrorCategory.NETWORK,
+        ErrorSeverity.HIGH,
+        True,
+        "Verify service is running",
+    ),
     # LLM errors
-    ("OllamaError", ErrorCategory.LLM, ErrorSeverity.HIGH,
-     True, "Retry or switch model"),
-    ("ResponseError", ErrorCategory.LLM, ErrorSeverity.MEDIUM,
-     True, "Retry with different prompt"),
-    ("JSONDecodeError", ErrorCategory.LLM, ErrorSeverity.MEDIUM,
-     True, "Retry — malformed LLM output"),
+    ("OllamaError", ErrorCategory.LLM, ErrorSeverity.HIGH, True, "Retry or switch model"),
+    ("ResponseError", ErrorCategory.LLM, ErrorSeverity.MEDIUM, True, "Retry with different prompt"),
+    (
+        "JSONDecodeError",
+        ErrorCategory.LLM,
+        ErrorSeverity.MEDIUM,
+        True,
+        "Retry — malformed LLM output",
+    ),
     # Storage errors
-    ("OperationalError", ErrorCategory.STORAGE, ErrorSeverity.HIGH,
-     True, "Check disk space and permissions"),
-    ("DatabaseError", ErrorCategory.STORAGE, ErrorSeverity.CRITICAL,
-     False, "Database corruption — rebuild"),
-    ("IntegrityError", ErrorCategory.STORAGE, ErrorSeverity.MEDIUM,
-     True, "Duplicate entry — skip"),
+    (
+        "OperationalError",
+        ErrorCategory.STORAGE,
+        ErrorSeverity.HIGH,
+        True,
+        "Check disk space and permissions",
+    ),
+    (
+        "DatabaseError",
+        ErrorCategory.STORAGE,
+        ErrorSeverity.CRITICAL,
+        False,
+        "Database corruption — rebuild",
+    ),
+    ("IntegrityError", ErrorCategory.STORAGE, ErrorSeverity.MEDIUM, True, "Duplicate entry — skip"),
     # Data errors
-    ("ValidationError", ErrorCategory.DATA, ErrorSeverity.MEDIUM,
-     True, "Validate input data"),
-    ("InsufficientDataError", ErrorCategory.DATA, ErrorSeverity.MEDIUM,
-     False, "Expand search area"),
-    ("KeyError", ErrorCategory.DATA, ErrorSeverity.LOW,
-     True, "Missing field in response"),
+    ("ValidationError", ErrorCategory.DATA, ErrorSeverity.MEDIUM, True, "Validate input data"),
+    (
+        "InsufficientDataError",
+        ErrorCategory.DATA,
+        ErrorSeverity.MEDIUM,
+        False,
+        "Expand search area",
+    ),
+    ("KeyError", ErrorCategory.DATA, ErrorSeverity.LOW, True, "Missing field in response"),
     # Config errors
-    ("FileNotFoundError", ErrorCategory.CONFIG, ErrorSeverity.HIGH,
-     False, "Check file paths"),
-    ("PermissionError", ErrorCategory.CONFIG, ErrorSeverity.HIGH,
-     False, "Check file permissions"),
+    ("FileNotFoundError", ErrorCategory.CONFIG, ErrorSeverity.HIGH, False, "Check file paths"),
+    ("PermissionError", ErrorCategory.CONFIG, ErrorSeverity.HIGH, False, "Check file permissions"),
 ]
 
 

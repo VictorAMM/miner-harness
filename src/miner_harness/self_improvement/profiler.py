@@ -83,16 +83,8 @@ def profile_pipeline(metrics: MetricsCollector) -> PipelineProfile:
     step_durations = {s.step_name: s.duration_ms for s in metrics.steps}
     total_ms = metrics.pipeline_duration_ms or sum(step_durations.values())
 
-    avg_ms = (
-        sum(step_durations.values()) / len(step_durations)
-        if step_durations
-        else 0.0
-    )
-    slowest = (
-        max(step_durations, key=lambda k: step_durations[k])
-        if step_durations
-        else ""
-    )
+    avg_ms = sum(step_durations.values()) / len(step_durations) if step_durations else 0.0
+    slowest = max(step_durations, key=lambda k: step_durations[k]) if step_durations else ""
 
     llm_error_rate = 0.0
     if metrics.llm.requests > 0:
@@ -161,8 +153,7 @@ def identify_bottlenecks(
         elif pct > _HIGH_PCT:
             severity = "high"
             rec = (
-                f"Step '{step_name}' is a major bottleneck — "
-                "review LLM prompt size and data volume"
+                f"Step '{step_name}' is a major bottleneck — review LLM prompt size and data volume"
             )
         else:
             severity = "medium"
@@ -171,13 +162,15 @@ def identify_bottlenecks(
                 "check input data size"
             )
 
-        bottlenecks.append(Bottleneck(
-            step_name=step_name,
-            duration_ms=duration_ms,
-            pct_of_total=round(pct, 1),
-            severity=severity,
-            recommendation=rec,
-        ))
+        bottlenecks.append(
+            Bottleneck(
+                step_name=step_name,
+                duration_ms=duration_ms,
+                pct_of_total=round(pct, 1),
+                severity=severity,
+                recommendation=rec,
+            )
+        )
 
     bottlenecks.sort(key=lambda b: b.duration_ms, reverse=True)
     return bottlenecks

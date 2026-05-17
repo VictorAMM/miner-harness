@@ -53,6 +53,7 @@ def doc_store(tmp_path: Path) -> DocumentStore:
 @pytest.fixture
 def mock_ollama() -> MagicMock:
     client = MagicMock()
+
     # Deterministic embeddings: hash of text length for reproducibility
     def _make_embedding(model: str, text: str) -> list[float]:
         seed = len(text) % 100
@@ -164,38 +165,44 @@ class TestCacheToIndexPipeline:
         for feature in cached_oc:
             text = dict_to_text(feature, "geosgb/ocorrencias")
             embedding = await embedder.embed_text(text)
-            docs.append(IndexDocument(
-                id=f"ocorrencias:{feature['objectid']}",
-                source="geosgb/ocorrencias",
-                text=text,
-                metadata=feature,
-                bbox=bbox,
-                embedding=embedding,
-            ))
+            docs.append(
+                IndexDocument(
+                    id=f"ocorrencias:{feature['objectid']}",
+                    source="geosgb/ocorrencias",
+                    text=text,
+                    metadata=feature,
+                    bbox=bbox,
+                    embedding=embedding,
+                )
+            )
 
         for feature in cached_grav:
             text = dict_to_text(feature, "geosgb/gravimetria")
             embedding = await embedder.embed_text(text)
-            docs.append(IndexDocument(
-                id=f"gravimetria:{feature['objectid']}",
-                source="geosgb/gravimetria",
-                text=text,
-                metadata=feature,
-                bbox=bbox,
-                embedding=embedding,
-            ))
+            docs.append(
+                IndexDocument(
+                    id=f"gravimetria:{feature['objectid']}",
+                    source="geosgb/gravimetria",
+                    text=text,
+                    metadata=feature,
+                    bbox=bbox,
+                    embedding=embedding,
+                )
+            )
 
         for feature in cached_geo:
             text = dict_to_text(feature, "geosgb/geoquimica")
             embedding = await embedder.embed_text(text)
-            docs.append(IndexDocument(
-                id=f"geoquimica:{feature['objectid']}",
-                source="geosgb/geoquimica",
-                text=text,
-                metadata=feature,
-                bbox=bbox,
-                embedding=embedding,
-            ))
+            docs.append(
+                IndexDocument(
+                    id=f"geoquimica:{feature['objectid']}",
+                    source="geosgb/geoquimica",
+                    text=text,
+                    metadata=feature,
+                    bbox=bbox,
+                    embedding=embedding,
+                )
+            )
 
         # Step 4: Index documents
         added = doc_store.add_batch(docs)
@@ -212,9 +219,7 @@ class TestCacheToIndexPipeline:
         assert len(results_bbox) == 5
 
         # Step 7: Search by source type
-        results_oc = await engine.search_by_type(
-            "cobre", "geosgb/ocorrencias", k=10
-        )
+        results_oc = await engine.search_by_type("cobre", "geosgb/ocorrencias", k=10)
         assert len(results_oc) == 3
         assert all(r.document.source == "geosgb/ocorrencias" for r in results_oc)
 
@@ -258,22 +263,26 @@ class TestCacheToIndexPipeline:
         bbox: BoundingBox,
     ) -> None:
         """RAG context XML is well-formed with indexed data."""
-        doc_store.add(IndexDocument(
-            id="oc:1",
-            source="geosgb/ocorrencias",
-            text="Cobre e Ouro em Parauapebas PA, Provincia Carajas",
-            metadata={"substancias": "Cobre, Ouro"},
-            bbox=bbox,
-            embedding=[0.5] * 768,
-        ))
-        doc_store.add(IndexDocument(
-            id="grav:1",
-            source="geosgb/gravimetria",
-            text="Anomalia Bouguer -80 mGal em Carajas",
-            metadata={"anomalia_bouguer": -80.5},
-            bbox=bbox,
-            embedding=[0.3] * 768,
-        ))
+        doc_store.add(
+            IndexDocument(
+                id="oc:1",
+                source="geosgb/ocorrencias",
+                text="Cobre e Ouro em Parauapebas PA, Provincia Carajas",
+                metadata={"substancias": "Cobre, Ouro"},
+                bbox=bbox,
+                embedding=[0.5] * 768,
+            )
+        )
+        doc_store.add(
+            IndexDocument(
+                id="grav:1",
+                source="geosgb/gravimetria",
+                text="Anomalia Bouguer -80 mGal em Carajas",
+                metadata={"anomalia_bouguer": -80.5},
+                bbox=bbox,
+                embedding=[0.3] * 768,
+            )
+        )
 
         context = await engine.get_context("cobre anomalia carajas", max_tokens=4000)
         assert "<rag_context>" in context
@@ -295,13 +304,15 @@ class TestCacheToIndexPipeline:
         for feature in SAMPLE_OCORRENCIAS:
             text = dict_to_text(feature, "geosgb/ocorrencias")
             embedding = await embedder.embed_text(text)
-            doc_store.add(IndexDocument(
-                id=f"oc:{feature['objectid']}",
-                source="geosgb/ocorrencias",
-                text=text,
-                metadata=feature,
-                embedding=embedding,
-            ))
+            doc_store.add(
+                IndexDocument(
+                    id=f"oc:{feature['objectid']}",
+                    source="geosgb/ocorrencias",
+                    text=text,
+                    metadata=feature,
+                    embedding=embedding,
+                )
+            )
 
         assert doc_store.count() == 3
 

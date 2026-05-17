@@ -148,13 +148,15 @@ class MetricsCollector:
         confidence: str = "",
     ) -> None:
         """Record a completed analysis step."""
-        self.steps.append(StepMetrics(
-            step_name=step_name,
-            duration_ms=duration_ms,
-            tokens_used=tokens_used,
-            data_sources=data_sources,
-            confidence=confidence,
-        ))
+        self.steps.append(
+            StepMetrics(
+                step_name=step_name,
+                duration_ms=duration_ms,
+                tokens_used=tokens_used,
+                data_sources=data_sources,
+                confidence=confidence,
+            )
+        )
         logger.info(
             "step_completed",
             step=step_name,

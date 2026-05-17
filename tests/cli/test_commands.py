@@ -35,17 +35,19 @@ from miner_harness.core.types import (
 def _make_report(bbox: BoundingBox) -> ProspectionReport:
     steps = []
     for step_enum in AnalysisStep:
-        steps.append(StepResult(
-            step=step_enum,
-            agent="test_agent",
-            summary=f"Analysis of {step_enum.value}",
-            findings=["Finding 1"],
-            confidence=Confidence.MEDIUM,
-            data_sources_used=["ocorrencias"],
-            data_gaps=[],
-            raw_reasoning="Reasoning text",
-            duration_ms=100,
-        ))
+        steps.append(
+            StepResult(
+                step=step_enum,
+                agent="test_agent",
+                summary=f"Analysis of {step_enum.value}",
+                findings=["Finding 1"],
+                confidence=Confidence.MEDIUM,
+                data_sources_used=["ocorrencias"],
+                data_gaps=[],
+                raw_reasoning="Reasoning text",
+                duration_ms=100,
+            )
+        )
     return ProspectionReport(
         region_name="Carajas",
         bbox=bbox,
@@ -114,6 +116,7 @@ class TestCmdCacheStats:
     def test_cache_stats_with_data(self, tmp_path: Path) -> None:
         config = StorageConfig(miner_home=tmp_path / ".miner")
         from miner_harness.cache.manager import CacheManager
+
         bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
         cache = CacheManager(config)
         cache.put("ocorrencias", bbox, [{"id": 1}])
@@ -137,6 +140,7 @@ class TestCmdCacheClear:
     def test_cache_clear_with_data(self, tmp_path: Path) -> None:
         config = StorageConfig(miner_home=tmp_path / ".miner")
         from miner_harness.cache.manager import CacheManager
+
         bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
         cache = CacheManager(config)
         cache.put("ocorrencias", bbox, [{"id": 1}])
@@ -162,8 +166,10 @@ class TestCmdIndexStats:
         config = StorageConfig(miner_home=tmp_path / ".miner")
         config.ensure_dirs()
         from miner_harness.index.document_store import DocumentStore
+
         store = DocumentStore(config.index_dir)
         from miner_harness.index.types import IndexDocument
+
         doc = IndexDocument(id="doc1", source="geosgb/ocorrencias", text="Test")
         store.add(doc)
         store.close()

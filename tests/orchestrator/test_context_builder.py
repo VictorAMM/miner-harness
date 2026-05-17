@@ -36,8 +36,12 @@ def cache(tmp_path: Path) -> CacheManager:
 def mock_connector() -> MagicMock:
     connector = MagicMock()
     for method in [
-        "ocorrencias", "gravimetria", "geoquimica",
-        "geocronologia", "litoestratigrafia", "aerogeofisica",
+        "ocorrencias",
+        "gravimetria",
+        "geoquimica",
+        "geocronologia",
+        "litoestratigrafia",
+        "aerogeofisica",
     ]:
         setattr(connector, method, AsyncMock(return_value=[]))
     return connector
@@ -72,7 +76,10 @@ class TestContextBuilder:
     ) -> None:
         """Cache miss should call connector and populate cache."""
         oc = OcorrenciaMineral(
-            objectid=1, substancias="Cobre", municipio="Parauapebas", uf="PA",
+            objectid=1,
+            substancias="Cobre",
+            municipio="Parauapebas",
+            uf="PA",
             coordenada=Coordenada(longitude=-50.0, latitude=-6.0),
         )
         mock_connector.ocorrencias = AsyncMock(return_value=[oc])

@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 # Tuning thresholds
-_CACHE_HIT_TARGET = 0.7        # below → slow requests to encourage reuse
-_LLM_ERROR_THRESHOLD = 0.1    # above → reduce token budget
-_SLOW_STEP_MS = 10_000         # above → reduce data records per prompt
+_CACHE_HIT_TARGET = 0.7  # below → slow requests to encourage reuse
+_LLM_ERROR_THRESHOLD = 0.1  # above → reduce token budget
+_SLOW_STEP_MS = 10_000  # above → reduce data records per prompt
 _MIN_DELAY_CAP_MS = 2_000
 _MIN_TOKENS = 1_024
 _MIN_RECORDS = 20
@@ -148,16 +148,18 @@ def _check_cache_hit_rate(
         current = config.geosgb.min_delay_ms
         recommended = min(current + 100, _MIN_DELAY_CAP_MS)
         if recommended != current:
-            report.recommendations.append(TunerRecommendation(
-                parameter="geosgb.min_delay_ms",
-                current_value=current,
-                recommended_value=recommended,
-                reason=(
-                    f"Cache hit rate {profile.cache_hit_rate:.1%} is below target "
-                    f"{_CACHE_HIT_TARGET:.0%} — slowing requests improves cache reuse"
-                ),
-                confidence="medium",
-            ))
+            report.recommendations.append(
+                TunerRecommendation(
+                    parameter="geosgb.min_delay_ms",
+                    current_value=current,
+                    recommended_value=recommended,
+                    reason=(
+                        f"Cache hit rate {profile.cache_hit_rate:.1%} is below target "
+                        f"{_CACHE_HIT_TARGET:.0%} — slowing requests improves cache reuse"
+                    ),
+                    confidence="medium",
+                )
+            )
 
 
 def _check_llm_error_rate(
@@ -169,16 +171,18 @@ def _check_llm_error_rate(
         current = config.orchestrator.max_tokens_per_step
         recommended = max(current - 512, _MIN_TOKENS)
         if recommended != current:
-            report.recommendations.append(TunerRecommendation(
-                parameter="orchestrator.max_tokens_per_step",
-                current_value=current,
-                recommended_value=recommended,
-                reason=(
-                    f"LLM error rate {profile.llm_error_rate:.1%} exceeds "
-                    f"{_LLM_ERROR_THRESHOLD:.0%} — reducing token budget reduces overload"
-                ),
-                confidence="high",
-            ))
+            report.recommendations.append(
+                TunerRecommendation(
+                    parameter="orchestrator.max_tokens_per_step",
+                    current_value=current,
+                    recommended_value=recommended,
+                    reason=(
+                        f"LLM error rate {profile.llm_error_rate:.1%} exceeds "
+                        f"{_LLM_ERROR_THRESHOLD:.0%} — reducing token budget reduces overload"
+                    ),
+                    confidence="high",
+                )
+            )
 
 
 def _check_slow_steps(
@@ -192,16 +196,18 @@ def _check_slow_steps(
     current = config.orchestrator.max_data_records_per_prompt
     if current > _MIN_RECORDS:
         recommended = max(current - _RECORDS_STEP, _MIN_RECORDS)
-        report.recommendations.append(TunerRecommendation(
-            parameter="orchestrator.max_data_records_per_prompt",
-            current_value=current,
-            recommended_value=recommended,
-            reason=(
-                f"{len(slow)} step(s) exceeded {_SLOW_STEP_MS}ms — "
-                "reducing data records per prompt shortens LLM context"
-            ),
-            confidence="medium",
-        ))
+        report.recommendations.append(
+            TunerRecommendation(
+                parameter="orchestrator.max_data_records_per_prompt",
+                current_value=current,
+                recommended_value=recommended,
+                reason=(
+                    f"{len(slow)} step(s) exceeded {_SLOW_STEP_MS}ms — "
+                    "reducing data records per prompt shortens LLM context"
+                ),
+                confidence="medium",
+            )
+        )
 
 
 def _check_no_bottlenecks(
@@ -216,12 +222,12 @@ def _check_no_bottlenecks(
     current = config.orchestrator.max_data_records_per_prompt
     if current < _MAX_RECORDS:
         recommended = min(current + _RECORDS_STEP, _MAX_RECORDS)
-        report.recommendations.append(TunerRecommendation(
-            parameter="orchestrator.max_data_records_per_prompt",
-            current_value=current,
-            recommended_value=recommended,
-            reason=(
-                "No bottlenecks detected — increasing data records enriches analysis"
-            ),
-            confidence="low",
-        ))
+        report.recommendations.append(
+            TunerRecommendation(
+                parameter="orchestrator.max_data_records_per_prompt",
+                current_value=current,
+                recommended_value=recommended,
+                reason=("No bottlenecks detected — increasing data records enriches analysis"),
+                confidence="low",
+            )
+        )

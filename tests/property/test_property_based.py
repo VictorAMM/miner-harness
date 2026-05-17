@@ -21,19 +21,35 @@ from miner_harness.core.types import BoundingBox, Coordenada
 valid_lon = st.floats(min_value=-74.0, max_value=-29.0, allow_nan=False, allow_infinity=False)
 valid_lat = st.floats(min_value=-34.0, max_value=6.0, allow_nan=False, allow_infinity=False)
 
+
 # BoundingBox strategy: garante lon_min < lon_max, lat_min < lat_max
 @st.composite
 def valid_bbox(draw):
     lon1 = draw(st.floats(min_value=-74.0, max_value=-30.0, allow_nan=False, allow_infinity=False))
-    lon2 = draw(st.floats(
-        min_value=lon1 + 0.001, max_value=-29.0, allow_nan=False, allow_infinity=False,
-    ))
-    lat1 = draw(st.floats(
-        min_value=-34.0, max_value=5.0, allow_nan=False, allow_infinity=False,
-    ))
-    lat2 = draw(st.floats(
-        min_value=lat1 + 0.001, max_value=6.0, allow_nan=False, allow_infinity=False,
-    ))
+    lon2 = draw(
+        st.floats(
+            min_value=lon1 + 0.001,
+            max_value=-29.0,
+            allow_nan=False,
+            allow_infinity=False,
+        )
+    )
+    lat1 = draw(
+        st.floats(
+            min_value=-34.0,
+            max_value=5.0,
+            allow_nan=False,
+            allow_infinity=False,
+        )
+    )
+    lat2 = draw(
+        st.floats(
+            min_value=lat1 + 0.001,
+            max_value=6.0,
+            allow_nan=False,
+            allow_infinity=False,
+        )
+    )
     return BoundingBox(lon_min=lon1, lat_min=lat1, lon_max=lon2, lat_max=lat2)
 
 
@@ -50,6 +66,7 @@ def geo_feature(draw):
 # ============================================================
 # BoundingBox properties
 # ============================================================
+
 
 class TestBoundingBoxProperties:
     """Invariantes do BoundingBox."""
@@ -102,8 +119,10 @@ class TestBoundingBoxProperties:
     def test_bbox_equality_implies_hash_equality(self, bbox: BoundingBox) -> None:
         """BBox com mesmos valores deve ter mesmo hash."""
         bbox2 = BoundingBox(
-            lon_min=bbox.lon_min, lat_min=bbox.lat_min,
-            lon_max=bbox.lon_max, lat_max=bbox.lat_max,
+            lon_min=bbox.lon_min,
+            lat_min=bbox.lat_min,
+            lon_max=bbox.lon_max,
+            lat_max=bbox.lat_max,
         )
         assert bbox.hash() == bbox2.hash()
 
@@ -111,6 +130,7 @@ class TestBoundingBoxProperties:
 # ============================================================
 # Coordenada properties
 # ============================================================
+
 
 class TestCoordenadaProperties:
     """Invariantes da Coordenada."""
@@ -137,6 +157,7 @@ class TestCoordenadaProperties:
 # ============================================================
 # Cache roundtrip properties
 # ============================================================
+
 
 class TestCacheRoundtripProperties:
     """Invariantes do cache: put -> get preserva dados."""
@@ -168,15 +189,19 @@ class TestCacheRoundtripProperties:
 
     @given(
         bbox=valid_bbox(),
-        service=st.sampled_from([
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
-        ]),
+        service=st.sampled_from(
+            [
+                "ocorrencias",
+                "gravimetria",
+                "geoquimica",
+                "geocronologia",
+                "litoestratigrafia",
+                "aerogeofisica",
+            ]
+        ),
     )
     @settings(max_examples=20, deadline=5000)
-    def test_contains_after_put(
-        self, bbox: BoundingBox, service: str, tmp_path_factory
-    ) -> None:
+    def test_contains_after_put(self, bbox: BoundingBox, service: str, tmp_path_factory) -> None:
         """contains() deve retornar True apos put()."""
         from miner_harness.cache.manager import CacheManager
         from miner_harness.core.config import StorageConfig
@@ -194,6 +219,7 @@ class TestCacheRoundtripProperties:
 # ============================================================
 # Grid extractor properties
 # ============================================================
+
 
 class TestGridExtractorProperties:
     """Invariantes do GridExtractor."""
@@ -232,6 +258,7 @@ class TestGridExtractorProperties:
 # Sanitizer properties
 # ============================================================
 
+
 class TestSanitizerProperties:
     """Invariantes do sanitizer."""
 
@@ -260,11 +287,13 @@ class TestSanitizerProperties:
         assert not control.search(result)
 
     @given(
-        record=st.fixed_dictionaries({
-            "objectid": st.integers(min_value=1),
-            "nome": st.text(min_size=0, max_size=100),
-            "valor": st.floats(allow_nan=False, allow_infinity=False),
-        })
+        record=st.fixed_dictionaries(
+            {
+                "objectid": st.integers(min_value=1),
+                "nome": st.text(min_size=0, max_size=100),
+                "valor": st.floats(allow_nan=False, allow_infinity=False),
+            }
+        )
     )
     @settings(max_examples=30)
     def test_sanitize_record_preserves_non_strings(self, record: dict) -> None:

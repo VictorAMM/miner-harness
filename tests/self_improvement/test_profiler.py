@@ -21,12 +21,13 @@ def _make_metrics(
     cache_misses: int = 0,
 ) -> MetricsCollector:
     m = MetricsCollector(region_name=region)
-    for name, ms in (steps or []):
+    for name, ms in steps or []:
         m.steps.append(StepMetrics(step_name=name, duration_ms=ms))
     m.llm.requests = llm_requests
     m.llm.errors = llm_errors
     if cache_hits or cache_misses:
         from miner_harness.observability.metrics import CacheMetrics
+
         m.cache["svc"] = CacheMetrics(hits=cache_hits, misses=cache_misses)
     if pipeline_ms:
         m.pipeline_start_time = 0.0

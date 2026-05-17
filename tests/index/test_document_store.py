@@ -39,9 +39,7 @@ def sample_doc() -> IndexDocument:
 class TestDocumentStoreAddGet:
     """Testes de add/get."""
 
-    def test_add_get_roundtrip(
-        self, store: DocumentStore, sample_doc: IndexDocument
-    ) -> None:
+    def test_add_get_roundtrip(self, store: DocumentStore, sample_doc: IndexDocument) -> None:
         store.add(sample_doc)
         retrieved = store.get(sample_doc.id)
         assert retrieved is not None
@@ -54,9 +52,7 @@ class TestDocumentStoreAddGet:
     def test_get_nonexistent_returns_none(self, store: DocumentStore) -> None:
         assert store.get("nonexistent:99") is None
 
-    def test_add_overwrites(
-        self, store: DocumentStore, sample_doc: IndexDocument
-    ) -> None:
+    def test_add_overwrites(self, store: DocumentStore, sample_doc: IndexDocument) -> None:
         store.add(sample_doc)
         updated = sample_doc.model_copy(update={"text": "Updated text"})
         store.add(updated)
@@ -98,40 +94,53 @@ class TestDocumentStoreQuery:
 
     def test_get_by_source(self, store: DocumentStore) -> None:
         for i in range(5):
-            store.add(IndexDocument(
-                id=f"oc:{i}", source="geosgb/ocorrencias",
-                text=f"oc {i}", metadata={},
-            ))
+            store.add(
+                IndexDocument(
+                    id=f"oc:{i}",
+                    source="geosgb/ocorrencias",
+                    text=f"oc {i}",
+                    metadata={},
+                )
+            )
         for i in range(3):
-            store.add(IndexDocument(
-                id=f"grav:{i}", source="geosgb/gravimetria",
-                text=f"grav {i}", metadata={},
-            ))
+            store.add(
+                IndexDocument(
+                    id=f"grav:{i}",
+                    source="geosgb/gravimetria",
+                    text=f"grav {i}",
+                    metadata={},
+                )
+            )
         ocs = store.get_by_source("geosgb/ocorrencias")
         assert len(ocs) == 5
         gravs = store.get_by_source("geosgb/gravimetria")
         assert len(gravs) == 3
 
     def test_count_by_source(self, store: DocumentStore) -> None:
-        store.add(IndexDocument(
-            id="a:1", source="source_a", text="a", metadata={}
-        ))
-        store.add(IndexDocument(
-            id="b:1", source="source_b", text="b", metadata={}
-        ))
+        store.add(IndexDocument(id="a:1", source="source_a", text="a", metadata={}))
+        store.add(IndexDocument(id="b:1", source="source_b", text="b", metadata={}))
         assert store.count() == 2
         assert store.count("source_a") == 1
         assert store.count("source_c") == 0
 
     def test_get_all_with_embeddings(self, store: DocumentStore) -> None:
-        store.add(IndexDocument(
-            id="with:1", source="test", text="has embedding",
-            metadata={}, embedding=[0.5] * 768,
-        ))
-        store.add(IndexDocument(
-            id="without:1", source="test", text="no embedding",
-            metadata={},
-        ))
+        store.add(
+            IndexDocument(
+                id="with:1",
+                source="test",
+                text="has embedding",
+                metadata={},
+                embedding=[0.5] * 768,
+            )
+        )
+        store.add(
+            IndexDocument(
+                id="without:1",
+                source="test",
+                text="no embedding",
+                metadata={},
+            )
+        )
         with_emb = store.get_all_with_embeddings()
         assert len(with_emb) == 1
         assert with_emb[0].id == "with:1"
@@ -150,9 +159,7 @@ class TestDocumentStoreDelete:
 
     def test_clear(self, store: DocumentStore) -> None:
         for i in range(5):
-            store.add(IndexDocument(
-                id=f"test:{i}", source="test", text=f"doc {i}", metadata={}
-            ))
+            store.add(IndexDocument(id=f"test:{i}", source="test", text=f"doc {i}", metadata={}))
         removed = store.clear()
         assert removed == 5
         assert store.count() == 0

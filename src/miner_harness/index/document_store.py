@@ -132,14 +132,16 @@ class DocumentStore:
             metadata_json = json.dumps(doc.metadata, ensure_ascii=False, default=str)
             bbox_json = doc.bbox.model_dump_json() if doc.bbox else None
             embedding_json = json.dumps(doc.embedding) if doc.embedding else None
-            rows.append((
-                doc.id,
-                doc.source,
-                doc.text,
-                metadata_json,
-                bbox_json,
-                embedding_json,
-            ))
+            rows.append(
+                (
+                    doc.id,
+                    doc.source,
+                    doc.text,
+                    metadata_json,
+                    bbox_json,
+                    embedding_json,
+                )
+            )
 
         conn.executemany(
             """
@@ -205,9 +207,7 @@ class DocumentStore:
         Usado pelo SearchEngine para busca por força bruta.
         """
         conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT * FROM documents WHERE embedding_json IS NOT NULL"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM documents WHERE embedding_json IS NOT NULL").fetchall()
         return [self._row_to_document(row) for row in rows]
 
     def delete(self, doc_id: str) -> bool:

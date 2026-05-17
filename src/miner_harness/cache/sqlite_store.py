@@ -295,12 +295,8 @@ class SQLiteStore:
             services[row["service"]] = row["cnt"]
 
         # Datas extremas
-        oldest_row = conn.execute(
-            "SELECT MIN(fetched_at) as d FROM cache_entries"
-        ).fetchone()
-        newest_row = conn.execute(
-            "SELECT MAX(fetched_at) as d FROM cache_entries"
-        ).fetchone()
+        oldest_row = conn.execute("SELECT MIN(fetched_at) as d FROM cache_entries").fetchone()
+        newest_row = conn.execute("SELECT MAX(fetched_at) as d FROM cache_entries").fetchone()
 
         from datetime import datetime
 

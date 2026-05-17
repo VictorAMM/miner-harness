@@ -58,8 +58,12 @@ def _make_fake_features(method: str, count: int = 5) -> list[_FakeFeature]:
 def mock_connector() -> MagicMock:
     connector = MagicMock()
     for method in [
-        "ocorrencias", "gravimetria", "geoquimica",
-        "geocronologia", "litoestratigrafia", "aerogeofisica",
+        "ocorrencias",
+        "gravimetria",
+        "geoquimica",
+        "geocronologia",
+        "litoestratigrafia",
+        "aerogeofisica",
     ]:
         setattr(connector, method, AsyncMock(return_value=_make_fake_features(method)))
     return connector
@@ -68,15 +72,17 @@ def mock_connector() -> MagicMock:
 @pytest.fixture
 def mock_llm() -> MagicMock:
     llm = MagicMock()
-    llm.chat = AsyncMock(return_value=MagicMock(
-        content='{"summary": "Integration test summary", '
-                '"findings": ["Major Cu-Au anomaly detected", "NW structural control confirmed"], '
-                '"confidence": "high", '
-                '"data_sources_used": ["ocorrencias", "gravimetria", "geoquimica"], '
-                '"data_gaps": ["Sem dados de sensoriamento remoto"]}',
-        prompt_eval_count=150,
-        eval_count=300,
-    ))
+    llm.chat = AsyncMock(
+        return_value=MagicMock(
+            content='{"summary": "Integration test summary", '
+            '"findings": ["Major Cu-Au anomaly detected", "NW structural control confirmed"], '
+            '"confidence": "high", '
+            '"data_sources_used": ["ocorrencias", "gravimetria", "geoquimica"], '
+            '"data_gaps": ["Sem dados de sensoriamento remoto"]}',
+            prompt_eval_count=150,
+            eval_count=300,
+        )
+    )
     return llm
 
 
@@ -88,14 +94,15 @@ def config() -> MinerHarnessConfig:
 def _populate_cache_full(cache: CacheManager, bbox: BoundingBox) -> None:
     """Populate all 6 services with sample data."""
     services = [
-        "ocorrencias", "gravimetria", "geoquimica",
-        "geocronologia", "litoestratigrafia", "aerogeofisica",
+        "ocorrencias",
+        "gravimetria",
+        "geoquimica",
+        "geocronologia",
+        "litoestratigrafia",
+        "aerogeofisica",
     ]
     for svc in services:
-        cache.put(svc, bbox, [
-            {"objectid": i, "data": f"sample_{svc}_{i}"}
-            for i in range(5)
-        ])
+        cache.put(svc, bbox, [{"objectid": i, "data": f"sample_{svc}_{i}"} for i in range(5)])
 
 
 class TestOrchestratorPipeline:
@@ -155,8 +162,12 @@ class TestOrchestratorPipeline:
 
         # Data should now be cached
         for svc in [
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         ]:
             assert cache.contains(svc, bbox)
 
@@ -208,7 +219,8 @@ class TestOrchestratorPipeline:
 
         # Run only 2 steps to verify chaining
         report = await orch.analyze_region(
-            bbox, "Chain Test",
+            bbox,
+            "Chain Test",
             steps=[AnalysisStep.TECTONIC_HISTORY, AnalysisStep.STRUCTURAL_ARCHITECTURE],
         )
         assert len(report.steps) == 2

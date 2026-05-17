@@ -65,9 +65,7 @@ class TestTuningReport:
 
     def test_has_changes_with_recs(self) -> None:
         r = TuningReport(profile_region="R")
-        r.recommendations.append(
-            TunerRecommendation("p", 1, 2, "reason", "low")
-        )
+        r.recommendations.append(TunerRecommendation("p", 1, 2, "reason", "low"))
         assert r.has_changes
 
     def test_to_dict(self) -> None:
@@ -161,9 +159,7 @@ class TestApplyRecommendations:
 
     def test_original_config_unchanged(self) -> None:
         cfg = _cfg(max_tokens=4096)
-        rec = TunerRecommendation(
-            "orchestrator.max_tokens_per_step", 4096, 2048, "r", "high"
-        )
+        rec = TunerRecommendation("orchestrator.max_tokens_per_step", 4096, 2048, "r", "high")
         apply_recommendations(cfg, [rec])
         assert cfg.orchestrator.max_tokens_per_step == 4096  # noqa: PLR2004
 

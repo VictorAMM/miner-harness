@@ -116,18 +116,33 @@ class TestSearchEngine:
         mock_ollama: MagicMock,
     ) -> None:
         """Resultados ordenados por similaridade descendente."""
-        store.add(IndexDocument(
-            id="close:1", source="test", text="very similar",
-            metadata={}, embedding=[0.5] * 768,
-        ))
-        store.add(IndexDocument(
-            id="far:1", source="test", text="different",
-            metadata={}, embedding=[0.1] * 768,
-        ))
-        store.add(IndexDocument(
-            id="medium:1", source="test", text="somewhat similar",
-            metadata={}, embedding=[0.3] * 768,
-        ))
+        store.add(
+            IndexDocument(
+                id="close:1",
+                source="test",
+                text="very similar",
+                metadata={},
+                embedding=[0.5] * 768,
+            )
+        )
+        store.add(
+            IndexDocument(
+                id="far:1",
+                source="test",
+                text="different",
+                metadata={},
+                embedding=[0.1] * 768,
+            )
+        )
+        store.add(
+            IndexDocument(
+                id="medium:1",
+                source="test",
+                text="somewhat similar",
+                metadata={},
+                embedding=[0.3] * 768,
+            )
+        )
 
         results = await engine.search("test query", k=10)
         assert len(results) == 3
@@ -142,10 +157,15 @@ class TestSearchEngine:
         store: DocumentStore,
     ) -> None:
         for i in range(10):
-            store.add(IndexDocument(
-                id=f"doc:{i}", source="test", text=f"doc {i}",
-                metadata={}, embedding=[float(i) / 10] * 768,
-            ))
+            store.add(
+                IndexDocument(
+                    id=f"doc:{i}",
+                    source="test",
+                    text=f"doc {i}",
+                    metadata={},
+                    embedding=[float(i) / 10] * 768,
+                )
+            )
         results = await engine.search("query", k=3)
         assert len(results) == 3
 
@@ -158,16 +178,26 @@ class TestSearchEngine:
         bbox_other: BoundingBox,
     ) -> None:
         """Filtro espacial exclui features fora do bbox."""
-        store.add(IndexDocument(
-            id="in:1", source="test", text="inside",
-            metadata={}, embedding=[0.5] * 768,
-            bbox=bbox_carajas,
-        ))
-        store.add(IndexDocument(
-            id="out:1", source="test", text="outside",
-            metadata={}, embedding=[0.5] * 768,
-            bbox=bbox_other,
-        ))
+        store.add(
+            IndexDocument(
+                id="in:1",
+                source="test",
+                text="inside",
+                metadata={},
+                embedding=[0.5] * 768,
+                bbox=bbox_carajas,
+            )
+        )
+        store.add(
+            IndexDocument(
+                id="out:1",
+                source="test",
+                text="outside",
+                metadata={},
+                embedding=[0.5] * 768,
+                bbox=bbox_other,
+            )
+        )
         results = await engine.search_by_bbox("query", bbox_carajas, k=10)
         assert len(results) == 1
         assert results[0].document.id == "in:1"
@@ -178,14 +208,24 @@ class TestSearchEngine:
         engine: SearchEngine,
         store: DocumentStore,
     ) -> None:
-        store.add(IndexDocument(
-            id="oc:1", source="geosgb/ocorrencias", text="oc",
-            metadata={}, embedding=[0.5] * 768,
-        ))
-        store.add(IndexDocument(
-            id="grav:1", source="geosgb/gravimetria", text="grav",
-            metadata={}, embedding=[0.5] * 768,
-        ))
+        store.add(
+            IndexDocument(
+                id="oc:1",
+                source="geosgb/ocorrencias",
+                text="oc",
+                metadata={},
+                embedding=[0.5] * 768,
+            )
+        )
+        store.add(
+            IndexDocument(
+                id="grav:1",
+                source="geosgb/gravimetria",
+                text="grav",
+                metadata={},
+                embedding=[0.5] * 768,
+            )
+        )
         results = await engine.search_by_type("query", "geosgb/ocorrencias", k=10)
         assert len(results) == 1
         assert results[0].document.source == "geosgb/ocorrencias"
@@ -201,11 +241,15 @@ class TestSearchEngine:
         engine: SearchEngine,
         store: DocumentStore,
     ) -> None:
-        store.add(IndexDocument(
-            id="doc:1", source="geosgb/ocorrencias",
-            text="Cobre em Carajas",
-            metadata={}, embedding=[0.5] * 768,
-        ))
+        store.add(
+            IndexDocument(
+                id="doc:1",
+                source="geosgb/ocorrencias",
+                text="Cobre em Carajas",
+                metadata={},
+                embedding=[0.5] * 768,
+            )
+        )
         context = await engine.get_context("cobre", max_tokens=4000)
         assert "<rag_context>" in context
         assert "</rag_context>" in context

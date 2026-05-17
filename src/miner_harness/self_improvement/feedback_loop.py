@@ -78,9 +78,7 @@ class FeedbackLoop:
     ) -> None:
         self._config = config
         self._rca_dir = rca_dir or Path("docs/rca")
-        self._output_dir = output_dir or (
-            config.storage.miner_home / "self_improvement"
-        )
+        self._output_dir = output_dir or (config.storage.miner_home / "self_improvement")
         self._tuned_config: MinerHarnessConfig | None = None
 
     @property
@@ -106,9 +104,7 @@ class FeedbackLoop:
         # 3. Apply and persist
         config_updated = False
         if tuning_report.has_changes:
-            self._tuned_config = apply_recommendations(
-                self._config, tuning_report.recommendations
-            )
+            self._tuned_config = apply_recommendations(self._config, tuning_report.recommendations)
             config_updated = True
             self._persist_tuned_config()
 

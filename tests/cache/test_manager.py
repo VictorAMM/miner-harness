@@ -88,8 +88,12 @@ class TestCoverageReport:
     def test_coverage_complete(self, cache: CacheManager, bbox: BoundingBox) -> None:
         """All 6 essential services cached -> can run offline."""
         services = [
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         ]
         for svc in services:
             cache.put(svc, bbox, [{"id": 1}])

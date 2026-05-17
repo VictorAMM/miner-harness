@@ -39,7 +39,8 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Sistema de prospeccao mineral inteligente com agentes de IA",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Verbose output",
     )
@@ -138,12 +139,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "analyze":
             bbox = _parse_bbox(args.bbox)
-            return asyncio.run(cmd_analyze(
-                region=args.region,
-                bbox=bbox,
-                model=args.model,
-                output_path=args.output,
-            ))
+            return asyncio.run(
+                cmd_analyze(
+                    region=args.region,
+                    bbox=bbox,
+                    model=args.model,
+                    output_path=args.output,
+                )
+            )
         if args.command == "validate":
             return cmd_validate(args.report_file)
         if args.command == "cache":

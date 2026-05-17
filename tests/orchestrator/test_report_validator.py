@@ -145,10 +145,12 @@ class TestReportValidatorSteps:
         assert any("no data sources cited" in i.message for i in result.issues)
 
     def test_insufficient_with_findings_warns(self, validator: ReportValidator) -> None:
-        steps = [_make_step(
-            confidence=Confidence.INSUFFICIENT,
-            findings=["f1", "f2", "f3"],
-        )]
+        steps = [
+            _make_step(
+                confidence=Confidence.INSUFFICIENT,
+                findings=["f1", "f2", "f3"],
+            )
+        ]
         report = _make_report(steps=steps)
         result = validator.validate(report)
         assert any("INSUFFICIENT" in i.message for i in result.issues)
@@ -206,9 +208,7 @@ class TestReportValidatorTemporal:
 class TestReportValidatorRepair:
     """Tests for Prune-Freeze-Repair."""
 
-    def test_repair_removes_empty_rationale_targets(
-        self, validator: ReportValidator
-    ) -> None:
+    def test_repair_removes_empty_rationale_targets(self, validator: ReportValidator) -> None:
         targets = [
             _make_target(name="Good", rationale="Strong anomaly"),
             _make_target(name="Bad", rationale=""),

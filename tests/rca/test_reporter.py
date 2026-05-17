@@ -111,9 +111,7 @@ class TestGenerateRCAReport:
             {"timestamp": "12:00:00", "description": "Request sent"},
             {"timestamp": "12:00:05", "description": "Timeout"},
         ]
-        report = await generate_rca_report(
-            sample_classified, sample_diagnostics, timeline=timeline
-        )
+        report = await generate_rca_report(sample_classified, sample_diagnostics, timeline=timeline)
         assert len(report.timeline) == 2  # noqa: PLR2004
 
 

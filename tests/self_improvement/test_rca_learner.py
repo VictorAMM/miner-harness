@@ -85,13 +85,17 @@ class TestExtractPatterns:
         assert patterns == []
 
     def test_single_report(self) -> None:
-        history = RCAHistory(reports=[{
-            "classified_error": {
-                "category": "NETWORK",
-                "error_type": "ConnectError",
-                "message": "refused",
-            }
-        }])
+        history = RCAHistory(
+            reports=[
+                {
+                    "classified_error": {
+                        "category": "NETWORK",
+                        "error_type": "ConnectError",
+                        "message": "refused",
+                    }
+                }
+            ]
+        )
         patterns = extract_patterns(history)
         assert len(patterns) == 1
         assert patterns[0].category == "NETWORK"
