@@ -7,31 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from miner_harness.cli.app import _parse_bbox, main
-
-
-class TestParseBbox:
-    """Testes do parser de bbox."""
-
-    def test_valid_bbox(self) -> None:
-        result = _parse_bbox("-51.5,-7.0,-49.5,-5.0")
-        assert result == (-51.5, -7.0, -49.5, -5.0)
-
-    def test_bbox_with_spaces(self) -> None:
-        result = _parse_bbox(" -51.5 , -7.0 , -49.5 , -5.0 ")
-        assert result == (-51.5, -7.0, -49.5, -5.0)
-
-    def test_bbox_too_few_values(self) -> None:
-        import argparse
-
-        with pytest.raises(argparse.ArgumentTypeError, match="4 values"):
-            _parse_bbox("-51.5,-7.0,-49.5")
-
-    def test_bbox_non_numeric(self) -> None:
-        import argparse
-
-        with pytest.raises(argparse.ArgumentTypeError, match="numbers"):
-            _parse_bbox("a,b,c,d")
+from miner_harness.cli.app import main
 
 
 class TestMainCLI:
@@ -49,7 +25,15 @@ class TestMainCLI:
 
     def test_analyze_missing_required(self) -> None:
         with pytest.raises(SystemExit):
-            main(["analyze"])  # Missing --region and --bbox
+            main(["analyze"])  # Missing region and --bbox
+
+    def test_analyze_bbox_accepts_negative_floats(self) -> None:
+        # argparse nargs=4 type=float must handle negative values without error
+        from unittest.mock import AsyncMock, patch
+
+        with patch("miner_harness.cli.app.cmd_analyze", new=AsyncMock(return_value=0)):
+            result = main(["analyze", "carajas", "--bbox", "-51.5", "-7.0", "-49.0", "-5.0"])
+        assert result == 0
 
     def test_cache_no_subcommand(self, capsys: pytest.CaptureFixture[str]) -> None:
         # Should show help or return error
