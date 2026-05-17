@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 import structlog
 
 from miner_harness.core.config import GeoSGBConfig
@@ -221,11 +222,12 @@ class GeoSGBConnector:
                 data = await self._client.get(endpoint.identify_url, params=params)
                 features = self._parse_identify_response(data)
                 all_features.extend(features)
-            except GeoSGBError:
+            except (GeoSGBError, httpx.HTTPStatusError) as exc:
                 logger.warning(
                     "identify_point_failed",
                     service=service_name,
                     point=point,
+                    error=str(exc),
                 )
                 # Continua com outros pontos
 
@@ -300,7 +302,10 @@ class GeoSGBConnector:
                 min(page_size, limit - len(all_features)) if limit else page_size
             )
 
-            data = await self._client.get(url, params=params)
+            try:
+                data = await self._client.get(url, params=params)
+            except httpx.HTTPStatusError as exc:
+                raise GeoSGBQueryError(endpoint.name, exc.response.status_code, str(exc)) from exc
 
             if "error" in data:
                 err = data["error"]
