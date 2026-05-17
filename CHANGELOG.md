@@ -1,0 +1,70 @@
+# Changelog
+
+## [0.1.0] — 2026-05-17
+
+Primeira release — todas as 11 fases do ASO v3 completas.
+
+### Adicionado
+
+**Core**
+- `core/types.py` — modelos Pydantic para todos os domínios geológicos (OcorrenciaMineral, DadoGravimetrico, AmostraGeoquimica, DatacaoGeocronologica, UnidadeLitoestratigrafica, ProjetoAerogeofisico, ProspectionReport)
+- `core/config.py` — configuração hierárquica (MinerHarnessConfig, StorageConfig, GeoSGBConfig, OrchestratorConfig)
+- `core/exceptions.py` — hierarquia de exceções tipadas
+
+**Conectores**
+- `connectors/geosgb/` — connector completo para API GeoSGB: MapServer/identify (grid + dedup) + FeatureServer/query com paginação, rate limiting, alias mapping
+- `connectors/ollama/` — cliente async httpx para Ollama: chat, embeddings, list_models, health
+
+**Orquestrador**
+- `orchestrator/orchestrator.py` — pipeline principal: connector → cache → context → agentes → report
+- `orchestrator/report_validator.py` — validação e reparo automático de relatórios
+- `orchestrator/context_builder.py` — construção de contexto para agentes
+
+**Agentes**
+- `agents/` — 5 agentes especialistas: geólogo estrutural, geofísico, geoquímico, sensoriamento remoto, avaliador
+- `agents/base.py` — classe base com retry e logging estruturado
+
+**Cache**
+- `cache/manager.py` — CacheManager com TTL configurável
+- `cache/sqlite_store.py` — persistência SQLite
+
+**Índice**
+- `index/document_store.py` — índice vetorial via sqlite-vec
+- `index/search_engine.py` — busca semântica
+
+**Observabilidade**
+- `observability/health.py` — health checks async (disco, Ollama, cache, índice)
+- `observability/metrics.py` — MetricsCollector com structlog
+- `observability/logging_config.py` — configuração de logging estruturado
+
+**RCA**
+- `rca/classifier.py` — classificação automática de falhas
+- `rca/diagnostics.py` — diagnóstico estruturado
+- `rca/reporter.py` — geração de relatórios RCA em JSON
+- `rca/retry.py` — retry com backoff exponencial
+
+**Self-Improvement**
+- `self_improvement/profiler.py` — profiling de pipeline e identificação de gargalos
+- `self_improvement/tuner.py` — geração de recomendações de tuning
+- `self_improvement/rca_learner.py` — aprendizado a partir de histórico de RCA
+- `self_improvement/feedback_loop.py` — ciclo Profile → Tune → Apply → Learn
+
+**Wizard**
+- `wizard/checks.py` — verificações puras de pré-requisitos (Python, disco, Ollama, MINER_HOME)
+- `wizard/installer.py` — criação de MINER_HOME, config.json, env_hint.sh
+- `wizard/runner.py` — UI Rich com injeção de Console para testabilidade
+
+**CLI**
+- `miner-harness analyze` — pipeline completo de análise
+- `miner-harness validate` — validação de relatório JSON
+- `miner-harness install` — wizard de instalação (interativo e --non-interactive)
+- `miner-harness health` — health checks do sistema
+- `miner-harness cache stats/clear` — gestão do cache
+
+**Testes**
+- 447 testes unitários e de integração (92% cobertura)
+- 17 testes e2e opt-in (`MINER_E2E=1`) contra GeoSGB real e Ollama local
+
+**CI/CD**
+- GitHub Actions: lint (ruff), typecheck (mypy), test (3.11 + 3.12), security (bandit + pip-audit), gate
+- Workflow e2e separado (manual + schedule semanal)
