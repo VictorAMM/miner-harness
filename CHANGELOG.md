@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.2] — 2026-05-17
+
+### Corrigido
+
+- **GeoSGB connector**: `_extract_via_identify` agora captura `httpx.HTTPStatusError` (além de `GeoSGBError`) — HTTP 500s do MapServer pulam o ponto de grid falho e continuam sem travar o pipeline
+- **GeoSGB connector**: `_query_features` converte `HTTPStatusError` em `GeoSGBQueryError`, permitindo que o `context_builder` faça degradação graciosa (retorna `[]` para o serviço) em vez de propagar a exceção
+- O pipeline agora produz relatório parcial quando ≥3 de 6 serviços GeoSGB respondem com sucesso, em vez de lançar `InsufficientDataError` quando todos retornam 500
+
+## [0.1.1] — 2026-05-17
+
+### Corrigido
+
+- **CLI `analyze`**: argumento `region` era flag nomeada (`--region`); corrigido para posicional
+- **CLI `analyze`**: `--bbox` com floats negativos era interpretado pelo argparse como flags; corrigido via `nargs=4, type=float`
+
 ## [0.1.0] — 2026-05-17
 
 Primeira release — todas as 11 fases do ASO v3 completas.
