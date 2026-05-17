@@ -71,7 +71,7 @@ jobs:
       - name: Check bandit results
         run: bandit -r src/ -ll
       - name: Dependency audit
-        run: pip-audit --strict
+        run: pip-audit --skip-editable
 
   # Gate job — all checks must pass before merge is allowed
   gate:

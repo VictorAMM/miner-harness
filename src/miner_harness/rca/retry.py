@@ -39,7 +39,7 @@ class RetryPolicy:
 
     def get_delay(self, attempt: int) -> float:
         """Calculate delay for a given attempt number (0-indexed)."""
-        delay = self.base_delay * (self.exponential_base ** attempt)
+        delay = self.base_delay * (self.exponential_base**attempt)
         delay = min(delay, self.max_delay)
         if self.jitter:
             import random  # noqa: S311

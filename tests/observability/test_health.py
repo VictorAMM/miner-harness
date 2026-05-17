@@ -30,26 +30,32 @@ class TestCheckResult:
     """Test CheckResult and HealthReport dataclasses."""
 
     def test_healthy_report(self) -> None:
-        report = HealthReport(checks=[
-            CheckResult(name="a", status=HealthStatus.HEALTHY),
-            CheckResult(name="b", status=HealthStatus.HEALTHY),
-        ])
+        report = HealthReport(
+            checks=[
+                CheckResult(name="a", status=HealthStatus.HEALTHY),
+                CheckResult(name="b", status=HealthStatus.HEALTHY),
+            ]
+        )
         assert report.overall_status == HealthStatus.HEALTHY
         assert report.is_healthy
 
     def test_degraded_report(self) -> None:
-        report = HealthReport(checks=[
-            CheckResult(name="a", status=HealthStatus.HEALTHY),
-            CheckResult(name="b", status=HealthStatus.DEGRADED),
-        ])
+        report = HealthReport(
+            checks=[
+                CheckResult(name="a", status=HealthStatus.HEALTHY),
+                CheckResult(name="b", status=HealthStatus.DEGRADED),
+            ]
+        )
         assert report.overall_status == HealthStatus.DEGRADED
         assert not report.is_healthy
 
     def test_unhealthy_trumps_degraded(self) -> None:
-        report = HealthReport(checks=[
-            CheckResult(name="a", status=HealthStatus.DEGRADED),
-            CheckResult(name="b", status=HealthStatus.UNHEALTHY),
-        ])
+        report = HealthReport(
+            checks=[
+                CheckResult(name="a", status=HealthStatus.DEGRADED),
+                CheckResult(name="b", status=HealthStatus.UNHEALTHY),
+            ]
+        )
         assert report.overall_status == HealthStatus.UNHEALTHY
 
     def test_empty_report_is_unhealthy(self) -> None:
@@ -57,9 +63,11 @@ class TestCheckResult:
         assert report.overall_status == HealthStatus.UNHEALTHY
 
     def test_to_dict(self) -> None:
-        report = HealthReport(checks=[
-            CheckResult(name="test", status=HealthStatus.HEALTHY, message="OK"),
-        ])
+        report = HealthReport(
+            checks=[
+                CheckResult(name="test", status=HealthStatus.HEALTHY, message="OK"),
+            ]
+        )
         d = report.to_dict()
         assert d["overall"] == "healthy"
         assert len(d["checks"]) == 1

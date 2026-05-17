@@ -134,9 +134,7 @@ class Orchestrator:
         # 3. Executar passos sequencialmente
         step_results: list[StepResult] = []
         for step in steps:
-            result = await self._execute_step(
-                step, geological_data, step_results
-            )
+            result = await self._execute_step(step, geological_data, step_results)
             step_results.append(result)
 
         # 4. Extrair targets do resultado do Evaluator
@@ -244,18 +242,20 @@ class Orchestrator:
         """
         targets: list[MineralTarget] = []
         for i, finding in enumerate(evaluator_result.findings[:5], start=1):
-            targets.append(MineralTarget(
-                name=f"Alvo {i}",
-                longitude=-50.0,  # Placeholder — será extraído do LLM
-                latitude=-6.0,
-                radius_km=5.0,
-                commodities=["Indeterminado"],
-                mineral_system="Indeterminado",
-                confidence=evaluator_result.confidence,
-                priority=i,
-                rationale=finding,
-                recommended_followup=["Validação de campo"],
-            ))
+            targets.append(
+                MineralTarget(
+                    name=f"Alvo {i}",
+                    longitude=-50.0,  # Placeholder — será extraído do LLM
+                    latitude=-6.0,
+                    radius_km=5.0,
+                    commodities=["Indeterminado"],
+                    mineral_system="Indeterminado",
+                    confidence=evaluator_result.confidence,
+                    priority=i,
+                    rationale=finding,
+                    recommended_followup=["Validação de campo"],
+                )
+            )
         return targets
 
     @staticmethod
@@ -282,14 +282,11 @@ class Orchestrator:
         # Dados faltantes
         empty_services = [k for k, v in geological_data.items() if not v]
         if empty_services:
-            caveats.append(
-                f"Dados indisponíveis para: {', '.join(empty_services)}"
-            )
+            caveats.append(f"Dados indisponíveis para: {', '.join(empty_services)}")
 
         # Baixa confiança
         low_confidence = [
-            r for r in step_results
-            if r.confidence in (Confidence.LOW, Confidence.INSUFFICIENT)
+            r for r in step_results if r.confidence in (Confidence.LOW, Confidence.INSUFFICIENT)
         ]
         if low_confidence:
             steps_str = ", ".join(r.step.value for r in low_confidence)
@@ -332,17 +329,13 @@ class Orchestrator:
             Confidence.LOW: 0.3,
             Confidence.INSUFFICIENT: 0.0,
         }
-        avg_confidence = sum(
-            confidence_map.get(r.confidence, 0.0) for r in step_results
-        ) / len(step_results)
+        avg_confidence = sum(confidence_map.get(r.confidence, 0.0) for r in step_results) / len(
+            step_results
+        )
 
         # Volume (normalizado: 100+ registros = 1.0)
         total_records = sum(len(v) for v in geological_data.values())
         volume_score = min(1.0, total_records / 100)
 
-        quality = (
-            coverage_score * 0.4
-            + avg_confidence * 0.4
-            + volume_score * 0.2
-        )
+        quality = coverage_score * 0.4 + avg_confidence * 0.4 + volume_score * 0.2
         return round(quality, 3)

@@ -83,7 +83,10 @@ class TestGeoSGBToCacheContract:
         """Todos os 6 tipos Pydantic devem serializar e deserializar via cache."""
         samples = {
             "ocorrencias": OcorrenciaMineral(
-                objectid=1, substancias="Au", municipio="X", uf="PA",
+                objectid=1,
+                substancias="Au",
+                municipio="X",
+                uf="PA",
                 coordenada=Coordenada(longitude=-50, latitude=-6),
             ).model_dump(),
             "gravimetria": DadoGravimetrico(
@@ -95,18 +98,27 @@ class TestGeoSGBToCacheContract:
                 anomalia_bouguer=-30.5,
             ).model_dump(),
             "geoquimica": AmostraGeoquimica(
-                objectid=3, projeto="P1", classe="Rocha",
+                objectid=3,
+                projeto="P1",
+                classe="Rocha",
                 coordenada=Coordenada(longitude=-50, latitude=-6),
             ).model_dump(),
             "geocronologia": DatacaoGeocronologica(
-                objectid=4, metodo="U-Pb", idade_ma=2750.0, erro_ma=10.0,
+                objectid=4,
+                metodo="U-Pb",
+                idade_ma=2750.0,
+                erro_ma=10.0,
                 coordenada=Coordenada(longitude=-50, latitude=-6),
             ).model_dump(),
             "litoestratigrafia": UnidadeLitoestratigrafica(
-                objectid=5, nome="Fm. Carajas", sigla="Kc", eon="Arqueano",
+                objectid=5,
+                nome="Fm. Carajas",
+                sigla="Kc",
+                eon="Arqueano",
             ).model_dump(),
             "aerogeofisica": ProjetoAerogeofisico(
-                objectid=6, coordenada=Coordenada(longitude=-50, latitude=-6),
+                objectid=6,
+                coordenada=Coordenada(longitude=-50, latitude=-6),
             ).model_dump(),
         }
 
@@ -135,8 +147,12 @@ class TestCacheToContextBuilderContract:
 
         connector = MagicMock()
         for method in [
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         ]:
             setattr(connector, method, AsyncMock(return_value=[]))
 
@@ -153,8 +169,12 @@ class TestCacheToContextBuilderContract:
         """ContextBuilder sempre retorna dict com exatamente 6 chaves."""
         connector = MagicMock()
         for method in [
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         ]:
             setattr(connector, method, AsyncMock(return_value=[]))
 
@@ -162,8 +182,12 @@ class TestCacheToContextBuilderContract:
         context = await builder.build(bbox)
 
         expected_keys = {
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         }
         assert set(context.keys()) == expected_keys
         assert all(isinstance(v, list) for v in context.values())
@@ -186,8 +210,12 @@ class TestContextToOrchestratorContract:
 
         connector = MagicMock()
         for method in [
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         ]:
             setattr(connector, method, AsyncMock(return_value=[]))
         llm = MagicMock()
@@ -210,23 +238,31 @@ class TestContextToOrchestratorContract:
 
         connector = MagicMock()
         for method in [
-            "ocorrencias", "gravimetria", "geoquimica",
-            "geocronologia", "litoestratigrafia", "aerogeofisica",
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
         ]:
             setattr(connector, method, AsyncMock(return_value=[]))
         llm = MagicMock()
-        llm.chat = AsyncMock(return_value=MagicMock(
-            content='{"summary": "ok", "findings": ["f1"], '
-                    '"confidence": "medium", "data_sources_used": ["src"], '
-                    '"data_gaps": []}',
-            prompt_eval_count=10,
-            eval_count=20,
-        ))
+        llm.chat = AsyncMock(
+            return_value=MagicMock(
+                content='{"summary": "ok", "findings": ["f1"], '
+                '"confidence": "medium", "data_sources_used": ["src"], '
+                '"data_gaps": []}',
+                prompt_eval_count=10,
+                eval_count=20,
+            )
+        )
         config = MinerHarnessConfig()
         orch = Orchestrator(connector, cache, llm, config)
 
         report = await orch.analyze_region(
-            bbox, "Test", steps=[AnalysisStep.TECTONIC_HISTORY],
+            bbox,
+            "Test",
+            steps=[AnalysisStep.TECTONIC_HISTORY],
         )
         assert report.region_name == "Test"
         assert len(report.steps) == 1
@@ -238,17 +274,19 @@ class TestOrchestratorToValidatorContract:
     def _make_valid_report(self, bbox: BoundingBox) -> ProspectionReport:
         steps = []
         for step_enum in AnalysisStep:
-            steps.append(StepResult(
-                step=step_enum,
-                agent="test_agent",
-                summary=f"Analysis of {step_enum.value}",
-                findings=["Finding 1"],
-                confidence=Confidence.MEDIUM,
-                data_sources_used=["ocorrencias"],
-                data_gaps=[],
-                raw_reasoning="Reasoning text",
-                duration_ms=100,
-            ))
+            steps.append(
+                StepResult(
+                    step=step_enum,
+                    agent="test_agent",
+                    summary=f"Analysis of {step_enum.value}",
+                    findings=["Finding 1"],
+                    confidence=Confidence.MEDIUM,
+                    data_sources_used=["ocorrencias"],
+                    data_gaps=[],
+                    raw_reasoning="Reasoning text",
+                    duration_ms=100,
+                )
+            )
         return ProspectionReport(
             region_name="Carajas",
             bbox=bbox,
@@ -280,13 +318,9 @@ class TestOrchestratorToValidatorContract:
         report = self._make_valid_report(bbox)
         validator = ReportValidator()
         result = validator.validate(report)
-        assert result.is_valid, (
-            f"Valid report rejected: {[i.message for i in result.issues]}"
-        )
+        assert result.is_valid, f"Valid report rejected: {[i.message for i in result.issues]}"
 
-    def test_report_fields_match_validator_expectations(
-        self, bbox: BoundingBox
-    ) -> None:
+    def test_report_fields_match_validator_expectations(self, bbox: BoundingBox) -> None:
         """Todos os campos que o validator checa devem existir no report."""
         report = self._make_valid_report(bbox)
         assert hasattr(report, "steps")
@@ -313,24 +347,24 @@ class TestOrchestratorToValidatorContract:
             assert hasattr(target, "latitude")
             assert hasattr(target, "radius_km")
 
-    def test_repair_prunes_invalid_targets_and_adds_caveats(
-        self, bbox: BoundingBox
-    ) -> None:
+    def test_repair_prunes_invalid_targets_and_adds_caveats(self, bbox: BoundingBox) -> None:
         """repair() deve remover targets sem rationale e adicionar caveats."""
         report = self._make_valid_report(bbox)
         # Add a target with empty rationale (should be pruned)
-        report.targets.append(MineralTarget(
-            name="Bad Target",
-            longitude=-50.0,
-            latitude=-6.0,
-            radius_km=5.0,
-            commodities=["Fe"],
-            mineral_system="BIF",
-            confidence=Confidence.LOW,
-            priority=2,
-            rationale="",
-            recommended_followup=[],
-        ))
+        report.targets.append(
+            MineralTarget(
+                name="Bad Target",
+                longitude=-50.0,
+                latitude=-6.0,
+                radius_km=5.0,
+                commodities=["Fe"],
+                mineral_system="BIF",
+                confidence=Confidence.LOW,
+                priority=2,
+                rationale="",
+                recommended_followup=[],
+            )
+        )
         validator = ReportValidator()
         result = validator.validate(report)
 
@@ -346,13 +380,13 @@ class TestBoundingBoxContract:
     """Contrato: BoundingBox.hash() e as_tuple() sao usados
     consistentemente em cache keys e logging."""
 
-    def test_hash_used_as_cache_key(
-        self, cache: CacheManager, bbox: BoundingBox
-    ) -> None:
+    def test_hash_used_as_cache_key(self, cache: CacheManager, bbox: BoundingBox) -> None:
         """Dois BBox identicos devem produzir cache hit."""
         bbox2 = BoundingBox(
-            lon_min=bbox.lon_min, lat_min=bbox.lat_min,
-            lon_max=bbox.lon_max, lat_max=bbox.lat_max,
+            lon_min=bbox.lon_min,
+            lat_min=bbox.lat_min,
+            lon_max=bbox.lon_max,
+            lat_max=bbox.lat_max,
         )
         cache.put("ocorrencias", bbox, [{"id": 1}])
         result = cache.get("ocorrencias", bbox2)

@@ -257,7 +257,7 @@ class SQLiteStore:
         if expired_ids:
             placeholders = ",".join("?" for _ in expired_ids)
             conn.execute(
-                f"DELETE FROM cache_entries WHERE id IN ({placeholders})",  # noqa: S608
+                f"DELETE FROM cache_entries WHERE id IN ({placeholders})",  # noqa: S608  # nosec B608
                 expired_ids,
             )
             conn.commit()
@@ -295,12 +295,8 @@ class SQLiteStore:
             services[row["service"]] = row["cnt"]
 
         # Datas extremas
-        oldest_row = conn.execute(
-            "SELECT MIN(fetched_at) as d FROM cache_entries"
-        ).fetchone()
-        newest_row = conn.execute(
-            "SELECT MAX(fetched_at) as d FROM cache_entries"
-        ).fetchone()
+        oldest_row = conn.execute("SELECT MIN(fetched_at) as d FROM cache_entries").fetchone()
+        newest_row = conn.execute("SELECT MAX(fetched_at) as d FROM cache_entries").fetchone()
 
         from datetime import datetime
 

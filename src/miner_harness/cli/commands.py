@@ -42,8 +42,10 @@ async def cmd_analyze(
     storage.ensure_dirs()
 
     bb = BoundingBox(
-        lon_min=bbox[0], lat_min=bbox[1],
-        lon_max=bbox[2], lat_max=bbox[3],
+        lon_min=bbox[0],
+        lat_min=bbox[1],
+        lon_max=bbox[2],
+        lat_max=bbox[3],
     )
 
     print(f"Analyzing region: {region}")
@@ -61,8 +63,7 @@ async def cmd_analyze(
         print("Checking Ollama connectivity...")
         if not await llm.health():
             print(
-                "Error: Ollama not available. "
-                "Make sure Ollama is running.",
+                "Error: Ollama not available. Make sure Ollama is running.",
                 file=sys.stderr,
             )
             return 1
@@ -175,9 +176,12 @@ def cmd_index_stats() -> int:
         print(f"  Total documents: {total}")
         # Count by source
         for source in [
-            "geosgb/ocorrencias", "geosgb/gravimetria",
-            "geosgb/geoquimica", "geosgb/geocronologia",
-            "geosgb/litoestratigrafia", "geosgb/aerogeofisica",
+            "geosgb/ocorrencias",
+            "geosgb/gravimetria",
+            "geosgb/geoquimica",
+            "geosgb/geocronologia",
+            "geosgb/litoestratigrafia",
+            "geosgb/aerogeofisica",
         ]:
             count = store.count(source)
             if count > 0:
@@ -201,8 +205,10 @@ def _print_report_summary(report: ProspectionReport) -> None:
     print("  ANALYSIS STEPS:")
     for step in report.steps:
         conf_icon = {
-            "high": "+", "medium": "~",
-            "low": "-", "insufficient": "!",
+            "high": "+",
+            "medium": "~",
+            "low": "-",
+            "insufficient": "!",
         }.get(step.confidence.value, "?")
         print(f"    [{conf_icon}] {step.step.value}: {step.summary[:80]}")
 
@@ -210,8 +216,7 @@ def _print_report_summary(report: ProspectionReport) -> None:
         print(f"\n  TARGETS ({len(report.targets)}):")
         for t in report.targets:
             print(
-                f"    P{t.priority} | {t.name} | "
-                f"{', '.join(t.commodities)} | {t.confidence.value}"
+                f"    P{t.priority} | {t.name} | {', '.join(t.commodities)} | {t.confidence.value}"
             )
 
     if report.caveats:

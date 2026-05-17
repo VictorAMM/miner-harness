@@ -84,11 +84,13 @@ class RCAReport:
         else:
             lines.append("_Nenhum identificado_")
 
-        lines.extend([
-            "",
-            "## Timeline",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Timeline",
+                "",
+            ]
+        )
 
         if self.timeline:
             for event in self.timeline:
@@ -98,11 +100,13 @@ class RCAReport:
         else:
             lines.append("_Sem eventos registrados_")
 
-        lines.extend([
-            "",
-            "## Remediacao",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Remediacao",
+                "",
+            ]
+        )
 
         if self.remediation_steps:
             for i, step in enumerate(self.remediation_steps, 1):
@@ -110,11 +114,13 @@ class RCAReport:
         else:
             lines.append(f"- {self.classified_error.suggested_action}")
 
-        lines.extend([
-            "",
-            "## Prevencao",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Prevencao",
+                "",
+            ]
+        )
 
         if self.prevention_measures:
             for measure in self.prevention_measures:
@@ -122,15 +128,17 @@ class RCAReport:
         else:
             lines.append("_Medidas a definir_")
 
-        lines.extend([
-            "",
-            "## Diagnostico do Sistema",
-            "",
-            f"- **Disco livre**: {self.diagnostics.disk_free_gb:.1f} GB"
-            f" / {self.diagnostics.disk_total_gb:.1f} GB",
-            f"- **Python**: {self.diagnostics.python_version}",
-            f"- **Plataforma**: {self.diagnostics.platform_info}",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Diagnostico do Sistema",
+                "",
+                f"- **Disco livre**: {self.diagnostics.disk_free_gb:.1f} GB"
+                f" / {self.diagnostics.disk_total_gb:.1f} GB",
+                f"- **Python**: {self.diagnostics.python_version}",
+                f"- **Plataforma**: {self.diagnostics.platform_info}",
+            ]
+        )
 
         if self.diagnostics.ollama_reachable is not None:
             status = "Sim" if self.diagnostics.ollama_reachable else "Nao"
@@ -170,8 +178,7 @@ def _infer_root_cause(classified: ClassifiedError) -> str:
             f"Fonte de dados pode estar indisponivel ou formato mudou."
         ),
         "CONFIG": (
-            f"Erro de configuracao — {classified.error_type}. "
-            f"Verificar paths e permissoes."
+            f"Erro de configuracao — {classified.error_type}. Verificar paths e permissoes."
         ),
     }
     return causes.get(
@@ -228,10 +235,7 @@ async def generate_rca_report(
         Complete RCAReport ready for export.
     """
     rca_id = _generate_rca_id()
-    title = (
-        f"{classified.category.value.title()} Error — "
-        f"{classified.error_type}"
-    )
+    title = f"{classified.category.value.title()} Error — {classified.error_type}"
 
     report = RCAReport(
         id=rca_id,

@@ -52,9 +52,7 @@ class TestConfigureLogging:
         log_file = tmp_path / "test.log"
         configure_logging(log_file=str(log_file))
         root = logging.getLogger()
-        file_handlers = [
-            h for h in root.handlers if isinstance(h, logging.FileHandler)
-        ]
+        file_handlers = [h for h in root.handlers if isinstance(h, logging.FileHandler)]
         assert len(file_handlers) >= 1
 
     def test_configure_clears_existing_handlers(self) -> None:

@@ -44,8 +44,12 @@ def cache(tmp_path: Path) -> CacheManager:
 def mock_connector() -> MagicMock:
     connector = MagicMock()
     for method in [
-        "ocorrencias", "gravimetria", "geoquimica",
-        "geocronologia", "litoestratigrafia", "aerogeofisica",
+        "ocorrencias",
+        "gravimetria",
+        "geoquimica",
+        "geocronologia",
+        "litoestratigrafia",
+        "aerogeofisica",
     ]:
         setattr(connector, method, AsyncMock(return_value=[]))
     return connector
@@ -54,13 +58,15 @@ def mock_connector() -> MagicMock:
 @pytest.fixture
 def mock_llm() -> MagicMock:
     llm = MagicMock()
-    llm.chat = AsyncMock(return_value=MagicMock(
-        content='{"summary": "Test summary", "findings": ["finding1"], '
-                '"confidence": "medium", "data_sources_used": ["test"], '
-                '"data_gaps": []}',
-        prompt_eval_count=100,
-        eval_count=200,
-    ))
+    llm.chat = AsyncMock(
+        return_value=MagicMock(
+            content='{"summary": "Test summary", "findings": ["finding1"], '
+            '"confidence": "medium", "data_sources_used": ["test"], '
+            '"data_gaps": []}',
+            prompt_eval_count=100,
+            eval_count=200,
+        )
+    )
     return llm
 
 
@@ -72,8 +78,12 @@ def config() -> MinerHarnessConfig:
 def _populate_cache(cache: CacheManager, bbox: BoundingBox) -> None:
     """Popula cache com dados suficientes para analise."""
     services = [
-        "ocorrencias", "gravimetria", "geoquimica",
-        "geocronologia", "litoestratigrafia", "aerogeofisica",
+        "ocorrencias",
+        "gravimetria",
+        "geoquimica",
+        "geocronologia",
+        "litoestratigrafia",
+        "aerogeofisica",
     ]
     for svc in services:
         cache.put(svc, bbox, [{"objectid": i} for i in range(5)])
@@ -157,7 +167,8 @@ class TestOrchestrator:
         _populate_cache(cache, bbox)
         orch = Orchestrator(mock_connector, cache, mock_llm, config)
         report = await orch.analyze_region(
-            bbox, "Test",
+            bbox,
+            "Test",
             steps=[AnalysisStep.TECTONIC_HISTORY, AnalysisStep.STRUCTURAL_ARCHITECTURE],
         )
         assert len(report.steps) == 2
@@ -192,7 +203,8 @@ class TestOrchestrator:
         orch._agents["structural_geologist"].analyze = tracking_analyze
 
         await orch.analyze_region(
-            bbox, "Test",
+            bbox,
+            "Test",
             steps=[AnalysisStep.TECTONIC_HISTORY, AnalysisStep.STRUCTURAL_ARCHITECTURE],
         )
         assert call_count == 2
@@ -260,10 +272,14 @@ class TestOrchestratorHelpers:
         results = [
             StepResult(
                 step=AnalysisStep.TECTONIC_HISTORY,
-                agent="test", summary="", findings=[],
+                agent="test",
+                summary="",
+                findings=[],
                 confidence=Confidence.HIGH,
-                data_sources_used=[], data_gaps=[],
-                raw_reasoning="", duration_ms=0,
+                data_sources_used=[],
+                data_gaps=[],
+                raw_reasoning="",
+                duration_ms=0,
             ),
         ]
         geo_data = {
