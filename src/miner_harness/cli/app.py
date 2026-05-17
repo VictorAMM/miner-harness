@@ -26,6 +26,7 @@ from miner_harness.cli.commands import (
     cmd_cache_stats,
     cmd_health,
     cmd_index_stats,
+    cmd_install,
     cmd_validate,
 )
 
@@ -46,6 +47,32 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # --- install ---
+    install_parser = subparsers.add_parser(
+        "install",
+        help="Guided installation wizard — set up MINER_HOME and initial config",
+    )
+    install_parser.add_argument(
+        "--miner-home",
+        default=None,
+        help="Override MINER_HOME path (default: ~/.miner-harness)",
+    )
+    install_parser.add_argument(
+        "--model",
+        default="qwen3:8b-q4_K_M",
+        help="Default LLM model",
+    )
+    install_parser.add_argument(
+        "--ollama-url",
+        default="http://localhost:11434",
+        help="Ollama base URL",
+    )
+    install_parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Run without prompts (use defaults / flags)",
+    )
 
     # --- analyze ---
     analyze_parser = subparsers.add_parser(
@@ -137,6 +164,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
+        if args.command == "install":
+            from pathlib import Path as _Path  # noqa: PLC0415
+
+            return cmd_install(
+                miner_home=_Path(args.miner_home) if args.miner_home else None,
+                model=args.model,
+                ollama_url=args.ollama_url,
+                non_interactive=args.non_interactive,
+            )
         if args.command == "analyze":
             bbox = _parse_bbox(args.bbox)
             return asyncio.run(

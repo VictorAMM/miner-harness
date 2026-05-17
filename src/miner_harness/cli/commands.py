@@ -227,6 +227,32 @@ def _print_report_summary(report: ProspectionReport) -> None:
     print(f"\n{'=' * 60}")
 
 
+def cmd_install(
+    miner_home: Path | None = None,
+    model: str = "qwen3:8b-q4_K_M",
+    ollama_url: str = "http://localhost:11434",
+    non_interactive: bool = False,
+) -> int:
+    """Run the guided installation wizard."""
+    from miner_harness.wizard.runner import WizardRunner  # noqa: PLC0415
+
+    runner = WizardRunner()
+
+    if non_interactive:
+        report = runner.run_checks(miner_home=miner_home, ollama_url=ollama_url)
+        if not report.all_passed:
+            for failure in report.failures:
+                print(f"[FAIL] {failure.name}: {failure.message}", file=sys.stderr)
+            return 1
+        result = runner.run_install(miner_home=miner_home, model=model, ollama_url=ollama_url)
+        for step in result.steps:
+            icon = "[OK]" if step.success else "[FAIL]"
+            print(f"  {icon} {step.message}")
+        return 0 if result.success else 1
+
+    return runner.run()
+
+
 async def cmd_health() -> int:
     """Run system health checks."""
     from miner_harness.observability.health import HealthStatus, run_health_checks
