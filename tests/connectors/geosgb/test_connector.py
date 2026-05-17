@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from miner_harness.connectors.geosgb.connector import GeoSGBConnector
 from miner_harness.core.config import GeoSGBConfig
+from miner_harness.core.exceptions import GeoSGBQueryError
 from miner_harness.core.types import BoundingBox
 
 
@@ -226,6 +228,40 @@ class TestConnectorExtraction:
 
         assert len(results) == 1
         assert results[0].anomalia_bouguer == -45.2
+        await connector.close()
+
+    async def test_identify_http_500_returns_empty(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """HTTP 500 from identify endpoint should be caught — returns [] instead of crashing."""
+        connector = GeoSGBConnector(fast_config)
+
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 500
+        http_error = httpx.HTTPStatusError("500 error", request=MagicMock(), response=mock_response)
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = http_error
+            results = await connector.ocorrencias(bbox_small)
+
+        assert results == []
+        await connector.close()
+
+    async def test_query_features_http_500_raises_geosgb_error(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """HTTP 500 from FeatureServer/query should raise GeoSGBQueryError (not httpx error)."""
+        connector = GeoSGBConnector(fast_config)
+
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 500
+        http_error = httpx.HTTPStatusError("500 error", request=MagicMock(), response=mock_response)
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = http_error
+            with pytest.raises(GeoSGBQueryError):
+                await connector.gravimetria(bbox_small)
+
         await connector.close()
 
     async def test_context_manager(self, fast_config: GeoSGBConfig) -> None:
