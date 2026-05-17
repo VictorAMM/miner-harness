@@ -257,7 +257,7 @@ class SQLiteStore:
         if expired_ids:
             placeholders = ",".join("?" for _ in expired_ids)
             conn.execute(
-                f"DELETE FROM cache_entries WHERE id IN ({placeholders})",  # noqa: S608
+                f"DELETE FROM cache_entries WHERE id IN ({placeholders})",  # noqa: S608  # nosec B608
                 expired_ids,
             )
             conn.commit()
