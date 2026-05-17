@@ -9,7 +9,21 @@ description = "Sistema de prospeccao mineral inteligente com agentes de IA e LLM
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-
+authors = [
+    { name = "Victor Augusto MM", email = "victoraugustomm@gmail.com" },
+]
+keywords = ["geologia", "prospecção mineral", "LLM", "agentes IA", "GeoSGB", "ollama"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Natural Language :: Portuguese (Brazilian)",
+]
 dependencies = [
     # Core
     "pydantic>=2.0",
@@ -32,6 +46,12 @@ dependencies = [
     "textual>=1.0",
     "rich>=13.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/VictorAMM/miner-harness"
+Repository = "https://github.com/VictorAMM/miner-harness"
+Changelog = "https://github.com/VictorAMM/miner-harness/blob/main/CHANGELOG.md"
+Issues = "https://github.com/VictorAMM/miner-harness/issues"
 
 [project.optional-dependencies]
 dev = [
