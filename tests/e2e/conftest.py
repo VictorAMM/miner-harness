@@ -13,9 +13,12 @@ Ou somente GeoSGB (sem Ollama):
 from __future__ import annotations
 
 import os
-from typing import Generator
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 from miner_harness.core.exceptions import GeoSGBConnectionError
 from miner_harness.core.types import BoundingBox
@@ -34,6 +37,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         exc_type = outcome.excinfo[0]
         if issubclass(exc_type, GeoSGBConnectionError):
             pytest.skip(f"GeoSGB API temporarily unavailable: {outcome.excinfo[1]}")
+
 
 _E2E_ENABLED = bool(os.getenv("MINER_E2E"))
 _OLLAMA_ENABLED = _E2E_ENABLED and not os.getenv("MINER_E2E_NO_OLLAMA")
