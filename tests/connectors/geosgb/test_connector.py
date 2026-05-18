@@ -272,7 +272,9 @@ class TestConnectorExtraction:
         """Quando _query_features recebe error 400, faz fallback para _query_via_ids."""
         connector = GeoSGBConnector(fast_config)
 
-        error_resp = {"error": {"code": 400, "message": "Unable to complete operation.", "details": []}}
+        error_resp = {
+            "error": {"code": 400, "message": "Unable to complete operation.", "details": []}
+        }
         ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [93362, 93363]}
         attrs_resp = _make_query_response(
             [
