@@ -24,7 +24,7 @@ logger = structlog.get_logger(__name__)
 class ModelSpec(BaseModel):
     """Especificação de um modelo LLM."""
 
-    name: str = Field(description='Ex: "qwen3:8b-q4_K_M"')
+    name: str = Field(description='Ex: "qwen3:8b"')
     family: str = Field(description='Ex: "qwen3"')
     parameters_b: float = Field(description="Bilhões de parâmetros")
     quantization: str = Field(description='Ex: "Q4_K_M"')
@@ -48,7 +48,7 @@ RECOMMENDED_MODELS: dict[str, ModelSpec] = {
         strengths=["reasoning", "multilingual", "fast"],
     ),
     "default": ModelSpec(
-        name="qwen3:8b-q4_K_M",
+        name="qwen3:8b",
         family="qwen3",
         parameters_b=8.0,
         quantization="Q4_K_M",

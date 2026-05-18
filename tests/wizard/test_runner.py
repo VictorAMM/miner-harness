@@ -58,7 +58,7 @@ class TestWizardRunnerInteractive:
         ):
             mock_prompt.return_value = {
                 "miner_home": tmp_path / ".miner-harness",
-                "model": "qwen3:8b-q4_K_M",
+                "model": "qwen3:8b",
                 "ollama_url": "http://localhost:99999",
             }
             exit_code = runner.run()
@@ -74,7 +74,7 @@ class TestWizardRunnerInteractive:
         ):
             mock_prompt.return_value = {
                 "miner_home": tmp_path / ".miner-harness",
-                "model": "qwen3:8b-q4_K_M",
+                "model": "qwen3:8b",
                 "ollama_url": "http://localhost:99999",
             }
             exit_code = runner.run()
@@ -91,7 +91,7 @@ class TestWizardRunnerInteractive:
         with patch.object(runner, "_prompt_config") as mock_prompt:
             mock_prompt.return_value = {
                 "miner_home": conflict,  # file, not dir → FAIL
-                "model": "qwen3:8b-q4_K_M",
+                "model": "qwen3:8b",
                 "ollama_url": "http://localhost:99999",
             }
             exit_code = runner.run()

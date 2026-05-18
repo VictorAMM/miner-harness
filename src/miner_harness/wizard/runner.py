@@ -29,7 +29,7 @@ _BANNER = """
 """
 
 _OLLAMA_DEFAULT = "http://localhost:11434"
-_DEFAULT_MODEL = "qwen3:8b-q4_K_M"
+_DEFAULT_MODEL = "qwen3:8b"
 
 
 class WizardRunner:

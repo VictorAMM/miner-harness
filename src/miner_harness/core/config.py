@@ -85,7 +85,7 @@ class StorageConfig(BaseModel):
 class OrchestratorConfig(BaseModel):
     """Configuração do orquestrador de agentes."""
 
-    model: str = "qwen3:8b-q4_K_M"
+    model: str = "qwen3:8b"
     temperature: float = Field(default=0.3, ge=0, le=2)
     max_tokens_per_step: int = 4096
     max_data_records_per_prompt: int = 50

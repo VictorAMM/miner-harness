@@ -42,7 +42,7 @@ async def test_ollama_list_models(ollama_url: str) -> None:
     try:
         models = await client.list_models()
         assert len(models) > 0, (
-            "Nenhum modelo encontrado no Ollama. Execute: ollama pull qwen3:8b-q4_K_M"
+            "Nenhum modelo encontrado no Ollama. Execute: ollama pull qwen3:8b"
         )
     finally:
         await client.close()
@@ -57,7 +57,7 @@ async def test_ollama_model_available(ollama_url: str, ollama_model: str) -> Non
     try:
         models = await client.list_models()
         names = [m.name for m in models]
-        # Aceita match parcial (ex: "qwen3:8b-q4_K_M" bate com "qwen3:8b-q4_K_M:latest")
+        # Aceita match parcial (ex: "qwen3:8b" bate com "qwen3:8b:latest")
         found = any(ollama_model in name or name in ollama_model for name in names)
         assert found, f"Modelo '{ollama_model}' não encontrado. Modelos disponíveis: {names}"
     finally:

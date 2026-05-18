@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10] — 2026-05-18
+
+### Corrigido
+
+- **Modelo padrão**: `qwen3:8b-q4_K_M` → `qwen3:8b` em todos os defaults (tag explícita de quantização não existe no Ollama sem pull específico)
+- **`cmd_analyze` encoding**: `write_text()` sem `encoding='utf-8'` gravava JSON em cp1252 no Windows; adicionado `encoding="utf-8"`
+- **`hypothesis`**: adicionado em `[dependency-groups].dev` (já estava em `[project.optional-dependencies].dev` mas ausente no grupo usado por `uv sync`)
+
 ## [0.1.9] — 2026-05-18
 
 ### Corrigido

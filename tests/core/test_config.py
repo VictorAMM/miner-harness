@@ -48,7 +48,7 @@ class TestOrchestratorConfig:
 
     def test_defaults(self) -> None:
         config = OrchestratorConfig()
-        assert config.model == "qwen3:8b-q4_K_M"
+        assert config.model == "qwen3:8b"
         assert config.temperature == 0.3
         assert len(config.enabled_steps) == 5
 

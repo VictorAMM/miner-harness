@@ -7,7 +7,7 @@ on:
     inputs:
       ollama_model:
         description: "Modelo Ollama a usar"
-        default: "qwen3:8b-q4_K_M"
+        default: "qwen3:8b"
         required: false
   schedule:
     - cron: "0 6 * * 0"  # domingo 06:00 UTC
@@ -40,7 +40,7 @@ jobs:
 
       - name: Pull model
         run: |
-          MODEL="${{ github.event.inputs.ollama_model || 'qwen3:8b-q4_K_M' }}"
+          MODEL="${{ github.event.inputs.ollama_model || 'qwen3:8b' }}"
           ollama pull "$MODEL"
         env:
           OLLAMA_HOST: http://localhost:11434
@@ -50,7 +50,7 @@ jobs:
         env:
           MINER_E2E: "1"
           MINER_OLLAMA_URL: "http://localhost:11434"
-          MINER_OLLAMA_MODEL: "${{ github.event.inputs.ollama_model || 'qwen3:8b-q4_K_M' }}"
+          MINER_OLLAMA_MODEL: "${{ github.event.inputs.ollama_model || 'qwen3:8b' }}"
 
       - name: Upload e2e report
         if: always()

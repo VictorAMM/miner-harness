@@ -79,4 +79,4 @@ def ollama_url() -> str:
 
 @pytest.fixture(scope="session")
 def ollama_model() -> str:
-    return os.getenv("MINER_OLLAMA_MODEL", "qwen3:8b-q4_K_M")
+    return os.getenv("MINER_OLLAMA_MODEL", "qwen3:8b")

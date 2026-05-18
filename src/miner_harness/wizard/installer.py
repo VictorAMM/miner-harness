@@ -86,7 +86,7 @@ def create_miner_home(miner_home: Path) -> InstallStep:
 
 def write_initial_config(
     miner_home: Path,
-    model: str = "qwen3:8b-q4_K_M",
+    model: str = "qwen3:8b",
     ollama_url: str = "http://localhost:11434",
 ) -> InstallStep:
     """Write initial configuration file to MINER_HOME."""
@@ -139,7 +139,7 @@ def write_env_hint(miner_home: Path) -> InstallStep:
 
 def run_installation(
     miner_home: Path | None = None,
-    model: str = "qwen3:8b-q4_K_M",
+    model: str = "qwen3:8b",
     ollama_url: str = "http://localhost:11434",
 ) -> InstallResult:
     """Run full installation sequence.

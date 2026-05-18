@@ -85,6 +85,7 @@ async def cmd_analyze(
         if output_path:
             Path(output_path).write_text(
                 json.dumps(report_dict, indent=2, ensure_ascii=False),
+                encoding="utf-8",
             )
             print(f"\nReport saved to: {output_path}")
         else:
@@ -229,7 +230,7 @@ def _print_report_summary(report: ProspectionReport) -> None:
 
 def cmd_install(
     miner_home: Path | None = None,
-    model: str = "qwen3:8b-q4_K_M",
+    model: str = "qwen3:8b",
     ollama_url: str = "http://localhost:11434",
     non_interactive: bool = False,
 ) -> int:

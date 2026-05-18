@@ -60,7 +60,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     install_parser.add_argument(
         "--model",
-        default="qwen3:8b-q4_K_M",
+        default="qwen3:8b",
         help="Default LLM model",
     )
     install_parser.add_argument(

@@ -91,7 +91,7 @@ class OllamaClient:
         """Chama o endpoint /api/chat do Ollama.
 
         Args:
-            model: Nome do modelo (ex: "qwen3:8b-q4_K_M").
+            model: Nome do modelo (ex: "qwen3:8b").
             messages: Lista de mensagens de chat.
             temperature: Temperatura de geração. None = config default.
             max_tokens: Máximo de tokens. None = config default.
@@ -199,7 +199,7 @@ class OllamaClient:
         """Inicia download de um modelo no Ollama.
 
         Args:
-            name: Nome do modelo (ex: "qwen3:8b-q4_K_M").
+            name: Nome do modelo (ex: "qwen3:8b").
 
         Raises:
             OllamaNotRunningError: Ollama não está acessível.
