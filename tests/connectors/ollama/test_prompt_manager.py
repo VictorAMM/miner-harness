@@ -61,6 +61,30 @@ class TestPromptManager:
         assert "JSON" in messages[1].content
         assert '"summary"' in messages[1].content
 
+    def test_evaluator_step_uses_dedicated_format(self) -> None:
+        pm = PromptManager()
+        messages = pm.build_messages(
+            agent_name="evaluator",
+            step=AnalysisStep.TOTAL_INTEGRATION,
+            geological_data="<data>test</data>",
+        )
+        content = messages[1].content
+        # Evaluator format has explicit priority rules
+        assert '"priority": 1' in content
+        assert "1 = melhor" in content
+        assert "IOCG" in content  # Concrete mineral system examples required
+
+    def test_non_evaluator_step_uses_basic_format(self) -> None:
+        pm = PromptManager()
+        messages = pm.build_messages(
+            agent_name="structural_geologist",
+            step=AnalysisStep.TECTONIC_HISTORY,
+            geological_data="<data>test</data>",
+        )
+        content = messages[1].content
+        # Basic format says targets should be empty list for steps 1-4
+        assert '"targets": []' in content
+
 
 class TestFormatGeologicalData:
     """Testes da formatação de dados geológicos."""
