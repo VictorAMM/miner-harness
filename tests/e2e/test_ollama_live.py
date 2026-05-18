@@ -41,9 +41,7 @@ async def test_ollama_list_models(ollama_url: str) -> None:
     client = OllamaClient(config)
     try:
         models = await client.list_models()
-        assert len(models) > 0, (
-            "Nenhum modelo encontrado no Ollama. Execute: ollama pull qwen3:8b"
-        )
+        assert len(models) > 0, "Nenhum modelo encontrado no Ollama. Execute: ollama pull qwen3:8b"
     finally:
         await client.close()
 
