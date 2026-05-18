@@ -306,7 +306,6 @@ class TestConnectorExtraction:
         assert results[1].substancias == "Ouro"
         await connector.close()
 
-
     async def test_context_manager(self, fast_config: GeoSGBConfig) -> None:
         async with GeoSGBConnector(fast_config) as connector:
             assert connector is not None
