@@ -33,7 +33,16 @@ from .grid_extractor import (
     deduplicate_features,
     generate_grid,
 )
-from .services import GRAVIMETRIA, SERVICE_REGISTRY, ServiceEndpoint
+from .services import (
+    AEROGEOFISICA,
+    GEOCRONOLOGIA,
+    GEOQUIMICA,
+    GRAVIMETRIA,
+    LITOESTRATIGRAFIA,
+    OCORRENCIAS,
+    SERVICE_REGISTRY,
+    ServiceEndpoint,
+)
 from .throttled_client import ThrottledClient
 
 logger = structlog.get_logger(__name__)
@@ -81,16 +90,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[OcorrenciaMineral]:
-        """Extrai ocorrências minerais da região.
-
-        Args:
-            bbox: Bounding box da região.
-            density: Densidade do grid de extração.
-
-        Returns:
-            Lista de ocorrências minerais tipadas.
-        """
-        raw = await self._extract_via_identify("ocorrencias", bbox, density=density)
+        """Extrai ocorrências minerais da região via FeatureServer/query."""
+        raw = await self._query_features(OCORRENCIAS, bbox=bbox)
         mapper = AliasMapper("ocorrencias")
         mapped = mapper.map_records(raw)
         return [self._parse_ocorrencia(r) for r in mapped]
@@ -99,16 +100,7 @@ class GeoSGBConnector:
         self,
         bbox: BoundingBox,
     ) -> list[DadoGravimetrico]:
-        """Extrai dados gravimétricos da região via FeatureServer/query.
-
-        Gravimetria é o único serviço com FeatureServer funcional.
-
-        Args:
-            bbox: Bounding box da região.
-
-        Returns:
-            Lista de dados gravimétricos tipados.
-        """
+        """Extrai dados gravimétricos da região via FeatureServer/query."""
         raw = await self._query_features(GRAVIMETRIA, bbox=bbox)
         mapper = AliasMapper("gravimetria")
         mapped = mapper.map_records(raw)
@@ -119,8 +111,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[AmostraGeoquimica]:
-        """Extrai amostras geoquímicas da região."""
-        raw = await self._extract_via_identify("geoquimica", bbox, density=density)
+        """Extrai amostras geoquímicas (Sedimento de Corrente, Rocha, Solo)."""
+        raw = await self._query_all_layers(GEOQUIMICA, bbox=bbox)
         mapper = AliasMapper("geoquimica")
         mapped = mapper.map_records(raw)
         return [self._parse_geoquimica(r) for r in mapped]
@@ -130,8 +122,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[DatacaoGeocronologica]:
-        """Extrai datações geocronológicas da região."""
-        raw = await self._extract_via_identify("geocronologia", bbox, density=density)
+        """Extrai datações geocronológicas da região via FeatureServer/query."""
+        raw = await self._query_features(GEOCRONOLOGIA, bbox=bbox)
         mapper = AliasMapper("geocronologia")
         mapped = mapper.map_records(raw)
         return [self._parse_geocronologia(r) for r in mapped]
@@ -141,8 +133,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[UnidadeLitoestratigrafica]:
-        """Extrai unidades litoestratigráficas da região."""
-        raw = await self._extract_via_identify("litoestratigrafia", bbox, density=density)
+        """Extrai unidades litoestratigráficas (1:1.000.000) via FeatureServer/query."""
+        raw = await self._query_features(LITOESTRATIGRAFIA, bbox=bbox)
         mapper = AliasMapper("litoestratigrafia")
         mapped = mapper.map_records(raw)
         return [self._parse_litoestratigrafia(r) for r in mapped]
@@ -152,8 +144,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[ProjetoAerogeofisico]:
-        """Extrai projetos aerogeofísicos da região."""
-        raw = await self._extract_via_identify("aerogeofisica", bbox, density=density)
+        """Extrai projetos aerogeofísicos (4 séries históricas) via FeatureServer/query."""
+        raw = await self._query_all_layers(AEROGEOFISICA, bbox=bbox)
         mapper = AliasMapper("aerogeofisica")
         mapped = mapper.map_records(raw)
         return [self._parse_aerogeofisica(r) for r in mapped]
@@ -182,8 +174,28 @@ class GeoSGBConnector:
         data = await self._client.get(url, params=params)
         return int(data.get("count", 0))
 
+    async def _query_all_layers(
+        self,
+        endpoint: ServiceEndpoint,
+        bbox: BoundingBox | None = None,
+    ) -> list[dict[str, Any]]:
+        """Consulta todas as layers de um serviço e mescla os resultados."""
+        all_records: list[dict[str, Any]] = []
+        for layer_id in endpoint.default_layers:
+            try:
+                records = await self._query_features(endpoint, layer=layer_id, bbox=bbox)
+                all_records.extend(records)
+            except GeoSGBError as exc:
+                logger.warning(
+                    "layer_query_failed",
+                    service=endpoint.name,
+                    layer=layer_id,
+                    error=str(exc),
+                )
+        return all_records
+
     # ------------------------------------------------------------------
-    # Extração interna — MapServer/identify
+    # Extração interna — MapServer/identify (mantido como fallback)
     # ------------------------------------------------------------------
 
     async def _extract_via_identify(
@@ -309,6 +321,16 @@ class GeoSGBConnector:
 
             if "error" in data:
                 err = data["error"]
+                if err.get("code") == 400 and offset == 0:
+                    # Alguns endpoints rejeitam outFields mas aceitam returnIdsOnly.
+                    # Fallback transparente para a abordagem de dois passos.
+                    logger.info(
+                        "geosgb_query_fallback_ids",
+                        service=endpoint.name,
+                        layer=layer_id,
+                        reason=err.get("message", ""),
+                    )
+                    return await self._query_via_ids(endpoint, layer=layer_id, bbox=bbox)
                 raise GeoSGBQueryError(
                     endpoint.name,
                     err.get("code", 0),
@@ -330,6 +352,96 @@ class GeoSGBConnector:
             if limit and len(all_features) >= limit:
                 break
             offset += len(features)
+
+        return all_features
+
+    async def _query_via_ids(
+        self,
+        endpoint: ServiceEndpoint,
+        layer: int = 0,
+        bbox: BoundingBox | None = None,
+        max_ids: int = 500,
+        batch_size: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Workaround para endpoints que rejeitam where+outFields queries.
+
+        Passo 1: obtém OIDs via returnIdsOnly (sem restrição de campos).
+        Passo 2: busca atributos em lotes via objectIds.
+        """
+        url = endpoint.query_url(layer)
+
+        ids_params: dict[str, str] = {
+            "f": "json",
+            "where": "1=1",
+            "returnIdsOnly": "true",
+            # resultRecordCount omitido: alguns endpoints retornam 400 quando
+            # combinado com returnIdsOnly. O servidor retorna até 1000 IDs por padrão.
+        }
+        if bbox is not None:
+            ids_params["geometry"] = f"{bbox.lon_min},{bbox.lat_min},{bbox.lon_max},{bbox.lat_max}"
+            ids_params["geometryType"] = "esriGeometryEnvelope"
+            ids_params["inSR"] = "4326"
+            ids_params["spatialRel"] = "esriSpatialRelIntersects"
+
+        try:
+            ids_data = await self._client.get(url, params=ids_params)
+        except httpx.HTTPStatusError as exc:
+            raise GeoSGBQueryError(endpoint.name, exc.response.status_code, str(exc)) from exc
+
+        if "error" in ids_data:
+            err = ids_data["error"]
+            raise GeoSGBQueryError(endpoint.name, err.get("code", 0), err.get("message", ""))
+
+        object_ids: list[int] = (ids_data.get("objectIds") or [])[:max_ids]
+        if not object_ids:
+            return []
+
+        logger.info(
+            "geosgb_ids_fetch",
+            service=endpoint.name,
+            layer=layer,
+            ids_count=len(object_ids),
+        )
+
+        all_features: list[dict[str, Any]] = []
+        for i in range(0, len(object_ids), batch_size):
+            batch = object_ids[i : i + batch_size]
+            batch_params: dict[str, str] = {
+                "objectIds": ",".join(str(oid) for oid in batch),
+                "outFields": "*",
+                "returnGeometry": "true",
+                "outSR": "4326",
+                "f": "json",
+            }
+            try:
+                batch_data = await self._client.get(url, params=batch_params)
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "geosgb_ids_batch_failed",
+                    service=endpoint.name,
+                    layer=layer,
+                    batch_start=i,
+                    error=str(exc),
+                )
+                continue
+
+            if "error" in batch_data:
+                logger.warning(
+                    "geosgb_ids_batch_error",
+                    service=endpoint.name,
+                    layer=layer,
+                    batch_start=i,
+                    error=batch_data["error"].get("message", ""),
+                )
+                continue
+
+            for feat in batch_data.get("features", []):
+                attrs = feat.get("attributes", {})
+                geom = feat.get("geometry", {})
+                if geom:
+                    attrs["longitude"] = geom.get("x")
+                    attrs["latitude"] = geom.get("y")
+                all_features.append(attrs)
 
         return all_features
 

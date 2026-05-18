@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m ruff check src/miner_harness/self_improvement/ tests/self_improvement/)",
+      "Bash(where ruff *)",
+      "Bash(ruff --version)",
+      "Bash(python -m pytest tests/self_improvement/ -v)",
+      "Bash(python -m pip show pytest)",
+      "Bash(pip show *)",
+      "Bash(ls .venv/Scripts/)",
+      "Bash(ls venv/Scripts/)",
+      "Bash(ls .venv/bin/)",
+      "PowerShell(Get-Command pytest -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command ruff -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command python -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PATH -split \";\" | Where-Object { $_ -match \"python|pip|uv|conda\" })",
+      "Bash(uv run *)",
+      "Bash(uv add *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'feat: Phase 11 — Self-Improvement' --body ' *)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(gh release *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git tag *)",
+      "Bash(uv build *)",
+      "Bash(python -c \"import zipfile; z=zipfile.ZipFile\\('dist/miner_harness-0.1.0-py3-none-any.whl'\\); print\\([n for n in z.namelist\\(\\) if 'METADATA' in n or '.dist-info' in n][:5]\\)\")",
+      "Bash(python -c ' *)",
+      "PowerShell(if \\($env:UV_PUBLISH_TOKEN\\) { \"Token definido: \" + $env:UV_PUBLISH_TOKEN.Substring\\(0,10\\) + \"...\" } else { \"Token NAO definido\" })",
+      "Bash(git commit *)",
+      "Bash(uv publish *)",
+      "WebFetch(domain:geoportal.sgb.gov.br)"
+    ]
+  }
+}

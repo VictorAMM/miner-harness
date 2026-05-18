@@ -136,4 +136,10 @@ class ContextBuilder:
                 service=service,
                 exc_info=True,
             )
+            # Cache the empty result so we don't retry a broken service every run.
+            try:
+                method = "query" if service == "gravimetria" else "identify"
+                self._cache.put(service, bbox, [], method)
+            except Exception:
+                pass
             return []

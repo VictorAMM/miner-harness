@@ -1,5 +1,61 @@
 # Changelog
 
+## [0.1.6] — 2026-05-17
+
+### Corrigido
+
+- **`context_builder`: cache de falhas de serviço**: quando um serviço GeoSGB lança exceção (ex: `litoestratigrafia` com 503), o resultado vazio agora é persistido no cache tal como uma resposta normal. Sem isso, cada execução desperdiçava ~60s esperando o timeout do serviço quebrado.
+
+## [0.1.5] — 2026-05-17
+
+### Corrigido
+
+- **`_query_via_ids` — parâmetro `resultRecordCount` removido do passo 1**: incluir `resultRecordCount` na requisição `returnIdsOnly` causava HTTP 200 com `{"error":{"code":400}}` nos serviços `geologia/ocorrencias`, `geoquimica/geoquimica_integrada` e `geologia/geocronologia`. Removido do passo de IDs; o limite `max_ids` agora é aplicado como slice pós-fetch. O servidor retorna até 1000 IDs por padrão, suficiente para a maioria das regiões.
+- **`gravimetria`**: confirmado que o serviço não tem dados no bbox Carajas (retorna `objectIds: null`) — comportamento correto, não é bug.
+- **`litoestratigrafia` / `aerogeofisica`**: retornam `{"error":{"code":503}}` (timeout server-side de ~60s); tratados como degradação graciosa (retorna `[]`).
+
+## [0.1.4] — 2026-05-17
+
+### Corrigido
+
+- **Fallback `_query_via_ids`**: `geologia/ocorrencias`, `geoquimica/geoquimica_integrada` e `geologia/geocronologia` retornam HTTP 200 com `{"error":{"code":400}}` para qualquer query com `outFields`, mas aceitam `returnIdsOnly=true`. Novo método `_query_via_ids` faz dois passos: (1) obtém OIDs via `returnIdsOnly` com filtro de BBOX, (2) busca atributos em lotes via `objectIds=...`. O fallback é ativado automaticamente em `_query_features` quando detecta error 400 na resposta.
+- **Timeout aumentado de 30s para 90s**: serviços com polígonos complexos (`litoestratigrafia_1000000`, `aerogeofisica`) precisam de mais tempo de resposta do servidor.
+
+## [0.1.3] — 2026-05-17
+
+### Corrigido
+
+- **Caminhos de serviço GeoSGB**: todos os 6 serviços usavam o prefixo `GEOSGB/` inexistente; corrigidos para os caminhos reais (`geologia/`, `geofisica/`, `geoquimica/`)
+- **Migração para FeatureServer/query**: todos os serviços migrados de MapServer/identify (que retornava `{"results":[]}` silenciosamente) para FeatureServer/query com filtro espacial por BBOX — mais confiável e não requer grid de pontos
+- **Geoquímica multi-layer**: consulta as 3 camadas mais relevantes para prospecção mineral (Sedimento de Corrente, Rocha, Solo)
+- **Aerogeofísica multi-layer**: consulta as 4 séries históricas de levantamentos (Séries 1000–4000)
+
+### Mapeamento de serviços (antigo → novo)
+
+| Serviço | Antes | Depois |
+|---|---|---|
+| ocorrencias | `GEOSGB/ocorrencias_minerais/MapServer` | `geologia/ocorrencias/FeatureServer` |
+| gravimetria | `GEOSGB/dados_gravimetricos/FeatureServer` | `geofisica/gravimetria/FeatureServer` |
+| geoquimica | `GEOSGB/geoquimica/MapServer` | `geoquimica/geoquimica_integrada/FeatureServer` |
+| geocronologia | `GEOSGB/geocronologia/MapServer` | `geologia/geocronologia/FeatureServer` |
+| litoestratigrafia | `GEOSGB/unidades_litoestratigraficas/MapServer` | `geologia/litoestratigrafia_1000000/FeatureServer` |
+| aerogeofisica | `GEOSGB/projetos_aerogeofisicos/MapServer` | `geofisica/aerogeofisica/FeatureServer` |
+
+## [0.1.2] — 2026-05-17
+
+### Corrigido
+
+- **GeoSGB connector**: `_extract_via_identify` agora captura `httpx.HTTPStatusError` (além de `GeoSGBError`) — HTTP 500s do MapServer pulam o ponto de grid falho e continuam sem travar o pipeline
+- **GeoSGB connector**: `_query_features` converte `HTTPStatusError` em `GeoSGBQueryError`, permitindo que o `context_builder` faça degradação graciosa (retorna `[]` para o serviço) em vez de propagar a exceção
+- O pipeline agora produz relatório parcial quando ≥3 de 6 serviços GeoSGB respondem com sucesso, em vez de lançar `InsufficientDataError` quando todos retornam 500
+
+## [0.1.1] — 2026-05-17
+
+### Corrigido
+
+- **CLI `analyze`**: argumento `region` era flag nomeada (`--region`); corrigido para posicional
+- **CLI `analyze`**: `--bbox` com floats negativos era interpretado pelo argparse como flags; corrigido via `nargs=4, type=float`
+
 ## [0.1.0] — 2026-05-17
 
 Primeira release — todas as 11 fases do ASO v3 completas.

@@ -181,9 +181,10 @@ class TestConnectorExtraction:
     async def test_ocorrencias_extraction(
         self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
     ) -> None:
+        """ocorrencias usa FeatureServer/query (não mais MapServer/identify)."""
         connector = GeoSGBConnector(fast_config)
 
-        identify_resp = _make_identify_response(
+        query_resp = _make_query_response(
             [
                 {
                     "OBJECTID": 1,
@@ -197,7 +198,7 @@ class TestConnectorExtraction:
         )
 
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = identify_resp
+            mock_get.return_value = query_resp
             results = await connector.ocorrencias(bbox_small)
 
         assert len(results) >= 1
@@ -230,27 +231,10 @@ class TestConnectorExtraction:
         assert results[0].anomalia_bouguer == -45.2
         await connector.close()
 
-    async def test_identify_http_500_returns_empty(
+    async def test_http_500_raises_geosgb_query_error(
         self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
     ) -> None:
-        """HTTP 500 from identify endpoint should be caught — returns [] instead of crashing."""
-        connector = GeoSGBConnector(fast_config)
-
-        mock_response = MagicMock(spec=httpx.Response)
-        mock_response.status_code = 500
-        http_error = httpx.HTTPStatusError("500 error", request=MagicMock(), response=mock_response)
-
-        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = http_error
-            results = await connector.ocorrencias(bbox_small)
-
-        assert results == []
-        await connector.close()
-
-    async def test_query_features_http_500_raises_geosgb_error(
-        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
-    ) -> None:
-        """HTTP 500 from FeatureServer/query should raise GeoSGBQueryError (not httpx error)."""
+        """HTTP 500 from FeatureServer/query é convertido em GeoSGBQueryError."""
         connector = GeoSGBConnector(fast_config)
 
         mock_response = MagicMock(spec=httpx.Response)
@@ -260,9 +244,66 @@ class TestConnectorExtraction:
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = http_error
             with pytest.raises(GeoSGBQueryError):
-                await connector.gravimetria(bbox_small)
+                await connector.ocorrencias(bbox_small)
 
         await connector.close()
+
+    async def test_query_all_layers_tolerates_layer_failure(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """_query_all_layers continua se uma layer falhar."""
+        connector = GeoSGBConnector(fast_config)
+
+        good_resp = _make_query_response([{"objectid": 1, "projeto": "X", "classe": "Rocha"}])
+        bad_resp = {"error": {"code": 404, "message": "Layer not found", "details": []}}
+
+        responses = [bad_resp, good_resp, good_resp]
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = responses
+            results = await connector.geoquimica(bbox_small)
+
+        assert len(results) >= 1
+        await connector.close()
+
+    async def test_query_400_falls_back_to_ids(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Quando _query_features recebe error 400, faz fallback para _query_via_ids."""
+        connector = GeoSGBConnector(fast_config)
+
+        error_resp = {"error": {"code": 400, "message": "Unable to complete operation.", "details": []}}
+        ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [93362, 93363]}
+        attrs_resp = _make_query_response(
+            [
+                {
+                    "OBJECTID": 93362,
+                    "Substancias minerais": "Ferro",
+                    "Municipio": "Parauapebas",
+                    "UF": "PA",
+                    "longitude": -50.05,
+                    "latitude": -6.05,
+                },
+                {
+                    "OBJECTID": 93363,
+                    "Substancias minerais": "Ouro",
+                    "Municipio": "Parauapebas",
+                    "UF": "PA",
+                    "longitude": -50.06,
+                    "latitude": -6.06,
+                },
+            ]
+        )
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [error_resp, ids_resp, attrs_resp]
+            results = await connector.ocorrencias(bbox_small)
+
+        assert len(results) == 2
+        assert results[0].substancias == "Ferro"
+        assert results[1].substancias == "Ouro"
+        await connector.close()
+
 
     async def test_context_manager(self, fast_config: GeoSGBConfig) -> None:
         async with GeoSGBConnector(fast_config) as connector:
@@ -285,18 +326,24 @@ class TestServices:
         }
         assert set(SERVICE_REGISTRY.keys()) == expected
 
-    def test_gravimetria_supports_query(self) -> None:
-        from miner_harness.connectors.geosgb.services import GRAVIMETRIA
+    def test_all_services_support_query(self) -> None:
+        from miner_harness.connectors.geosgb.services import SERVICE_REGISTRY
 
-        assert GRAVIMETRIA.supports_query is True
-
-    def test_ocorrencias_no_query(self) -> None:
-        from miner_harness.connectors.geosgb.services import OCORRENCIAS
-
-        assert OCORRENCIAS.supports_query is False
+        for name, ep in SERVICE_REGISTRY.items():
+            assert ep.supports_query is True, f"{name} should support FeatureServer/query"
 
     def test_service_urls(self) -> None:
         from miner_harness.connectors.geosgb.services import OCORRENCIAS
 
         assert "geoportal.sgb.gov.br" in OCORRENCIAS.url
-        assert OCORRENCIAS.url.endswith("/MapServer")
+        assert OCORRENCIAS.url.endswith("/FeatureServer")
+
+    def test_geoquimica_multi_layer(self) -> None:
+        from miner_harness.connectors.geosgb.services import GEOQUIMICA
+
+        assert len(GEOQUIMICA.default_layers) > 1
+
+    def test_aerogeofisica_multi_layer(self) -> None:
+        from miner_harness.connectors.geosgb.services import AEROGEOFISICA
+
+        assert len(AEROGEOFISICA.default_layers) == 4
