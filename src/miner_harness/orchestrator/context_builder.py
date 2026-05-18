@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from miner_harness.cache.manager import CacheManager
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
     from miner_harness.core.types import BoundingBox
+    from miner_harness.index.search_engine import SearchEngine
 
 logger = structlog.get_logger(__name__)
 
@@ -49,9 +50,11 @@ class ContextBuilder:
         self,
         connector: GeoSGBConnector,
         cache: CacheManager,
+        search_engine: SearchEngine | None = None,
     ) -> None:
         self._connector = connector
         self._cache = cache
+        self._search_engine = search_engine
 
     async def build(
         self,
@@ -97,7 +100,45 @@ class ContextBuilder:
             total_features=total,
             active_sources=sources,
         )
+
+        if self._search_engine is not None:
+            await self._index_features(context)
+
         return context
+
+    async def _index_features(
+        self,
+        context: dict[str, list[dict[str, Any]]],
+    ) -> None:
+        """Indexa features no SearchEngine para RAG (best-effort).
+
+        Converte features para texto e gera embeddings em batch.
+        Erros são logados e ignorados para não bloquear o pipeline.
+        """
+        from miner_harness.index.text_builder import dict_to_text
+        from miner_harness.index.types import IndexDocument
+
+        documents = []
+        for service, features in context.items():
+            source = f"geosgb/{service}"
+            for i, feature in enumerate(features):
+                doc_id = f"{source}:{feature.get('objectid', i)}"
+                text = dict_to_text(feature, source)
+                documents.append(IndexDocument(id=doc_id, source=source, text=text))
+
+        if not documents:
+            return
+
+        try:
+            # Processar em chunks respeitando o limite do DocumentStore
+            chunk_size = 500
+            total = 0
+            for i in range(0, len(documents), chunk_size):
+                chunk = documents[i : i + chunk_size]
+                total += await self._search_engine.index_batch(chunk)  # type: ignore[union-attr]
+            logger.info("context_indexed", documents=total)
+        except Exception:
+            logger.warning("context_index_failed", exc_info=True)
 
     async def _get_service_data(
         self,

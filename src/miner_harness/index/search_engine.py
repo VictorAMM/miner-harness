@@ -181,6 +181,23 @@ class SearchEngine:
         parts.append("</rag_context>")
         return "\n".join(parts)
 
+    async def index_batch(self, documents: list[IndexDocument]) -> int:
+        """Gera embeddings e indexa múltiplos documentos.
+
+        Args:
+            documents: Documentos sem embedding preenchido.
+
+        Returns:
+            Número de documentos indexados.
+        """
+        if not documents:
+            return 0
+        texts = [doc.text for doc in documents]
+        embeddings = await self._embedder.embed_batch(texts)
+        for doc, embedding in zip(documents, embeddings, strict=False):
+            doc.embedding = embedding
+        return self._store.add_batch(documents)
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------

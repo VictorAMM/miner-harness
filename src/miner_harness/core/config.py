@@ -95,6 +95,7 @@ class OrchestratorConfig(BaseModel):
     enabled_steps: list[AnalysisStep] = Field(
         default_factory=lambda: list(AnalysisStep),
     )
+    use_rag: bool = True
 
 
 # ---------------------------------------------------------------------------

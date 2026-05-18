@@ -38,11 +38,31 @@ if TYPE_CHECKING:
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
     from miner_harness.connectors.ollama.client import OllamaClient
     from miner_harness.core.types import BoundingBox
+    from miner_harness.index.search_engine import SearchEngine
 
 logger = structlog.get_logger(__name__)
 
 # Mínimo de fontes de dados para prosseguir (RFC-002 §6)
 MIN_DATA_SOURCES = 3
+
+# Queries RAG por passo — termos geológicos para busca semântica
+_STEP_RAG_QUERIES: dict[AnalysisStep, str] = {
+    AnalysisStep.TECTONIC_HISTORY: (
+        "história tectônica evolução crustal litoestratigrafia geocronologia"
+    ),
+    AnalysisStep.STRUCTURAL_ARCHITECTURE: (
+        "estruturas falhas zonas cisalhamento lineamentos controle estrutural"
+    ),
+    AnalysisStep.MAGMATIC_FERTILITY: (
+        "magmatismo intrusões fertilidade magmática anomalias geoquímicas gravimetria"
+    ),
+    AnalysisStep.INDIRECT_EVIDENCE: (
+        "alteração hidrotermal anomalias geofísicas indícios mineralização pathfinder"
+    ),
+    AnalysisStep.TOTAL_INTEGRATION: (
+        "alvos prospecção mineral potencial econômico ocorrências minerais"
+    ),
+}
 
 # Mapeamento passo → agentes (RFC-002 §3)
 _STEP_AGENTS: dict[AnalysisStep, list[str]] = {
@@ -78,9 +98,31 @@ class Orchestrator:
         self._connector = connector
         self._cache = cache
         self._llm = llm
-        self._context_builder = ContextBuilder(connector, cache)
 
         model = self._config.orchestrator.model
+
+        # Inicializar SearchEngine para RAG quando habilitado
+        self._search_engine: SearchEngine | None = None
+        if self._config.orchestrator.use_rag:
+            try:
+                from miner_harness.index.document_store import DocumentStore
+                from miner_harness.index.embedder import Embedder
+                from miner_harness.index.search_engine import SearchEngine
+                from miner_harness.index.types import EmbeddingConfig
+
+                self._config.storage.ensure_dirs()
+                embed_cfg = EmbeddingConfig(
+                    model=self._config.storage.embedding_model,
+                    dimensions=self._config.storage.embedding_dimensions,
+                )
+                self._search_engine = SearchEngine(
+                    Embedder(llm, embed_cfg),
+                    DocumentStore(self._config.storage.index_dir),
+                )
+            except Exception:
+                logger.warning("rag_init_failed", exc_info=True)
+
+        self._context_builder = ContextBuilder(connector, cache, self._search_engine)
 
         # Inicializar agentes
         self._agents: dict[str, BaseAgent] = {
@@ -192,7 +234,17 @@ class Orchestrator:
             agent=agent_name,
         )
 
-        result = await agent.analyze(step, geological_data, previous_results or None)
+        # Enriquecer dados com contexto RAG antes de chamar o agente
+        effective_data = geological_data
+        if self._search_engine is not None:
+            query = _STEP_RAG_QUERIES.get(step, step.value)
+            try:
+                rag_context = await self._search_engine.get_context(query)
+                effective_data = {**geological_data, "rag_context": [{"text": rag_context}]}
+            except Exception:
+                logger.warning("rag_context_failed", step=step.value, exc_info=True)
+
+        result = await agent.analyze(step, effective_data, previous_results or None)
 
         logger.info(
             "step_complete",
