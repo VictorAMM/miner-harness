@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5] — 2026-05-17
+
+### Corrigido
+
+- **`_query_via_ids` — parâmetro `resultRecordCount` removido do passo 1**: incluir `resultRecordCount` na requisição `returnIdsOnly` causava HTTP 200 com `{"error":{"code":400}}` nos serviços `geologia/ocorrencias`, `geoquimica/geoquimica_integrada` e `geologia/geocronologia`. Removido do passo de IDs; o limite `max_ids` agora é aplicado como slice pós-fetch. O servidor retorna até 1000 IDs por padrão, suficiente para a maioria das regiões.
+- **`gravimetria`**: confirmado que o serviço não tem dados no bbox Carajas (retorna `objectIds: null`) — comportamento correto, não é bug.
+- **`litoestratigrafia` / `aerogeofisica`**: retornam `{"error":{"code":503}}` (timeout server-side de ~60s); tratados como degradação graciosa (retorna `[]`).
+
 ## [0.1.4] — 2026-05-17
 
 ### Corrigido

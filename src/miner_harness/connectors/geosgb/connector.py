@@ -374,7 +374,8 @@ class GeoSGBConnector:
             "f": "json",
             "where": "1=1",
             "returnIdsOnly": "true",
-            "resultRecordCount": str(max_ids),
+            # resultRecordCount omitido: alguns endpoints retornam 400 quando
+            # combinado com returnIdsOnly. O servidor retorna até 1000 IDs por padrão.
         }
         if bbox is not None:
             ids_params["geometry"] = f"{bbox.lon_min},{bbox.lat_min},{bbox.lon_max},{bbox.lat_max}"
@@ -391,7 +392,7 @@ class GeoSGBConnector:
             err = ids_data["error"]
             raise GeoSGBQueryError(endpoint.name, err.get("code", 0), err.get("message", ""))
 
-        object_ids: list[int] = ids_data.get("objectIds") or []
+        object_ids: list[int] = (ids_data.get("objectIds") or [])[:max_ids]
         if not object_ids:
             return []
 
