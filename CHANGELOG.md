@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8] — 2026-05-18
+
+### Corrigido
+
+- **`test_pipeline_live`**: testes `connector_to_cache` e `cache_hit_evita_requisicao` usavam API inventada (`set(key=...)` / `get(key=...)`); corrigidos para a API real `put(service, bbox, features)` / `get(service, bbox)`
+- **`test_pipeline_connector_to_cache`**: trocado de gravimetria (sem cobertura em Carajás) para ocorrências minerais, que sempre retorna dados nessa BBox
+
 ## [0.1.7] — 2026-05-18
 
 ### Corrigido
