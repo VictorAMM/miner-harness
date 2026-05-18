@@ -76,4 +76,5 @@ jobs:
       - name: Publish to PyPI
         run: uv publish
         env:
+          # Se configurado, usa API token. Caso contrário, uv usa Trusted Publishing (OIDC).
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}

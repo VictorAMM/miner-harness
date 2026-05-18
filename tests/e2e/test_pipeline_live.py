@@ -65,22 +65,23 @@ async def test_pipeline_connector_to_cache(
     live_config: MinerHarnessConfig,
     live_cache: CacheManager,
 ) -> None:
-    """Dados gravimétricos são buscados do GeoSGB e armazenados no cache."""
+    """Ocorrências minerais são buscadas do GeoSGB e armazenadas no cache."""
     async with GeoSGBConnector(live_config.geosgb) as conn:
-        dados = await conn.gravimetria(bbox_carajas_small)
+        from miner_harness.connectors.geosgb.grid_extractor import GridDensity
 
-    assert len(dados) > 0
+        dados = await conn.ocorrencias(bbox_carajas_small, density=GridDensity.LOW)
 
-    # Persiste no cache
-    cache_key = f"e2e_gravimetria_{bbox_carajas_small.as_tuple()}"
-    live_cache.set(
-        service="geosgb/gravimetria",
-        key=cache_key,
-        data=[d.model_dump() for d in dados],
+    assert len(dados) > 0, "Esperava ocorrências em Carajás"
+
+    # Persiste no cache via API real: put(service, bbox, features)
+    live_cache.put(
+        service="ocorrencias",
+        bbox=bbox_carajas_small,
+        features=[d.model_dump() for d in dados],
     )
 
-    # Confirma que está no cache
-    cached = live_cache.get(service="geosgb/gravimetria", key=cache_key)
+    # Confirma que está no cache via API real: get(service, bbox)
+    cached = live_cache.get("ocorrencias", bbox_carajas_small)
     assert cached is not None
     assert len(cached) == len(dados)
 
@@ -92,17 +93,15 @@ async def test_pipeline_cache_hit_evita_requisicao(
     live_config: MinerHarnessConfig,
     live_cache: CacheManager,
 ) -> None:
-    """Segunda chamada com mesma chave retorna do cache sem nova requisição HTTP."""
-    cache_key = f"e2e_gravimetria_{bbox_carajas_small.as_tuple()}"
-
+    """Segunda chamada com mesma bbox retorna do cache sem nova requisição HTTP."""
     # Se o teste anterior rodou, já está no cache
-    cached = live_cache.get(service="geosgb/gravimetria", key=cache_key)
+    cached = live_cache.get("ocorrencias", bbox_carajas_small)
     if cached is None:
         pytest.skip("Cache vazio — rode test_pipeline_connector_to_cache primeiro")
 
     # Não faz nova requisição — apenas lê cache
     stats_before = live_cache.stats()
-    _ = live_cache.get(service="geosgb/gravimetria", key=cache_key)
+    _ = live_cache.get("ocorrencias", bbox_carajas_small)
     stats_after = live_cache.stats()
 
     # Total de entradas não mudou (sem insert)
