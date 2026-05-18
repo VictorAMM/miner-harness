@@ -102,14 +102,15 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
     ),
     AnalysisStep.TOTAL_INTEGRATION: (
         "PASSO 5 — INTEGRAÇÃO TOTAL\n"
-        "Integre os resultados dos 4 passos anteriores.\n"
-        "Produza:\n"
-        "- Síntese multidisciplinar coerente\n"
-        "- Lista ranqueada de alvos de prospecção\n"
-        "- Para cada alvo: localização, commodities, sistema mineral, "
-        "confiança, e justificativa integrada\n"
-        "- Limitações e lacunas de dados\n"
-        "- Recomendações de follow-up para cada alvo"
+        "Integre os resultados dos 4 passos anteriores em uma síntese multidisciplinar.\n"
+        'OBRIGATÓRIO: gere entre 1 e 5 alvos de prospecção no campo "targets".\n'
+        "Para cada alvo:\n"
+        "- Use coordenadas reais extraídas dos dados (longitude/latitude WGS84 do Brasil)\n"
+        '- Liste as commodities concretas (ex: ["Au", "Cu"], nunca ["Indeterminado"])\n'
+        "- Classifique o sistema mineral (IOCG, Ouro Orogênico, Pórfiro Cu-Au, BIF, etc.)\n"
+        "- Atribua prioridade 1 ao melhor alvo, 2 ao segundo, e assim por diante\n"
+        "- Justifique com evidências dos passos anteriores\n"
+        "- Sugira follow-up específico (sondagem, IP, mapeamento, etc.)"
     ),
 }
 
@@ -125,23 +126,39 @@ Responda OBRIGATORIAMENTE neste formato JSON:
   "confidence": "high|medium|low|insufficient",
   "data_sources_used": ["fonte1", "fonte2"],
   "data_gaps": ["dado faltante 1", "dado faltante 2"],
+  "targets": []
+}
+Nos passos 1-4, "targets" deve ser uma lista vazia."""
+
+_RESPONSE_FORMAT_EVALUATOR = """\
+Responda OBRIGATORIAMENTE neste formato JSON (sem texto fora do JSON):
+{
+  "summary": "Síntese multidisciplinar (3-5 frases)",
+  "findings": ["Evidência integrada 1", "Evidência integrada 2", ...],
+  "confidence": "high|medium|low|insufficient",
+  "data_sources_used": ["fonte1", "fonte2"],
+  "data_gaps": ["lacuna 1", "lacuna 2"],
   "targets": [
     {
-      "name": "Nome do Alvo",
-      "longitude": -50.0,
-      "latitude": -6.0,
+      "name": "Nome descritivo do Alvo",
+      "longitude": -44.5,
+      "latitude": -20.2,
       "radius_km": 5.0,
-      "commodities": ["Cu", "Au"],
+      "commodities": ["Au", "Cu"],
       "mineral_system": "IOCG",
-      "confidence": "medium",
-      "priority": 2,
-      "rationale": "Justificativa integrada...",
-      "recommended_followup": ["Ação 1", "Ação 2"]
+      "confidence": "high|medium|low",
+      "priority": 1,
+      "rationale": "Justificativa baseada nos 4 passos anteriores...",
+      "recommended_followup": ["Sondagem rotativa", "Levantamento IP"]
     }
   ]
 }
-O campo "targets" é obrigatório apenas no Passo 5 (Integração Total). \
-Nos demais passos, pode ser uma lista vazia."""
+REGRAS PARA "targets":
+- OBRIGATÓRIO: liste entre 1 e 5 alvos reais identificados nos dados
+- "priority": 1 = melhor alvo, 2 = segundo melhor, e assim por diante (nunca comece em 2)
+- "longitude" e "latitude": coordenadas WGS84 reais extraídas dos dados (dentro do bbox da região)
+- "commodities": metais concretos (["Au","Cu"], ["Fe","Mn"]) — NUNCA ["Indeterminado"]
+- "mineral_system": IOCG, Ouro Orogênico, Pórfiro Cu-Au, BIF, VMS, Epithermal, etc."""
 
 
 class PromptManager:
@@ -178,6 +195,11 @@ class PromptManager:
         """
         system = self.system_prompt(agent_name)
         instruction = _STEP_INSTRUCTIONS.get(step, "Analise os dados fornecidos.")
+        response_fmt = (
+            _RESPONSE_FORMAT_EVALUATOR
+            if step == AnalysisStep.TOTAL_INTEGRATION
+            else _RESPONSE_FORMAT
+        )
 
         user_content = f"{instruction}\n\n"
 
@@ -185,7 +207,7 @@ class PromptManager:
             user_content += f"<previous_analysis>\n{previous_results}\n</previous_analysis>\n\n"
 
         user_content += (
-            f"<geological_data>\n{geological_data}\n</geological_data>\n\n{_RESPONSE_FORMAT}"
+            f"<geological_data>\n{geological_data}\n</geological_data>\n\n{response_fmt}"
         )
 
         return [
