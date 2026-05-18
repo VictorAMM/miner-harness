@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # PyPI Trusted Publishing
 
 jobs:
   validate:
@@ -56,3 +57,23 @@ jobs:
 
             ${{ steps.changelog.outputs.changes }}
           generate_release_notes: true
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: validate
+    environment:
+      name: pypi
+      url: https://pypi.org/p/miner-harness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: pip install uv
+      - name: Build
+        run: uv build
+      - name: Publish to PyPI
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
