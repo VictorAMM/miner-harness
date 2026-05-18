@@ -118,8 +118,8 @@ def check_cache(cache_dir: Path) -> CheckResult:
     if not db_path.exists():
         return CheckResult(
             name="cache",
-            status=HealthStatus.DEGRADED,
-            message="Cache database not found (will be created on first use)",
+            status=HealthStatus.HEALTHY,
+            message="Cache not yet initialized (will be created on first use)",
             details={"path": str(db_path)},
         )
 
@@ -151,8 +151,8 @@ def check_index(index_dir: Path) -> CheckResult:
     if not db_path.exists():
         return CheckResult(
             name="index",
-            status=HealthStatus.DEGRADED,
-            message="Index not found (will be created on first use)",
+            status=HealthStatus.HEALTHY,
+            message="Index not yet initialized (will be created on first use)",
             details={"path": str(db_path)},
         )
 
@@ -188,10 +188,12 @@ def check_disk_space(miner_home: Path) -> CheckResult:
         total_gb = usage.total / (1024**3)
         pct_free = (usage.free / usage.total) * 100
 
-        if pct_free < 5:
+        # Thresholds: absoluto tem prioridade sobre percentual
+        # (em SSDs grandes >1TB, 4% livre pode ser 40GB — suficiente)
+        if free_gb < 2.0:
             status = HealthStatus.UNHEALTHY
-            msg = f"Critical: {free_gb:.1f}GB free ({pct_free:.0f}%)"
-        elif pct_free < 15:
+            msg = f"Critical: only {free_gb:.1f}GB free ({pct_free:.0f}%)"
+        elif free_gb < 5.0 or pct_free < 5:
             status = HealthStatus.DEGRADED
             msg = f"Low: {free_gb:.1f}GB free ({pct_free:.0f}%)"
         else:

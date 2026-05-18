@@ -79,7 +79,8 @@ class TestCheckCache:
 
     def test_no_db(self, tmp_path: Path) -> None:
         result = check_cache(tmp_path / "nonexistent")
-        assert result.status == HealthStatus.DEGRADED
+        assert result.status == HealthStatus.HEALTHY
+        assert "first use" in result.message
 
     def test_valid_db(self, tmp_path: Path) -> None:
         db_path = tmp_path / "cache.db"
@@ -102,7 +103,8 @@ class TestCheckIndex:
 
     def test_no_index(self, tmp_path: Path) -> None:
         result = check_index(tmp_path / "nonexistent")
-        assert result.status == HealthStatus.DEGRADED
+        assert result.status == HealthStatus.HEALTHY
+        assert "first use" in result.message
 
     def test_valid_index(self, tmp_path: Path) -> None:
         db_path = tmp_path / "documents.db"
@@ -119,12 +121,24 @@ class TestCheckIndex:
 class TestCheckDiskSpace:
     """Test disk space check."""
 
-    def test_disk_space_check(self, tmp_path: Path) -> None:
+    def test_healthy_when_plenty_free(self, tmp_path: Path) -> None:
         with patch("shutil.disk_usage") as mock_du:
             mock_du.return_value = MagicMock(free=50 * 1024**3, total=100 * 1024**3)
             result = check_disk_space(tmp_path)
-        assert result.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED)
-        assert "free" in result.message or "Cannot" in result.message
+        assert result.status == HealthStatus.HEALTHY
+
+    def test_degraded_when_low_pct_but_enough_gb(self, tmp_path: Path) -> None:
+        # 19 GB free but only 4% — DEGRADED (not UNHEALTHY)
+        with patch("shutil.disk_usage") as mock_du:
+            mock_du.return_value = MagicMock(free=19 * 1024**3, total=475 * 1024**3)
+            result = check_disk_space(tmp_path)
+        assert result.status == HealthStatus.DEGRADED
+
+    def test_unhealthy_when_below_2gb(self, tmp_path: Path) -> None:
+        with patch("shutil.disk_usage") as mock_du:
+            mock_du.return_value = MagicMock(free=1 * 1024**3, total=100 * 1024**3)
+            result = check_disk_space(tmp_path)
+        assert result.status == HealthStatus.UNHEALTHY
 
 
 class TestCheckOllama:

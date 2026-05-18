@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.9] — 2026-05-18
+
+### Corrigido
+
+- **`check_cache` / `check_index`**: estado "not found, will be created on first use" agora retorna `HEALTHY` em vez de `DEGRADED` — instalação nova é saudável por definição
+- **`check_disk_space`**: threshold absoluto tem prioridade sobre percentual; `UNHEALTHY` somente quando `< 2 GB` livres; `DEGRADED` quando `< 5 GB` ou `< 5%`; corrige falso positivo em SSDs grandes (ex.: 19 GB livres = 4% → DEGRADED, não UNHEALTHY)
+- **`miner-harness health`**: comando agora retorna `HEALTHY` em instalação limpa
+
 ## [0.1.8] — 2026-05-18
 
 ### Corrigido
