@@ -221,31 +221,25 @@ class Orchestrator:
     def _extract_targets(step_results: list[StepResult]) -> list[MineralTarget]:
         """Extrai MineralTargets do resultado do Evaluator.
 
-        O Evaluator (passo 5) deve incluir targets no seu resultado.
-        Se não houver dados estruturados, retorna lista vazia.
+        Usa os targets estruturados que o EvaluatorAgent extraiu do JSON do LLM.
+        Cai para _findings_to_targets() apenas se o LLM não retornou targets válidos.
         """
-        # Procurar resultado do TOTAL_INTEGRATION
         for result in step_results:
             if result.step == AnalysisStep.TOTAL_INTEGRATION:
-                # Tentar extrair targets dos findings
-                # Em produção, o Evaluator retornará JSON estruturado
-                # Por ora, retornamos targets placeholder baseados nos findings
+                if result.targets:
+                    return result.targets
                 return Orchestrator._findings_to_targets(result)
         return []
 
     @staticmethod
     def _findings_to_targets(evaluator_result: StepResult) -> list[MineralTarget]:
-        """Converte findings do Evaluator em MineralTargets.
-
-        Versão simplificada — em produção o Evaluator retornará
-        targets estruturados diretamente.
-        """
+        """Fallback: converte findings em targets genéricos quando o LLM não estruturou targets."""
         targets: list[MineralTarget] = []
         for i, finding in enumerate(evaluator_result.findings[:5], start=1):
             targets.append(
                 MineralTarget(
                     name=f"Alvo {i}",
-                    longitude=-50.0,  # Placeholder — será extraído do LLM
+                    longitude=-50.0,
                     latitude=-6.0,
                     radius_km=5.0,
                     commodities=["Indeterminado"],

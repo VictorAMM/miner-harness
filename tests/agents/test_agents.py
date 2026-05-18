@@ -198,6 +198,111 @@ class TestBaseAgentAnalyze:
         assert result.agent == "geophysicist"
 
 
+class TestEvaluatorTargetExtraction:
+    """Testes da extração de targets estruturados pelo EvaluatorAgent."""
+
+    def _make_evaluator(self) -> EvaluatorAgent:
+        mock_llm = AsyncMock(spec=OllamaClient)
+        return EvaluatorAgent(llm=mock_llm)
+
+    def _evaluator_json_with_targets(self) -> str:
+        return json.dumps(
+            {
+                "summary": "Integração completa — 3 alvos identificados.",
+                "findings": ["Anomalia de Cu-Au no setor NW", "Controle estrutural NW-SE"],
+                "confidence": "medium",
+                "data_sources_used": ["ocorrencias", "geoquimica"],
+                "data_gaps": [],
+                "targets": [
+                    {
+                        "name": "Alvo Cuiabá Norte",
+                        "longitude": -44.1,
+                        "latitude": -20.1,
+                        "radius_km": 3.0,
+                        "commodities": ["Au", "Cu"],
+                        "mineral_system": "Ouro Orogênico",
+                        "confidence": "medium",
+                        "priority": 1,
+                        "rationale": "Anomalia geoquímica de Au coincide com estrutura NW-SE.",
+                        "recommended_followup": ["Sondagem rotativa", "IP"],
+                    },
+                    {
+                        "name": "Alvo Serra Leste",
+                        "longitude": -50.2,
+                        "latitude": -6.3,
+                        "radius_km": 5.0,
+                        "commodities": ["Fe", "Mn"],
+                        "mineral_system": "BIF",
+                        "confidence": "high",
+                        "priority": 2,
+                        "rationale": "Ocorrência mineral de alto grau associada a BIF.",
+                        "recommended_followup": ["Mapeamento geológico"],
+                    },
+                ],
+            }
+        )
+
+    def test_evaluator_extracts_structured_targets(self) -> None:
+        agent = self._make_evaluator()
+        response = _mock_llm_response(self._evaluator_json_with_targets())
+        result = agent.parse_response(response, AnalysisStep.TOTAL_INTEGRATION)
+
+        assert len(result.targets) == 2
+        assert result.targets[0].name == "Alvo Cuiabá Norte"
+        assert result.targets[0].commodities == ["Au", "Cu"]
+        assert result.targets[0].mineral_system == "Ouro Orogênico"
+        assert result.targets[0].priority == 1
+        assert result.targets[1].name == "Alvo Serra Leste"
+        assert result.targets[1].commodities == ["Fe", "Mn"]
+
+    def test_evaluator_targets_empty_when_llm_omits_field(self) -> None:
+        agent = self._make_evaluator()
+        response = _mock_llm_response(_valid_json_response())
+        result = agent.parse_response(response, AnalysisStep.TECTONIC_HISTORY)
+        assert result.targets == []
+
+    def test_evaluator_targets_empty_when_targets_key_missing(self) -> None:
+        agent = self._make_evaluator()
+        content = json.dumps(
+            {
+                "summary": "Sem alvos definidos.",
+                "findings": [],
+                "confidence": "low",
+                "data_sources_used": [],
+                "data_gaps": ["Sem dados suficientes"],
+            }
+        )
+        response = _mock_llm_response(content)
+        result = agent.parse_response(response, AnalysisStep.TOTAL_INTEGRATION)
+        assert result.targets == []
+
+    def test_evaluator_skips_invalid_targets_gracefully(self) -> None:
+        """Targets com campos inválidos são ignorados; os válidos são mantidos."""
+        agent = self._make_evaluator()
+        content = json.dumps(
+            {
+                "summary": "Mixed targets.",
+                "findings": [],
+                "confidence": "medium",
+                "data_sources_used": [],
+                "data_gaps": [],
+                "targets": [
+                    {"name": "Bom", "longitude": -44.0, "latitude": -20.0, "radius_km": 2.0,
+                     "commodities": ["Au"], "mineral_system": "Ouro", "confidence": "high",
+                     "priority": 1, "rationale": "Válido", "recommended_followup": []},
+                    {"name": "Ruim — priority fora do range", "longitude": -44.0,
+                     "latitude": -20.0, "radius_km": 2.0, "commodities": [],
+                     "mineral_system": "X", "confidence": "high",
+                     "priority": 99, "rationale": "", "recommended_followup": []},
+                ],
+            }
+        )
+        response = _mock_llm_response(content)
+        result = agent.parse_response(response, AnalysisStep.TOTAL_INTEGRATION)
+        assert len(result.targets) == 1
+        assert result.targets[0].name == "Bom"
+
+
 class TestAgentDataKeys:
     """Testes que cada agente solicita dados corretos por passo."""
 
