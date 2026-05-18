@@ -263,7 +263,6 @@ class TestConnectorExtraction:
             mock_get.side_effect = responses
             results = await connector.geoquimica(bbox_small)
 
-        # Deve retornar resultados das layers que responderam
         assert len(results) >= 1
         await connector.close()
 
@@ -297,7 +296,6 @@ class TestConnectorExtraction:
         )
 
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
-            # 1ª chamada: query normal → 400; 2ª: returnIdsOnly; 3ª: objectIds batch
             mock_get.side_effect = [error_resp, ids_resp, attrs_resp]
             results = await connector.ocorrencias(bbox_small)
 
@@ -305,6 +303,7 @@ class TestConnectorExtraction:
         assert results[0].substancias == "Ferro"
         assert results[1].substancias == "Ouro"
         await connector.close()
+
 
     async def test_context_manager(self, fast_config: GeoSGBConfig) -> None:
         async with GeoSGBConnector(fast_config) as connector:
