@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.11] — 2026-05-18
+
+### Adicionado
+
+- **Extração de targets estruturados pelo `EvaluatorAgent`**: o campo `targets` do JSON já solicitado ao LLM agora é parseado e validado como `MineralTarget` — alvos reais (nome, commodities, sistema mineral, coordenadas) substituem os placeholders "Alvo N / Indeterminado"
+- **`StepResult.targets`**: novo campo opcional `list[MineralTarget]` (default `[]`) para carregar os targets extraídos pelo Evaluator
+
+### Corrigido
+
+- **`BaseAgent` default model**: `qwen3:8b-q4_K_M` → `qwen3:8b` (tag inexistente no Ollama sem pull específico)
+
 ## [0.1.10] — 2026-05-18
 
 ### Corrigido

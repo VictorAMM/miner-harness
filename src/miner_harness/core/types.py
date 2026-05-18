@@ -200,6 +200,7 @@ class StepResult(BaseModel):
     data_gaps: list[str]
     raw_reasoning: str
     duration_ms: int
+    targets: list[MineralTarget] = Field(default_factory=list)
 
 
 class MineralTarget(BaseModel):
