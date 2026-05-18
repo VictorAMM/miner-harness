@@ -45,7 +45,7 @@ class BaseAgent(ABC):
     def __init__(
         self,
         llm: OllamaClient,
-        model: str = "qwen3:8b-q4_K_M",
+        model: str = "qwen3:8b",
     ) -> None:
         self._llm = llm
         self._model = model
