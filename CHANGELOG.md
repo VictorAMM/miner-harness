@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12] — 2026-05-18
+
+### Corrigido
+
+- **Prompt Evaluator (Passo 5)**: formato de resposta dedicado — `targets` obrigatório, `priority=1` é o melhor alvo (LLM começava em 2), commodities concretas obrigatórias (nunca `["Indeterminado"]`), coordenadas reais do bbox
+- **Prompts passos 1–4**: `"targets": []` sem ruído de exemplos de alvos no formato de resposta
+
 ## [0.1.11] — 2026-05-18
 
 ### Adicionado
