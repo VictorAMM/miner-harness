@@ -110,7 +110,7 @@ class GeoSGBConfig(BaseModel):
     max_concurrent: int = 3
     max_retries: int = 3
     backoff_factor: float = 2.0
-    timeout_s: int = 30
+    timeout_s: int = 90
 
 
 # ---------------------------------------------------------------------------

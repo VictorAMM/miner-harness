@@ -267,6 +267,45 @@ class TestConnectorExtraction:
         assert len(results) >= 1
         await connector.close()
 
+    async def test_query_400_falls_back_to_ids(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Quando _query_features recebe error 400, faz fallback para _query_via_ids."""
+        connector = GeoSGBConnector(fast_config)
+
+        error_resp = {"error": {"code": 400, "message": "Unable to complete operation.", "details": []}}
+        ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [93362, 93363]}
+        attrs_resp = _make_query_response(
+            [
+                {
+                    "OBJECTID": 93362,
+                    "Substancias minerais": "Ferro",
+                    "Municipio": "Parauapebas",
+                    "UF": "PA",
+                    "longitude": -50.05,
+                    "latitude": -6.05,
+                },
+                {
+                    "OBJECTID": 93363,
+                    "Substancias minerais": "Ouro",
+                    "Municipio": "Parauapebas",
+                    "UF": "PA",
+                    "longitude": -50.06,
+                    "latitude": -6.06,
+                },
+            ]
+        )
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            # 1ª chamada: query normal → 400; 2ª: returnIdsOnly; 3ª: objectIds batch
+            mock_get.side_effect = [error_resp, ids_resp, attrs_resp]
+            results = await connector.ocorrencias(bbox_small)
+
+        assert len(results) == 2
+        assert results[0].substancias == "Ferro"
+        assert results[1].substancias == "Ouro"
+        await connector.close()
+
     async def test_context_manager(self, fast_config: GeoSGBConfig) -> None:
         async with GeoSGBConnector(fast_config) as connector:
             assert connector is not None

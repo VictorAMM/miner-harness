@@ -321,6 +321,16 @@ class GeoSGBConnector:
 
             if "error" in data:
                 err = data["error"]
+                if err.get("code") == 400 and offset == 0:
+                    # Alguns endpoints rejeitam outFields mas aceitam returnIdsOnly.
+                    # Fallback transparente para a abordagem de dois passos.
+                    logger.info(
+                        "geosgb_query_fallback_ids",
+                        service=endpoint.name,
+                        layer=layer_id,
+                        reason=err.get("message", ""),
+                    )
+                    return await self._query_via_ids(endpoint, layer=layer_id, bbox=bbox)
                 raise GeoSGBQueryError(
                     endpoint.name,
                     err.get("code", 0),
@@ -342,6 +352,95 @@ class GeoSGBConnector:
             if limit and len(all_features) >= limit:
                 break
             offset += len(features)
+
+        return all_features
+
+    async def _query_via_ids(
+        self,
+        endpoint: ServiceEndpoint,
+        layer: int = 0,
+        bbox: BoundingBox | None = None,
+        max_ids: int = 500,
+        batch_size: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Workaround para endpoints que rejeitam where+outFields queries.
+
+        Passo 1: obtém OIDs via returnIdsOnly (sem restrição de campos).
+        Passo 2: busca atributos em lotes via objectIds.
+        """
+        url = endpoint.query_url(layer)
+
+        ids_params: dict[str, str] = {
+            "f": "json",
+            "where": "1=1",
+            "returnIdsOnly": "true",
+            "resultRecordCount": str(max_ids),
+        }
+        if bbox is not None:
+            ids_params["geometry"] = f"{bbox.lon_min},{bbox.lat_min},{bbox.lon_max},{bbox.lat_max}"
+            ids_params["geometryType"] = "esriGeometryEnvelope"
+            ids_params["inSR"] = "4326"
+            ids_params["spatialRel"] = "esriSpatialRelIntersects"
+
+        try:
+            ids_data = await self._client.get(url, params=ids_params)
+        except httpx.HTTPStatusError as exc:
+            raise GeoSGBQueryError(endpoint.name, exc.response.status_code, str(exc)) from exc
+
+        if "error" in ids_data:
+            err = ids_data["error"]
+            raise GeoSGBQueryError(endpoint.name, err.get("code", 0), err.get("message", ""))
+
+        object_ids: list[int] = ids_data.get("objectIds") or []
+        if not object_ids:
+            return []
+
+        logger.info(
+            "geosgb_ids_fetch",
+            service=endpoint.name,
+            layer=layer,
+            ids_count=len(object_ids),
+        )
+
+        all_features: list[dict[str, Any]] = []
+        for i in range(0, len(object_ids), batch_size):
+            batch = object_ids[i : i + batch_size]
+            batch_params: dict[str, str] = {
+                "objectIds": ",".join(str(oid) for oid in batch),
+                "outFields": "*",
+                "returnGeometry": "true",
+                "outSR": "4326",
+                "f": "json",
+            }
+            try:
+                batch_data = await self._client.get(url, params=batch_params)
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "geosgb_ids_batch_failed",
+                    service=endpoint.name,
+                    layer=layer,
+                    batch_start=i,
+                    error=str(exc),
+                )
+                continue
+
+            if "error" in batch_data:
+                logger.warning(
+                    "geosgb_ids_batch_error",
+                    service=endpoint.name,
+                    layer=layer,
+                    batch_start=i,
+                    error=batch_data["error"].get("message", ""),
+                )
+                continue
+
+            for feat in batch_data.get("features", []):
+                attrs = feat.get("attributes", {})
+                geom = feat.get("geometry", {})
+                if geom:
+                    attrs["longitude"] = geom.get("x")
+                    attrs["latitude"] = geom.get("y")
+                all_features.append(attrs)
 
         return all_features
 

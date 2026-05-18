@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4] — 2026-05-17
+
+### Corrigido
+
+- **Fallback `_query_via_ids`**: `geologia/ocorrencias`, `geoquimica/geoquimica_integrada` e `geologia/geocronologia` retornam HTTP 200 com `{"error":{"code":400}}` para qualquer query com `outFields`, mas aceitam `returnIdsOnly=true`. Novo método `_query_via_ids` faz dois passos: (1) obtém OIDs via `returnIdsOnly` com filtro de BBOX, (2) busca atributos em lotes via `objectIds=...`. O fallback é ativado automaticamente em `_query_features` quando detecta error 400 na resposta.
+- **Timeout aumentado de 30s para 90s**: serviços com polígonos complexos (`litoestratigrafia_1000000`, `aerogeofisica`) precisam de mais tempo de resposta do servidor.
+
 ## [0.1.3] — 2026-05-17
 
 ### Corrigido
