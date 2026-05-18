@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.6] — 2026-05-17
+
+### Corrigido
+
+- **`context_builder`: cache de falhas de serviço**: quando um serviço GeoSGB lança exceção (ex: `litoestratigrafia` com 503), o resultado vazio agora é persistido no cache tal como uma resposta normal. Sem isso, cada execução desperdiçava ~60s esperando o timeout do serviço quebrado.
+
 ## [0.1.5] — 2026-05-17
 
 ### Corrigido
