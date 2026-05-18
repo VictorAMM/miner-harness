@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.7] — 2026-05-18
+
+### Corrigido
+
+- **Suite e2e robustez**: `GeoSGBConnectionError` agora converte em `pytest.skip` via `hookwrapper` no conftest — API GeoSGB tem disponibilidade intermitente, falha de conexão não deve marcar o sistema como quebrado
+- **Gravimetria em Carajás**: `assert len > 0` substituído por `pytest.skip` quando sem cobertura (confirmado: serviço não tem dados nessa BBox)
+- **Threshold de contagem total**: `>100 000` → `>20 000` (base real tem ~36 k ocorrências em 2026-05)
+- **`pytest-timeout>=2.3`**: adicionado em `[dev]` e `[dependency-groups]` (era usado em `e2e.yml` mas não declarado como dependência)
+- **`release.yml`**: publish simplificado — `uv publish` usa Trusted Publishing (OIDC) quando `PYPI_API_TOKEN` não está configurado
+
 ## [0.1.6] — 2026-05-17
 
 ### Corrigido
