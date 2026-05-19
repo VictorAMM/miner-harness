@@ -15,8 +15,10 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+from unittest.mock import patch
+
 from miner_harness.cache.manager import CacheManager
-from miner_harness.core.config import MinerHarnessConfig, StorageConfig
+from miner_harness.core.config import MinerHarnessConfig, OrchestratorConfig, StorageConfig
 from miner_harness.core.exceptions import InsufficientDataError
 from miner_harness.core.types import (
     AnalysisStep,
@@ -313,3 +315,198 @@ class TestOrchestratorHelpers:
         assert targets[0].priority == 1
         assert targets[1].priority == 2
         assert "Cu anomaly" in targets[0].rationale
+
+
+class TestOrchestratorRag:
+    """Testes do caminho RAG no Orchestrator."""
+
+    @pytest.fixture
+    def no_rag_config(self) -> MinerHarnessConfig:
+        return MinerHarnessConfig(
+            orchestrator=OrchestratorConfig(use_rag=False),
+        )
+
+    def test_rag_disabled_search_engine_is_none(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        no_rag_config: MinerHarnessConfig,
+    ) -> None:
+        orch = Orchestrator(mock_connector, cache, mock_llm, no_rag_config)
+        assert orch._search_engine is None
+
+    def test_rag_init_failure_is_swallowed(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+    ) -> None:
+        """Se SearchEngine falhar durante init, o Orchestrator continua sem RAG."""
+        with patch(
+            "miner_harness.index.search_engine.SearchEngine",
+            side_effect=RuntimeError("sqlite-vec indisponível"),
+        ):
+            orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        assert orch._search_engine is None
+
+    @pytest.mark.asyncio
+    async def test_rag_context_failure_is_swallowed(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        """Se get_context() falhar durante um passo, o agente recebe dados sem RAG."""
+        _populate_cache(cache, bbox)
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+
+        if orch._search_engine is not None:
+            orch._search_engine.get_context = AsyncMock(
+                side_effect=RuntimeError("embedding falhou")
+            )
+
+        report = await orch.analyze_region(
+            bbox,
+            "Test RAG Failure",
+            steps=[AnalysisStep.TECTONIC_HISTORY],
+        )
+        assert len(report.steps) == 1
+
+    @pytest.mark.asyncio
+    async def test_rag_context_injected_when_available(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        """Se search_engine retornar contexto, o agente recebe 'rag_context' nos dados."""
+        _populate_cache(cache, bbox)
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+
+        if orch._search_engine is None:
+            mock_engine = MagicMock()
+            mock_engine.get_context = AsyncMock(return_value="Contexto RAG de teste")
+            orch._search_engine = mock_engine
+
+        captured_data: dict = {}
+        original_analyze = orch._agents["structural_geologist"].analyze
+
+        async def capture_analyze(step: AnalysisStep, data: dict, prev=None) -> StepResult:
+            captured_data.update(data)
+            return await original_analyze(step, data, prev)
+
+        orch._agents["structural_geologist"].analyze = capture_analyze
+
+        orch._search_engine.get_context = AsyncMock(return_value="Contexto RAG de teste")
+
+        await orch.analyze_region(
+            bbox,
+            "Test RAG Context",
+            steps=[AnalysisStep.TECTONIC_HISTORY],
+        )
+        assert "rag_context" in captured_data
+        assert captured_data["rag_context"][0]["text"] == "Contexto RAG de teste"
+
+
+class TestOrchestratorEdgeCases:
+    """Testes de edge cases e caminhos de erro."""
+
+    def test_get_agent_for_step_invalid_raises(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+    ) -> None:
+        """get_agent_for_step com step sem agentes levanta ValueError."""
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        fake_step = MagicMock(spec=AnalysisStep)
+        fake_step.value = "nonexistent_step"
+        with (
+            patch.dict(
+                "miner_harness.orchestrator.orchestrator._STEP_AGENTS",
+                {fake_step: []},
+            ),
+            pytest.raises(ValueError, match="No agents for step"),
+        ):
+            orch.get_agent_for_step(fake_step)
+
+    @pytest.mark.asyncio
+    async def test_execute_step_no_agents_raises(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        """_execute_step com step sem agentes configurados levanta ValueError."""
+        _populate_cache(cache, bbox)
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        fake_step = MagicMock(spec=AnalysisStep)
+        fake_step.value = "no_agent_step"
+        with (
+            patch.dict(
+                "miner_harness.orchestrator.orchestrator._STEP_AGENTS",
+                {fake_step: []},
+            ),
+            pytest.raises(ValueError, match="No agents configured"),
+        ):
+            await orch._execute_step(fake_step, {}, [])
+
+    def test_extract_targets_no_integration_step(self) -> None:
+        """_extract_targets retorna [] quando não há passo TOTAL_INTEGRATION."""
+        results = [
+            StepResult(
+                step=AnalysisStep.TECTONIC_HISTORY,
+                agent="structural_geologist",
+                summary="ok",
+                findings=[],
+                confidence=Confidence.MEDIUM,
+                data_sources_used=[],
+                data_gaps=[],
+                raw_reasoning="",
+                duration_ms=0,
+            )
+        ]
+        assert Orchestrator._extract_targets(results) == []
+
+    def test_extract_targets_returns_structured_targets(self) -> None:
+        """_extract_targets retorna targets do step TOTAL_INTEGRATION quando presentes."""
+        from miner_harness.core.types import Confidence, MineralTarget
+
+        target = MineralTarget(
+            name="Alvo Teste",
+            longitude=-50.0,
+            latitude=-6.0,
+            radius_km=5.0,
+            commodities=["Au"],
+            mineral_system="Orogênico",
+            confidence=Confidence.HIGH,
+            priority=1,
+            rationale="Anomalia",
+            recommended_followup=[],
+        )
+        results = [
+            StepResult(
+                step=AnalysisStep.TOTAL_INTEGRATION,
+                agent="evaluator",
+                summary="ok",
+                findings=[],
+                confidence=Confidence.HIGH,
+                data_sources_used=[],
+                data_gaps=[],
+                raw_reasoning="",
+                duration_ms=0,
+                targets=[target],
+            )
+        ]
+        extracted = Orchestrator._extract_targets(results)
+        assert len(extracted) == 1
+        assert extracted[0].name == "Alvo Teste"
