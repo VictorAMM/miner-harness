@@ -140,8 +140,9 @@ class TestOrchestratorPipeline:
             assert step_result.confidence in list(Confidence)
             assert step_result.duration_ms >= 0
 
-        # LLM was called 5 times (once per step)
-        assert mock_llm.chat.call_count == 5
+        # LLM called once per agent invocation:
+        # step1(1) + step2(1) + step3(2) + step4(3) + step5(1) = 8
+        assert mock_llm.chat.call_count == 8
 
     @pytest.mark.asyncio
     async def test_context_builder_caches_fetched_data(
