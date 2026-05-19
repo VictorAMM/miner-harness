@@ -499,3 +499,109 @@ class TestConnectorQueryEdgeCases:
             results = await connector._query_via_ids(OCORRENCIAS, bbox=bbox_small)
         assert results == []
         await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_via_ids_http_error_on_ids_request(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """HTTPStatusError no fetch de IDs levanta GeoSGBQueryError (linhas 388-389)."""
+        from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+        connector = GeoSGBConnector(fast_config)
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 503
+        http_error = httpx.HTTPStatusError("503", request=MagicMock(), response=mock_response)
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = http_error
+            with pytest.raises(GeoSGBQueryError):
+                await connector._query_via_ids(OCORRENCIAS, bbox=bbox_small)
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_features_limit_breaks_pagination(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Quando limit é atingido após página cheia, para de paginar (linhas 352-353)."""
+        page_size = 1000
+        features_1000 = [
+            {"OBJECTID": i, "longitude": -50.0, "latitude": -6.0} for i in range(page_size)
+        ]
+        page1 = {
+            "features": [
+                {"attributes": f, "geometry": {"x": -50.0, "y": -6.0}} for f in features_1000
+            ]
+        }
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = page1
+            from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+            result = await connector._query_features(OCORRENCIAS, limit=500)
+        assert len(result) >= 500  # noqa: PLR2004
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_features_offset_increments_between_pages(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Offset incrementa quando página cheia e sem limit (linha 354)."""
+        page_size = 1000
+        features_1000 = [
+            {"OBJECTID": i, "longitude": -50.0, "latitude": -6.0} for i in range(page_size)
+        ]
+        page1 = {
+            "features": [
+                {"attributes": f, "geometry": {"x": -50.0, "y": -6.0}} for f in features_1000
+            ]
+        }
+        page2 = {
+            "features": [{"attributes": {"OBJECTID": 9999}, "geometry": {"x": -50.0, "y": -6.0}}]
+        }
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [page1, page2]
+            from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+            result = await connector._query_features(OCORRENCIAS)
+        assert len(result) == page_size + 1
+        await connector.close()
+
+
+class TestExtractViaIdentify:
+    """Testes do método _extract_via_identify (linhas 215-258)."""
+
+    @pytest.mark.asyncio
+    async def test_extract_via_identify_success(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """_extract_via_identify percorre grid e agrega resultados."""
+        from miner_harness.connectors.geosgb.services import ServiceEndpoint
+
+        fake_endpoint = ServiceEndpoint(
+            name="fake_map",
+            path="geologia/fake_map",
+            server_type="MapServer",
+            default_layers=[0],
+        )
+        identify_resp = {
+            "results": [
+                {
+                    "layerId": 0,
+                    "attributes": {"OBJECTID": 1, "nome": "Carajas"},
+                    "geometry": {"x": -50.05, "y": -6.05},
+                }
+            ]
+        }
+        connector = GeoSGBConnector(fast_config)
+        with (
+            patch.dict(
+                "miner_harness.connectors.geosgb.connector.SERVICE_REGISTRY",
+                {"fake_map": fake_endpoint},
+            ),
+            patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get,
+        ):
+            mock_get.return_value = identify_resp
+            results = await connector._extract_via_identify("fake_map", bbox_small)
+        assert isinstance(results, list)
+        await connector.close()

@@ -168,3 +168,11 @@ class TestApplyRecommendations:
         rec = TunerRecommendation("geosgb.min_delay_ms", 500, 600, "r", "medium")
         new_cfg = apply_recommendations(cfg, [rec])
         assert new_cfg.geosgb.min_delay_ms == 600  # noqa: PLR2004
+
+    def test_parameter_without_dot_is_skipped(self) -> None:
+        """Parâmetro sem ponto é ignorado com continue (linha 123)."""
+        cfg = _cfg(max_tokens=4096)
+        rec = TunerRecommendation("noDotParameter", 4096, 2048, "x", "low")
+        new_cfg = apply_recommendations(cfg, [rec])
+        # Config não deve ter mudado
+        assert new_cfg.orchestrator.max_tokens_per_step == 4096  # noqa: PLR2004

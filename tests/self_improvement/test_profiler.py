@@ -101,6 +101,14 @@ class TestIdentifyBottlenecks:
         durations_list = [b.duration_ms for b in result]
         assert durations_list == sorted(durations_list, reverse=True)
 
+    def test_medium_severity_bottleneck(self) -> None:
+        """Step is_slow mas pct<=40% → severity='medium' (linhas 159-160)."""
+        # slow=300 (30% < 40%), avg=142, 300>284=is_slow → medium
+        durations = {"slow": 300, "a": 116, "b": 116, "c": 116, "d": 116, "e": 116, "f": 120}
+        result = identify_bottlenecks(durations, 1000)
+        medium_steps = [b for b in result if b.severity == "medium"]
+        assert len(medium_steps) >= 1
+
     def test_pct_of_total_computed(self) -> None:
         durations = {"big": 700, "small": 300}
         result = identify_bottlenecks(durations, 1000)

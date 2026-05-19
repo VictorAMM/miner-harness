@@ -99,6 +99,16 @@ class TestMetricsCollector:
         assert m.overall_cache_hit_rate == 0.5
 
 
+class TestCacheMetricsHitRate:
+    """Testa CacheMetrics.hit_rate quando total=0 (linha 57)."""
+
+    def test_hit_rate_zero_when_no_traffic(self) -> None:
+        from miner_harness.observability.metrics import CacheMetrics
+
+        m = CacheMetrics()  # hits=0, misses=0 → total=0
+        assert m.hit_rate == 0.0
+
+
 class TestMetricsSingleton:
     """Test get_metrics/reset_metrics."""
 
