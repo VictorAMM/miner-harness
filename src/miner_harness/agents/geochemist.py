@@ -21,5 +21,7 @@ class GeochemistAgent(BaseAgent):
 
     def _get_relevant_data_keys(self, step: AnalysisStep) -> list[str]:
         if step == AnalysisStep.MAGMATIC_FERTILITY:
-            return ["geoquimica", "ocorrencias", "geocronologia"]
-        return ["geoquimica", "ocorrencias"]
+            # anm: concessões indicam mineralização conhecida na região
+            return ["geoquimica", "ocorrencias", "geocronologia", "anm"]
+        # anm: sobreposição com concessões = indicador de exploração ativa
+        return ["geoquimica", "ocorrencias", "anm"]

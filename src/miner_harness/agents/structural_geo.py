@@ -21,5 +21,6 @@ class StructuralGeoAgent(BaseAgent):
 
     def _get_relevant_data_keys(self, step: AnalysisStep) -> list[str]:
         if step == AnalysisStep.TECTONIC_HISTORY:
-            return ["litoestratigrafia", "geocronologia", "ocorrencias"]
-        return ["litoestratigrafia", "ocorrencias", "aerogeofisica"]
+            # usgs: sismicidade revela falhas ativas e estruturas tectônicas
+            return ["litoestratigrafia", "geocronologia", "ocorrencias", "usgs"]
+        return ["litoestratigrafia", "ocorrencias", "aerogeofisica", "usgs"]

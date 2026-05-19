@@ -19,4 +19,5 @@ class RemoteSensingAgent(BaseAgent):
     ]
 
     def _get_relevant_data_keys(self, step: AnalysisStep) -> list[str]:
-        return ["aerogeofisica", "litoestratigrafia", "ocorrencias"]
+        # anm: concessões ativas = proxy para exploração de anomalias espectrais conhecidas
+        return ["aerogeofisica", "litoestratigrafia", "ocorrencias", "anm"]
