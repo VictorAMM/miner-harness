@@ -196,6 +196,7 @@ class Orchestrator:
             data_quality_score=self._compute_quality(step_results, geological_data),
             total_duration_ms=total_ms,
             model_used=self._config.orchestrator.model,
+            geological_data=geological_data,
         )
 
         logger.info(

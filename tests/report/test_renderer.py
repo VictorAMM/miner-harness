@@ -230,3 +230,126 @@ class TestHtmlReportRenderer:
         HtmlReportRenderer().render_to_file(sample_report, out)
         content = out.read_text(encoding="utf-8")
         assert "np-submit" not in content
+
+
+class TestDadosTabAndMapLayers:
+    """Testes para a aba Dados e camadas ANM/USGS no mapa."""
+
+    def _make_report_with_geo(self) -> ProspectionReport:
+        from datetime import UTC, datetime
+
+        from miner_harness.core.types import BoundingBox, Confidence, StepResult
+
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        return ProspectionReport(
+            region_name="Região Teste",
+            bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 19, 10, 0, tzinfo=UTC),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.5,
+            total_duration_ms=1000,
+            model_used="qwen3:8b",
+            geological_data={
+                "anm": [
+                    {
+                        "objectid": 0,
+                        "processo": "860384/2007",
+                        "fase": "Concessão de Lavra",
+                        "nome_titular": "Empresa Teste SA",
+                        "substancias": "FERRO",
+                        "uf": "PA",
+                        "area_ha": 1500.0,
+                        "ano": 2007,
+                        "coordenada": {
+                            "longitude": -50.5,
+                            "latitude": -6.5,
+                            "datum": "WGS84",
+                        },
+                    }
+                ],
+                "usgs": [
+                    {
+                        "objectid": 0,
+                        "magnitude": 3.2,
+                        "profundidade_km": 10.0,
+                        "lugar": "50 km S of Altamira",
+                        "timestamp_ms": 1716105600000,
+                        "coordenada": {
+                            "longitude": -50.5,
+                            "latitude": -6.5,
+                            "datum": "WGS84",
+                        },
+                    }
+                ],
+            },
+        )
+
+    def test_html_contains_dados_tab_button(self) -> None:
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "tab-dados" in html
+        assert "Dados" in html
+
+    def test_html_contains_anm_map_layer_code(self) -> None:
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "anmLayers" in html
+        assert "7c3aed" in html  # ANM violet color
+
+    def test_html_contains_usgs_map_layer_code(self) -> None:
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "usgsLayers" in html
+        assert "ea580c" in html  # USGS orange color
+
+    def test_geological_data_embedded_in_report_json(self) -> None:
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "860384/2007" in html  # ANM processo embedded in JSON
+        assert "Altamira" in html  # USGS lugar embedded in JSON
+
+    def test_report_without_geological_data_still_renders(self) -> None:
+        from datetime import UTC, datetime
+
+        from miner_harness.core.types import BoundingBox, Confidence, StepResult
+
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        report = ProspectionReport(
+            region_name="Sem Dados",
+            bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 19, 10, 0, tzinfo=UTC),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.5,
+            total_duration_ms=1000,
+            model_used="qwen3:8b",
+            geological_data=None,
+        )
+        html = HtmlReportRenderer().render(report)
+        assert "<!DOCTYPE html>" in html.lower() or "<!doctype html>" in html.lower()
+        assert "tab-dados" in html

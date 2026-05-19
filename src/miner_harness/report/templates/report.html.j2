@@ -671,12 +671,14 @@ aside {
     <button class="tab-btn active" data-tab="analise">📊 Análise</button>
     <button class="tab-btn" data-tab="alvos">🎯 Alvos</button>
     <button class="tab-btn" data-tab="qualidade">📈 Qualidade</button>
+    <button class="tab-btn" data-tab="dados">🗂️ Dados</button>
     <button class="tab-btn" data-tab="json">{ } JSON</button>
   </div>
   <div class="tab-contents">
     <div class="tab-pane active" id="tab-analise"></div>
     <div class="tab-pane" id="tab-alvos"></div>
     <div class="tab-pane" id="tab-qualidade"></div>
+    <div class="tab-pane" id="tab-dados"></div>
     <div class="tab-pane" id="tab-json"></div>
   </div>
 </div>
@@ -818,6 +820,8 @@ L.control.layers(
 let bboxLayer = null;
 let bboxVisible = true;
 let targetLayers = [];
+let anmLayers = [];
+let usgsLayers = [];
 
 function createPriorityIcon(priority) {
   const color = PRIORITY_COLORS[priority] || '#6b7280';
@@ -857,6 +861,10 @@ function renderMapForReport(r) {
   if (bboxLayer) { map.removeLayer(bboxLayer); bboxLayer = null; }
   targetLayers.forEach(function(l) { map.removeLayer(l.marker); map.removeLayer(l.circle); });
   targetLayers = [];
+  anmLayers.forEach(function(l) { map.removeLayer(l); });
+  anmLayers = [];
+  usgsLayers.forEach(function(l) { map.removeLayer(l); });
+  usgsLayers = [];
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -881,6 +889,45 @@ function renderMapForReport(r) {
     marker.bindPopup(buildPopup(t), { maxWidth: 280 });
     marker.addTo(map);
     targetLayers.push({marker, circle, target: t, idx});
+  });
+
+  // Adicionar camadas ANM — concessões minerárias (pontos violetas)
+  var geo = r.geological_data || {};
+  var anmRecords = geo['anm'] || [];
+  anmRecords.forEach(function(c) {
+    var coord = c.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var fase = c.fase || 'Concessão';
+    var processo = c.processo || '';
+    var substancias = c.substancias || '';
+    var popup = '<b style="color:#7c3aed">ANM/SIGMINE</b><br>' +
+      '<b>' + fase + '</b>' +
+      (processo ? '<br>Processo: ' + processo : '') +
+      (substancias ? '<br>Substâncias: ' + substancias : '') +
+      (c.nome_titular ? '<br>Titular: ' + c.nome_titular : '') +
+      (c.area_ha ? '<br>Área: ' + c.area_ha.toFixed(1) + ' ha' : '');
+    var marker = L.circleMarker([coord.latitude, coord.longitude], {
+      radius: 5, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.5, weight: 1.5,
+    }).bindPopup(popup).addTo(map);
+    anmLayers.push(marker);
+  });
+
+  // Adicionar camadas USGS — eventos sísmicos (pontos laranja, tamanho ∝ magnitude)
+  var usgsRecords = geo['usgs'] || [];
+  usgsRecords.forEach(function(e) {
+    var coord = e.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var mag = e.magnitude || 0;
+    var radius = Math.max(4, mag * 2.5);
+    var popup = '<b style="color:#ea580c">USGS — Sismo</b><br>' +
+      'Magnitude: <b>M' + mag.toFixed(1) + '</b><br>' +
+      'Profundidade: ' + e.profundidade_km.toFixed(1) + ' km<br>' +
+      (e.lugar ? 'Local: ' + e.lugar + '<br>' : '') +
+      'ID: ' + e.objectid;
+    var marker = L.circleMarker([coord.latitude, coord.longitude], {
+      radius: radius, color: '#ea580c', fillColor: '#f97316', fillOpacity: 0.55, weight: 1.5,
+    }).bindPopup(popup).addTo(map);
+    usgsLayers.push(marker);
   });
 
   setupMapControls(bboxBounds);
@@ -1247,6 +1294,79 @@ function renderJsonTab(r) {
 // ============================================================
 // MASTER RENDER — chamado no load e após cada nova análise
 // ============================================================
+
+// ============================================================
+// TAB DADOS — concessões ANM e sismos USGS
+// ============================================================
+function renderDadosTab(r) {
+  var el = document.getElementById('tab-dados');
+  var geo = r.geological_data || {};
+  var anm = geo['anm'] || [];
+  var usgs = geo['usgs'] || [];
+
+  var html = '<div style="padding:1rem">';
+
+  // --- ANM ---
+  html += '<h3 style="margin:0 0 .5rem;color:#7c3aed">🏗️ ANM/SIGMINE — Concessões Minerárias</h3>';
+  if (!anm.length) {
+    html += '<p style="color:#6b7280">Sem concessões minerárias para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + anm.length + ' concessão(ões) encontrada(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#f3f0ff">';
+    ['Processo','Fase','Titular','Substâncias','UF','Área (ha)','Ano'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #7c3aed22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    anm.slice(0, 50).forEach(function(c, i) {
+      var bg = i % 2 ? '#f9f7ff' : '#fff';
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem">' + (c.processo || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (c.fase || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (c.nome_titular || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (c.substancias || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (c.uf || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (c.area_ha != null ? Number(c.area_ha).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (c.ano || '—') + '</td>';
+      html += '</tr>';
+    });
+    if (anm.length > 50) html += '<tr><td colspan="7" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (anm.length - 50) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- USGS ---
+  html += '<h3 style="margin:0 0 .5rem;color:#ea580c">🌋 USGS — Eventos Sísmicos</h3>';
+  if (!usgs.length) {
+    html += '<p style="color:#6b7280">Sem eventos sísmicos para esta região (mag ≥ ' + (r.usgs_min_magnitude || 2.0) + ').</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + usgs.length + ' evento(s) sísmico(s) encontrado(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#fff7ed">';
+    ['Magnitude','Profundidade (km)','Local','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #ea580c22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    usgs.slice(0, 50).forEach(function(e, i) {
+      var bg = i % 2 ? '#fffbf7' : '#fff';
+      var coord = e.coordenada || {};
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:700;color:#ea580c">M' + Number(e.magnitude).toFixed(1) + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + Number(e.profundidade_km).toFixed(1) + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (e.lugar || '—') + '</td>';
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (usgs.length > 50) html += '<tr><td colspan="4" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (usgs.length - 50) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
 function renderDashboard(r) {
   CURRENT_REPORT = r;
   renderHeader(r);
@@ -1255,6 +1375,7 @@ function renderDashboard(r) {
   renderCaveats(r);
   renderAnaliseTab(r);
   renderAlvosTab(r);
+  renderDadosTab(r);
   renderJsonTab(r);
   if (window._chartsInited) { renderQualityCharts(r); }
   renderMapForReport(r);
