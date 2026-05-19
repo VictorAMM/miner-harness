@@ -149,3 +149,97 @@ class TestSummarizePreviousResults:
     def test_empty_results(self) -> None:
         summary = PromptManager.summarize_previous_results([])
         assert summary == ""
+
+
+class TestANMUSGSPromptGuidance:
+    """Testes que os prompts dos agentes mencionam ANM/USGS corretamente."""
+
+    def setup_method(self) -> None:
+        self.pm = PromptManager()
+
+    # System prompts --------------------------------------------------------
+
+    def test_structural_geologist_mentions_usgs(self) -> None:
+        prompt = self.pm.system_prompt("structural_geologist")
+        assert "USGS" in prompt
+        assert "falhas ativas" in prompt
+
+    def test_geophysicist_mentions_usgs(self) -> None:
+        prompt = self.pm.system_prompt("geophysicist")
+        assert "USGS" in prompt
+        assert "sismos" in prompt
+
+    def test_geochemist_mentions_anm(self) -> None:
+        prompt = self.pm.system_prompt("geochemist")
+        assert "ANM" in prompt
+        assert "concessões" in prompt.lower()
+
+    def test_remote_sensing_mentions_anm(self) -> None:
+        prompt = self.pm.system_prompt("remote_sensing")
+        assert "ANM" in prompt
+        assert "concessões" in prompt.lower()
+
+    def test_evaluator_mentions_both(self) -> None:
+        prompt = self.pm.system_prompt("evaluator")
+        assert "ANM" in prompt
+        assert "USGS" in prompt
+
+    # Step instructions -----------------------------------------------------
+
+    def test_tectonic_history_instruction_mentions_usgs(self) -> None:
+        pm = PromptManager()
+        msgs = pm.build_messages(
+            "structural_geologist",
+            AnalysisStep.TECTONIC_HISTORY,
+            geological_data="<test/>",
+        )
+        user_content = msgs[1].content
+        assert "USGS" in user_content
+        assert "sismicidade" in user_content
+
+    def test_structural_architecture_instruction_mentions_usgs(self) -> None:
+        pm = PromptManager()
+        msgs = pm.build_messages(
+            "structural_geologist",
+            AnalysisStep.STRUCTURAL_ARCHITECTURE,
+            geological_data="<test/>",
+        )
+        user_content = msgs[1].content
+        assert "USGS" in user_content
+        assert "focal" in user_content
+
+    def test_magmatic_fertility_instruction_mentions_anm_and_usgs(self) -> None:
+        pm = PromptManager()
+        msgs = pm.build_messages(
+            "geochemist",
+            AnalysisStep.MAGMATIC_FERTILITY,
+            geological_data="<test/>",
+        )
+        user_content = msgs[1].content
+        assert "ANM" in user_content
+        assert "Lavra" in user_content
+        assert "USGS" in user_content
+
+    def test_indirect_evidence_instruction_mentions_anm_and_usgs(self) -> None:
+        pm = PromptManager()
+        msgs = pm.build_messages(
+            "geochemist",
+            AnalysisStep.INDIRECT_EVIDENCE,
+            geological_data="<test/>",
+        )
+        user_content = msgs[1].content
+        assert "ANM" in user_content
+        assert "USGS" in user_content
+        assert "Pesquisa" in user_content
+
+    def test_total_integration_instruction_mentions_anm_and_usgs(self) -> None:
+        pm = PromptManager()
+        msgs = pm.build_messages(
+            "evaluator",
+            AnalysisStep.TOTAL_INTEGRATION,
+            geological_data="<test/>",
+        )
+        user_content = msgs[1].content
+        assert "ANM" in user_content
+        assert "USGS" in user_content
+        assert "regulatório" in user_content
