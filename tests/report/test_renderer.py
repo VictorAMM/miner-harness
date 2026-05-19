@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import pytest
@@ -62,7 +62,7 @@ def sample_report(sample_target: MineralTarget, sample_step: StepResult) -> Pros
     return ProspectionReport(
         region_name="Carajás",
         bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-        analysis_date=datetime(2026, 5, 18, 10, 0, 0, tzinfo=UTC),
+        analysis_date=datetime(2026, 5, 18, 10, 0, 0, tzinfo=timezone.utc),
         steps=[sample_step],
         targets=[sample_target],
         integrated_summary="Região com alto potencial para IOCG.",
@@ -137,7 +137,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Vazio",
             bbox=BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
             steps=[],
             targets=[],
             integrated_summary="Sem dados.",
@@ -172,7 +172,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Multi",
             bbox=BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
             steps=[sample_step],
             targets=targets,
             integrated_summary="Três alvos.",
@@ -190,7 +190,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Test <script>alert(1)</script>",
             bbox=BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
             steps=[],
             targets=[],
             integrated_summary="",
@@ -203,3 +203,34 @@ class TestHtmlReportRenderer:
         # O JSON embute os dados raw, mas o JS usa esc() para renderizar no DOM
         # O region_name aparece no JSON (não em HTML diretamente fora do script)
         assert "</html>" in html  # renderizou sem erro
+
+    def test_render_serve_mode_contains_nova_pesquisa(
+        self, sample_report: ProspectionReport
+    ) -> None:
+        html = HtmlReportRenderer().render(sample_report, serve_mode=True)
+        assert "np-submit" in html
+        assert "Nova Pesquisa" in html
+        assert "progress-overlay" in html
+
+    def test_render_static_mode_omits_nova_pesquisa(
+        self, sample_report: ProspectionReport
+    ) -> None:
+        html = HtmlReportRenderer().render(sample_report, serve_mode=False)
+        assert "np-submit" not in html
+        assert "progress-overlay" not in html
+
+    def test_render_serve_mode_default_is_false(
+        self, sample_report: ProspectionReport
+    ) -> None:
+        html = HtmlReportRenderer().render(sample_report)
+        assert "np-submit" not in html
+
+    def test_render_to_file_does_not_include_serve_mode(
+        self,
+        sample_report: ProspectionReport,
+        tmp_path: Path,
+    ) -> None:
+        out = tmp_path / "report.html"
+        HtmlReportRenderer().render_to_file(sample_report, out)
+        content = out.read_text(encoding="utf-8")
+        assert "np-submit" not in content

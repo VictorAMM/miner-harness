@@ -48,6 +48,9 @@ dependencies = [
 
     # Relatório HTML (dashboard)
     "jinja2>=3.1",
+
+    # Servidor HTTP local (Nova Pesquisa / serve mode)
+    "aiohttp>=3.9",
 ]
 
 [project.urls]

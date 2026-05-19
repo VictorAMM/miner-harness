@@ -108,6 +108,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Não gerar dashboard HTML após a análise.",
     )
+    analyze_parser.add_argument(
+        "--serve",
+        action="store_true",
+        default=False,
+        help="Iniciar servidor HTTP local com dashboard interativo (Nova Pesquisa).",
+    )
+    analyze_parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Porta do servidor HTTP (padrão: 8765). Requer --serve.",
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -186,6 +198,8 @@ def main(argv: list[str] | None = None) -> int:
                     model=args.model,
                     output_path=args.output,
                     no_html=args.no_html,
+                    serve=args.serve,
+                    port=args.port,
                 )
             )
         if args.command == "validate":
