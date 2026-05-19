@@ -30,32 +30,44 @@ _AGENT_PROMPTS: dict[str, str] = {
         "Sua especialidade é geologia estrutural e tectônica. "
         "Analise a história tectônica e arquitetura estrutural da região, "
         "identificando províncias metalogenéticas, zonas de cisalhamento, "
-        "falhas maiores e corredores estruturais favoráveis à mineralização."
+        "falhas maiores e corredores estruturais favoráveis à mineralização. "
+        "Quando houver dados sísmicos (USGS), use-os para mapear falhas ativas "
+        "e regimes de deformação atual que condicionam sistemas minerais."
     ),
     "geophysicist": (
         f"{_PERSONA_BASE}\n\n"
         "Sua especialidade é geofísica aplicada à exploração mineral. "
         "Analise anomalias gravimétricas, padrões magnéticos e dados "
-        "aerogeofísicos, correlacionando com estruturas e potencial mineral."
+        "aerogeofísicos, correlacionando com estruturas e potencial mineral. "
+        "Quando houver dados sísmicos (USGS), correlacione a distribuição "
+        "de sismos com anomalias geofísicas e zonas de fraqueza crustal."
     ),
     "geochemist": (
         f"{_PERSONA_BASE}\n\n"
         "Sua especialidade é geoquímica exploratória. "
         "Analise assinaturas geoquímicas, pathfinder elements, padrões "
-        "de alteração hidrotermal e fertilidade magmática a partir dos dados."
+        "de alteração hidrotermal e fertilidade magmática a partir dos dados. "
+        "Quando houver dados de concessões ANM/SIGMINE, correlacione a fase "
+        "minerária (pesquisa vs. lavra) e as substâncias com as anomalias "
+        "geoquímicas — concessões de lavra confirmam mineralização econômica."
     ),
     "remote_sensing": (
         f"{_PERSONA_BASE}\n\n"
         "Sua especialidade é sensoriamento remoto geológico. "
         "Analise lineamentos, mapeamento espectral e anomalias de "
-        "vegetação que possam indicar mineralização subsuperficial."
+        "vegetação que possam indicar mineralização subsuperficial. "
+        "Quando houver dados de concessões ANM/SIGMINE, use-os como "
+        "âncoras espaciais — concessões ativas indicam alvo de exploração "
+        "já validado por operadores do mercado."
     ),
     "evaluator": (
         f"{_PERSONA_BASE}\n\n"
         "Você é o integrador final. Receba os resultados dos 4 passos "
         "anteriores e integre-os em uma análise multidisciplinar coerente. "
         "Identifique contradições, valide hipóteses e ranqueie alvos de "
-        "prospecção por prioridade. Seja crítico e honesto sobre limitações."
+        "prospecção por prioridade. Seja crítico e honesto sobre limitações. "
+        "Incorpore concessões ANM (contexto regulatório e econômico) e "
+        "sismicidade USGS (atividade tectônica recente) na síntese final."
     ),
 }
 
@@ -71,7 +83,10 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Principais unidades geológicas e suas idades\n"
         "- Eventos tectônicos que moldaram a região\n"
         "- Províncias metalogenéticas relevantes\n"
-        "- Potencial para sistemas minerais baseado na evolução crustal"
+        "- Potencial para sistemas minerais baseado na evolução crustal\n"
+        "Se houver dados sísmicos USGS no contexto:\n"
+        "- Correlacione a sismicidade atual com estruturas tectônicas herdadas\n"
+        "- Identifique regimes de falha ativa que podem controlar fluidos mineralizantes"
     ),
     AnalysisStep.STRUCTURAL_ARCHITECTURE: (
         "PASSO 2 — ARQUITETURA ESTRUTURAL\n"
@@ -80,7 +95,10 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Zonas de cisalhamento e falhas maiores\n"
         "- Corredores estruturais favoráveis\n"
         "- Interseções estruturais (armadilhas potenciais)\n"
-        "- Controle estrutural sobre mineralizações conhecidas"
+        "- Controle estrutural sobre mineralizações conhecidas\n"
+        "Se houver dados sísmicos USGS no contexto:\n"
+        "- Use a distribuição de sismos como proxy de falhas ativas\n"
+        "- Profundidade focal indica o nível crustal de deformação atual"
     ),
     AnalysisStep.MAGMATIC_FERTILITY: (
         "PASSO 3 — FERTILIDADE MAGMÁTICA\n"
@@ -89,7 +107,12 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Intrusões com assinatura fértil (anomalias de Cu, Au, Mo, etc.)\n"
         "- Anomalias gravimétricas associadas a corpos intrusivos\n"
         "- Padrões magnéticos indicativos de alteração\n"
-        "- Correlação entre geoquímica e geofísica"
+        "- Correlação entre geoquímica e geofísica\n"
+        "Se houver dados de concessões ANM/SIGMINE no contexto:\n"
+        "- Concessões de Lavra confirmam mineralização econômica — use como validação\n"
+        "- As substâncias declaradas indicam o tipo de sistema mineral ativo\n"
+        "Se houver dados sísmicos USGS no contexto:\n"
+        "- Sismicidade associada a intrusões rasa pode indicar magmatismo recente"
     ),
     AnalysisStep.INDIRECT_EVIDENCE: (
         "PASSO 4 — EVIDÊNCIAS INDIRETAS\n"
@@ -98,7 +121,13 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Anomalias de pathfinder elements\n"
         "- Padrões de alteração hidrotermal\n"
         "- Anomalias sutis em dados geofísicos\n"
-        "- Ocorrências minerais próximas e seus contextos"
+        "- Ocorrências minerais próximas e seus contextos\n"
+        "Se houver dados de concessões ANM/SIGMINE no contexto:\n"
+        "- Área e fase das concessões revelam o histórico de exploração\n"
+        "- Sobreposição espacial com anomalias geoquímicas/geofísicas é evidência forte\n"
+        "- Concessões de Pesquisa em andamento = exploração ativa confirmada\n"
+        "Se houver dados sísmicos USGS no contexto:\n"
+        "- Sismicidade rasa pode indicar sistemas hidrotermais ativos"
     ),
     AnalysisStep.TOTAL_INTEGRATION: (
         "PASSO 5 — INTEGRAÇÃO TOTAL\n"
@@ -110,7 +139,12 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Classifique o sistema mineral (IOCG, Ouro Orogênico, Pórfiro Cu-Au, BIF, etc.)\n"
         "- Atribua prioridade 1 ao melhor alvo, 2 ao segundo, e assim por diante\n"
         "- Justifique com evidências dos passos anteriores\n"
-        "- Sugira follow-up específico (sondagem, IP, mapeamento, etc.)"
+        "- Sugira follow-up específico (sondagem, IP, mapeamento, etc.)\n"
+        "Se houver dados de concessões ANM/SIGMINE no contexto:\n"
+        "- Mencione o contexto regulatório (fase, titular, substâncias) dos alvos\n"
+        "- Concessões ativas elevam prioridade — risco regulatório reduzido\n"
+        "Se houver dados sísmicos USGS no contexto:\n"
+        "- Correlacione alvos com clusters sísmicos — indicador de permeabilidade crustal"
     ),
 }
 
