@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import sys
 
 import structlog
@@ -144,8 +145,17 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _ensure_utf8_streams() -> None:
+    """Force stdout/stderr to use UTF-8 on Windows (avoids cp1252 UnicodeEncodeError)."""
+    for attr in ("stdout", "stderr"):
+        stream = getattr(sys, attr)
+        if hasattr(stream, "buffer") and stream.encoding.lower() != "utf-8":
+            setattr(sys, attr, io.TextIOWrapper(stream.buffer, encoding="utf-8", errors="replace"))
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entry point."""
+    _ensure_utf8_streams()
     parser = _build_parser()
     args = parser.parse_args(argv)
 
