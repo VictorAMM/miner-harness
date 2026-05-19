@@ -74,3 +74,26 @@ class TestMainCLI:
         with patch("miner_harness.cli.app.cmd_health", new=AsyncMock(return_value=0)):
             result = main(["health"])
         assert result == 0
+
+    def test_ensure_utf8_streams_wraps_non_utf8(self) -> None:
+        """_ensure_utf8_streams substitui streams com encoding != utf-8 (linha 153)."""
+        import sys
+        from unittest.mock import MagicMock, patch
+
+        from miner_harness.cli.app import _ensure_utf8_streams
+
+        fake_buffer = MagicMock()
+        fake_stream = MagicMock()
+        fake_stream.encoding = "cp1252"
+        fake_stream.buffer = fake_buffer
+
+        with (
+            patch.object(sys, "stdout", fake_stream),
+            patch.object(sys, "stderr", fake_stream),
+            patch("miner_harness.cli.app.io.TextIOWrapper", return_value=MagicMock()) as mock_wrap,
+        ):
+            _ensure_utf8_streams()
+
+        # Called twice — once for stdout, once for stderr
+        assert mock_wrap.call_count == 2
+        mock_wrap.assert_called_with(fake_buffer, encoding="utf-8", errors="replace")

@@ -63,3 +63,22 @@ class TestConfigureLogging:
         second_count = len(logging.getLogger().handlers)
         # Should have same count (not double)
         assert second_count <= first_count + 1
+
+    def test_configure_logging_wraps_non_utf8_stderr(self) -> None:
+        """StreamHandler usa UTF-8 quando stderr.encoding != utf-8 (linha 68)."""
+        import sys
+        from unittest.mock import MagicMock, patch
+
+        fake_buffer = MagicMock()
+        fake_stderr = MagicMock()
+        fake_stderr.encoding = "cp1252"
+        fake_stderr.buffer = fake_buffer
+
+        wrapper_target = "miner_harness.observability.logging_config.io.TextIOWrapper"
+        with (
+            patch.object(sys, "stderr", fake_stderr),
+            patch(wrapper_target, return_value=MagicMock()) as mock_wrap,
+        ):
+            configure_logging()
+
+        mock_wrap.assert_called_once_with(fake_buffer, encoding="utf-8", errors="replace")
