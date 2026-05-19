@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -62,7 +62,7 @@ def sample_report(sample_target: MineralTarget, sample_step: StepResult) -> Pros
     return ProspectionReport(
         region_name="Carajás",
         bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-        analysis_date=datetime(2026, 5, 18, 10, 0, 0, tzinfo=timezone.utc),
+        analysis_date=datetime(2026, 5, 18, 10, 0, 0, tzinfo=UTC),
         steps=[sample_step],
         targets=[sample_target],
         integrated_summary="Região com alto potencial para IOCG.",
@@ -137,7 +137,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Vazio",
             bbox=BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
+            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
             steps=[],
             targets=[],
             integrated_summary="Sem dados.",
@@ -172,7 +172,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Multi",
             bbox=BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
+            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
             steps=[sample_step],
             targets=targets,
             integrated_summary="Três alvos.",
@@ -190,7 +190,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Test <script>alert(1)</script>",
             bbox=BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
+            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
             steps=[],
             targets=[],
             integrated_summary="",

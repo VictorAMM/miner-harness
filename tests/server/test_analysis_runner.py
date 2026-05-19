@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -19,7 +19,6 @@ from miner_harness.core.types import (
 from miner_harness.orchestrator.orchestrator import Orchestrator
 from miner_harness.server.analysis_runner import AnalysisRunner
 from miner_harness.server.sse import SseChannel
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -53,7 +52,7 @@ def _make_report() -> ProspectionReport:
     return ProspectionReport(
         region_name="Teste",
         bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-        analysis_date=datetime(2026, 5, 19, 10, 0, 0, tzinfo=timezone.utc),
+        analysis_date=datetime(2026, 5, 19, 10, 0, 0, tzinfo=UTC),
         steps=[step],
         targets=[target],
         integrated_summary="Resumo integrado.",
@@ -154,7 +153,7 @@ class TestAnalysisRunner:
             (c for c in chunks if "event: complete" in c), None
         )
         assert complete_chunk is not None
-        data_line = [l for l in complete_chunk.split("\n") if l.startswith("data: ")][0]
+        data_line = next(line for line in complete_chunk.split("\n") if line.startswith("data: "))
         payload = json.loads(data_line[len("data: "):])
         assert payload["report"]["region_name"] == "Teste"
 
@@ -185,7 +184,7 @@ class TestAnalysisRunner:
 
         error_chunk = next((c for c in chunks if "event: error" in c), None)
         assert error_chunk is not None
-        data_line = [l for l in error_chunk.split("\n") if l.startswith("data: ")][0]
+        data_line = next(line for line in error_chunk.split("\n") if line.startswith("data: "))
         payload = json.loads(data_line[len("data: "):])
         assert "GeoSGB timeout" in payload["msg"]
 

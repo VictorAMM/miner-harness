@@ -36,7 +36,7 @@ class TestSseChannel:
         msg = chunks[0]
         assert "event: step_start\n" in msg
         assert "data: " in msg
-        data_line = [l for l in msg.split("\n") if l.startswith("data: ")][0]
+        data_line = next(line for line in msg.split("\n") if line.startswith("data: "))
         payload = json.loads(data_line[len("data: "):])
         assert payload["step"] == "tectonic_history"
 
@@ -68,7 +68,12 @@ class TestSseChannel:
 
         _run(collect())
 
-        ids = [int(l.split(": ")[1]) for chunk in chunks for l in chunk.split("\n") if l.startswith("id: ")]
+        ids = [
+            int(line.split(": ")[1])
+            for chunk in chunks
+            for line in chunk.split("\n")
+            if line.startswith("id: ")
+        ]
         assert ids == [1, 2]
 
     def test_multiple_sends_before_iterate(self) -> None:

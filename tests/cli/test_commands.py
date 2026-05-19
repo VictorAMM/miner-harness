@@ -579,7 +579,6 @@ class TestServeMode:
 
     def test_serve_flag_in_argparse(self) -> None:
         """Flag --serve deve ser reconhecida pelo parser."""
-        import argparse
 
         from miner_harness.cli.app import _build_parser
 
