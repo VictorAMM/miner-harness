@@ -39,6 +39,8 @@ class EvaluatorAgent(BaseAgent):
             "geocronologia",
             "litoestratigrafia",
             "aerogeofisica",
+            "anm",
+            "usgs",
         ]
 
     def parse_response(self, response: ChatResponse, step: AnalysisStep) -> StepResult:

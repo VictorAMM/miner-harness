@@ -59,9 +59,10 @@ Wizard  — Instalação Guiada ✅ CONCLUÍDA (2026-05-17)
 RAG     — Retrieval-Augmented Generation ✅ CONCLUÍDA (2026-05-18) [v0.2.0]
 Dashboard — Relatório HTML Interativo ✅ CONCLUÍDA (2026-05-18) [v0.2.1]
 Nova Pesquisa — Servidor HTTP + SSE + Dashboard Interativo ✅ CONCLUÍDA (2026-05-19) [v0.3.0]
+ANM/USGS — Integração com fontes de dados adicionais + agentes cientes ✅ CONCLUÍDA (2026-05-19) [v0.4.0]
 ```
 
-**Status**: v0.3.0 em produção. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
+**Status**: v0.4.0 em produção. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
 
 ## Grafo de Rastreabilidade
 

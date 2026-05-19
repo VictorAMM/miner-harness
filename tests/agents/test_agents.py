@@ -341,21 +341,57 @@ class TestAgentDataKeys:
     def test_evaluator_needs_all_data(self) -> None:
         agent = self._make_agent(EvaluatorAgent)
         keys = agent._get_relevant_data_keys(AnalysisStep.TOTAL_INTEGRATION)
-        assert len(keys) == 6  # All 6 datasets
+        assert len(keys) == 8  # 6 GeoSGB + anm + usgs
+        assert "anm" in keys
+        assert "usgs" in keys
 
     def test_remote_sensing_data_keys(self) -> None:
-        """_get_relevant_data_keys de RemoteSensing cobre linha 22."""
+        """_get_relevant_data_keys de RemoteSensing inclui anm."""
         agent = self._make_agent(RemoteSensingAgent)
         keys = agent._get_relevant_data_keys(AnalysisStep.INDIRECT_EVIDENCE)
         assert "aerogeofisica" in keys
         assert "litoestratigrafia" in keys
+        assert "anm" in keys
 
     def test_geophysicist_indirect_evidence_keys(self) -> None:
-        """_get_relevant_data_keys com INDIRECT_EVIDENCE cobre linha 25."""
+        """_get_relevant_data_keys com INDIRECT_EVIDENCE inclui usgs."""
         agent = self._make_agent(GeophysicistAgent)
         keys = agent._get_relevant_data_keys(AnalysisStep.INDIRECT_EVIDENCE)
         assert "gravimetria" in keys
         assert "aerogeofisica" in keys
+        assert "usgs" in keys
+
+    def test_structural_tectonic_includes_usgs(self) -> None:
+        agent = self._make_agent(StructuralGeoAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.TECTONIC_HISTORY)
+        assert "usgs" in keys
+
+    def test_structural_architectural_includes_usgs(self) -> None:
+        agent = self._make_agent(StructuralGeoAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.STRUCTURAL_ARCHITECTURE)
+        assert "usgs" in keys
+
+    def test_geochemist_fertility_includes_anm(self) -> None:
+        agent = self._make_agent(GeochemistAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.MAGMATIC_FERTILITY)
+        assert "anm" in keys
+
+    def test_geochemist_indirect_includes_anm(self) -> None:
+        agent = self._make_agent(GeochemistAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.INDIRECT_EVIDENCE)
+        assert "anm" in keys
+
+    def test_geophysicist_fertility_includes_usgs(self) -> None:
+        agent = self._make_agent(GeophysicistAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.MAGMATIC_FERTILITY)
+        assert "usgs" in keys
+
+    def test_source_label_used_in_build_prompt(self) -> None:
+        """build_prompt usa ANM/SIGMINE em vez de GeoSGB/anm."""
+        from miner_harness.agents.base import _SOURCE_LABELS
+
+        assert _SOURCE_LABELS["anm"] == "ANM/SIGMINE — Concessões Minerárias"
+        assert _SOURCE_LABELS["usgs"] == "USGS — Eventos Sísmicos"
 
 
 class TestEvaluatorTargetsBlockException:

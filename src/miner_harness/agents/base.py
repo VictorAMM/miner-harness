@@ -24,6 +24,18 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+# Rótulo legível por fonte de dados para o LLM
+_SOURCE_LABELS: dict[str, str] = {
+    "ocorrencias": "GeoSGB/Ocorrências Minerais",
+    "gravimetria": "GeoSGB/Gravimetria",
+    "geoquimica": "GeoSGB/Geoquímica",
+    "geocronologia": "GeoSGB/Geocronologia",
+    "litoestratigrafia": "GeoSGB/Litoestratigrafia",
+    "aerogeofisica": "GeoSGB/Aerogeofísica",
+    "anm": "ANM/SIGMINE — Concessões Minerárias",
+    "usgs": "USGS — Eventos Sísmicos",
+}
+
 
 class BaseAgent(ABC):
     """Classe base para todos os agentes especialistas.
@@ -100,7 +112,8 @@ class BaseAgent(ABC):
         for key in relevant_keys:
             records = geological_data.get(key, [])
             if records:
-                formatted = PromptManager.format_geological_data(records, source=f"GeoSGB/{key}")
+                source_label = _SOURCE_LABELS.get(key, f"GeoSGB/{key}")
+                formatted = PromptManager.format_geological_data(records, source=source_label)
                 data_parts.append(formatted)
 
         geo_data_str = "\n\n".join(data_parts) if data_parts else "Sem dados disponiveis."

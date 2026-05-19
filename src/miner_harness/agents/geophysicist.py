@@ -20,6 +20,7 @@ class GeophysicistAgent(BaseAgent):
     ]
 
     def _get_relevant_data_keys(self, step: AnalysisStep) -> list[str]:
+        # usgs: sismicidade correlaciona com anomalias gravimétricas e atividade magmática
         if step == AnalysisStep.MAGMATIC_FERTILITY:
-            return ["gravimetria", "aerogeofisica", "ocorrencias"]
-        return ["gravimetria", "aerogeofisica", "ocorrencias"]
+            return ["gravimetria", "aerogeofisica", "ocorrencias", "usgs"]
+        return ["gravimetria", "aerogeofisica", "ocorrencias", "usgs"]
