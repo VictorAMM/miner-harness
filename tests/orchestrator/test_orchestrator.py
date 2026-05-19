@@ -428,10 +428,13 @@ class TestOrchestratorEdgeCases:
         orch = Orchestrator(mock_connector, cache, mock_llm, config)
         fake_step = MagicMock(spec=AnalysisStep)
         fake_step.value = "nonexistent_step"
-        with patch.dict(
-            "miner_harness.orchestrator.orchestrator._STEP_AGENTS",
-            {fake_step: []},
-        ), pytest.raises(ValueError, match="No agents for step"):
+        with (
+            patch.dict(
+                "miner_harness.orchestrator.orchestrator._STEP_AGENTS",
+                {fake_step: []},
+            ),
+            pytest.raises(ValueError, match="No agents for step"),
+        ):
             orch.get_agent_for_step(fake_step)
 
     @pytest.mark.asyncio
@@ -448,10 +451,13 @@ class TestOrchestratorEdgeCases:
         orch = Orchestrator(mock_connector, cache, mock_llm, config)
         fake_step = MagicMock(spec=AnalysisStep)
         fake_step.value = "no_agent_step"
-        with patch.dict(
-            "miner_harness.orchestrator.orchestrator._STEP_AGENTS",
-            {fake_step: []},
-        ), pytest.raises(ValueError, match="No agents configured"):
+        with (
+            patch.dict(
+                "miner_harness.orchestrator.orchestrator._STEP_AGENTS",
+                {fake_step: []},
+            ),
+            pytest.raises(ValueError, match="No agents configured"),
+        ):
             await orch._execute_step(fake_step, {}, [])
 
     def test_extract_targets_no_integration_step(self) -> None:
