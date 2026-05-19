@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>miner-harness — Relatório de Prospecção</title>
+
+<!-- Leaflet CSS embutido -->
+<style>{{ leaflet_css }}</style>
+
+<style>
+/* ================================================================
+   RESET & BASE
+================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f172a;
+  --bg-card:   #1e293b;
+  --bg-card2:  #263348;
+  --border:    #334155;
+  --text:      #f1f5f9;
+  --text-muted:#94a3b8;
+  --accent:    #f59e0b;
+  --accent2:   #d97706;
+  --high:      #22c55e;
+  --medium:    #eab308;
+  --low:       #f97316;
+  --insuf:     #ef4444;
+  --p1:        #ef4444;
+  --p2:        #f97316;
+  --p3:        #eab308;
+  --p4:        #3b82f6;
+  --p5:        #6b7280;
+  --radius:    8px;
+  --sidebar-w: 380px;
+  --bottom-h:  300px;
+  --header-h:  54px;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+/* ================================================================
+   HEADER
+================================================================ */
+header {
+  flex: 0 0 var(--header-h);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  z-index: 1000;
+}
+header .brand {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+header .region {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+header .sep { color: var(--border); }
+header .meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+header .quality-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+header .spacer { flex: 1; }
+
+/* ================================================================
+   MAIN LAYOUT
+================================================================ */
+.layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ================================================================
+   SIDEBAR
+================================================================ */
+aside {
+  flex: 0 0 var(--sidebar-w);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sidebar-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section:last-child { border-bottom: none; }
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* Quality card */
+.quality-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.quality-donut-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+.quality-donut-wrap canvas { width: 72px !important; height: 72px !important; }
+.quality-score-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.quality-meta { display: flex; flex-direction: column; gap: 3px; }
+.quality-meta .q-row { display: flex; gap: 6px; font-size: 11px; }
+.quality-meta .q-label { color: var(--text-muted); }
+.quality-meta .q-val { color: var(--text); font-weight: 500; }
+
+/* Target list */
+.target-item {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+}
+.target-item:hover { background: var(--bg-card2); }
+.target-item.active { background: var(--bg-card2); border-color: var(--accent); }
+.target-item .t-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.target-item .t-priority {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: white;
+  flex-shrink: 0;
+}
+.target-item .t-name {
+  font-weight: 600;
+  font-size: 12px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.t-conf-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+  color: white;
+}
+.target-item .t-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 28px;
+  margin-bottom: 4px;
+}
+.btn-fly {
+  margin-left: 28px;
+  font-size: 10px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-fly:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Caveats */
+.caveat-list { display: flex; flex-direction: column; gap: 5px; }
+.caveat-item {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(239,68,68,0.08);
+  border-left: 3px solid var(--insuf);
+  padding: 5px 8px;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Map controls in sidebar */
+.map-ctrl-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ctrl-btn {
+  padding: 7px 12px;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  transition: all 0.15s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.inactive { opacity: 0.5; }
+
+/* ================================================================
+   MAP
+================================================================ */
+#map-wrapper {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+#map {
+  position: absolute;
+  inset: 0;
+  background: #1a2332;
+}
+
+/* Leaflet popup dark theme */
+.leaflet-popup-content-wrapper {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+}
+.leaflet-popup-tip { background: var(--bg-card) !important; }
+.leaflet-popup-content { margin: 10px 14px !important; min-width: 200px; }
+.popup-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.popup-row { display: flex; gap: 6px; font-size: 12px; margin-bottom: 2px; }
+.popup-label { color: var(--text-muted); }
+.popup-val { color: var(--text); }
+.popup-rationale {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+/* Leaflet controls dark */
+.leaflet-control-zoom a,
+.leaflet-control-layers-toggle {
+  background-color: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-control-layers {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(15,23,42,0.7) !important;
+  color: var(--text-muted) !important;
+}
+.leaflet-control-attribution a { color: var(--accent) !important; }
+
+/* ================================================================
+   BOTTOM PANEL
+================================================================ */
+.bottom-panel {
+  flex: 0 0 var(--bottom-h);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-bar {
+  flex: 0 0 38px;
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.tab-btn {
+  padding: 0 16px;
+  height: 38px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-contents { flex: 1; overflow: hidden; position: relative; }
+.tab-pane {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: none;
+}
+.tab-pane.active { display: block; }
+
+/* ================================================================
+   TAB: ANÁLISE — Accordion
+================================================================ */
+.step-accordion { margin-bottom: 6px; }
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-card2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.step-header:hover { background: var(--border); }
+.step-header.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+.step-chevron { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; }
+.step-header.open .step-chevron { transform: rotate(90deg); }
+.step-name { font-weight: 600; font-size: 12px; flex: 1; }
+.step-agent { font-size: 10px; color: var(--text-muted); }
+.step-body {
+  display: none;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 10px 12px;
+}
+.step-body.open { display: block; }
+
+.step-summary { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+.step-findings { margin-bottom: 8px; }
+.finding-item {
+  font-size: 11px;
+  padding: 3px 0;
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid rgba(51,65,85,0.4);
+}
+.finding-item::before { content: "•"; color: var(--accent); flex-shrink: 0; }
+.step-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.meta-block { font-size: 10px; }
+.meta-block .meta-label { color: var(--text-muted); margin-bottom: 2px; }
+.meta-block .meta-vals { color: var(--text); }
+.reasoning-toggle {
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.reasoning-toggle:hover { color: var(--accent); }
+.reasoning-text {
+  display: none;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ================================================================
+   TAB: ALVOS — Cards
+================================================================ */
+.targets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.target-card {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.target-card .tc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tc-priority-badge {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: white;
+  flex-shrink: 0;
+}
+.tc-name { font-weight: 700; font-size: 13px; flex: 1; }
+.tc-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 5px;
+  font-size: 11px;
+  align-items: baseline;
+}
+.tc-label { color: var(--text-muted); min-width: 80px; }
+.tc-val { color: var(--text); }
+.tc-rationale {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  line-height: 1.5;
+}
+.tc-followup { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.tc-followup-tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 10px;
+  color: var(--accent);
+}
+
+/* ================================================================
+   TAB: QUALIDADE — Charts
+================================================================ */
+.quality-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.chart-card {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+.chart-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.chart-card canvas { max-height: 200px; }
+
+/* ================================================================
+   TAB: JSON
+================================================================ */
+.json-wrap { position: relative; }
+.json-copy-btn {
+  position: sticky;
+  top: 0;
+  float: right;
+  padding: 4px 12px;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.json-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+.json-pre {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #cbd5e1;
+  white-space: pre;
+  line-height: 1.5;
+  background: var(--bg);
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+/* ================================================================
+   EMPTY STATE
+================================================================ */
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+<!-- ============================================================
+     HEADER
+============================================================ -->
+<header>
+  <span class="brand">⛏ miner-harness</span>
+  <span class="sep">|</span>
+  <span class="region" id="h-region"></span>
+  <span class="sep">|</span>
+  <span class="quality-badge" id="h-quality-badge"></span>
+  <span class="meta" id="h-meta"></span>
+  <span class="spacer"></span>
+  <span class="meta" id="h-model"></span>
+</header>
+
+<!-- ============================================================
+     MAIN: SIDEBAR + MAPA
+============================================================ -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <!-- Qualidade -->
+    <div class="sidebar-section">
+      <div class="section-title">Qualidade da Análise</div>
+      <div class="quality-card">
+        <div class="quality-donut-wrap">
+          <canvas id="chart-quality-donut"></canvas>
+          <div class="quality-score-label" id="quality-score-label"></div>
+        </div>
+        <div class="quality-meta" id="quality-meta"></div>
+      </div>
+    </div>
+
+    <!-- Alvos -->
+    <div class="sidebar-section">
+      <div class="section-title">Alvos de Prospecção</div>
+      <div id="targets-list">
+        <div class="empty-state">Sem alvos identificados.</div>
+      </div>
+    </div>
+
+    <!-- Caveats -->
+    <div class="sidebar-section" id="caveats-section" style="display:none">
+      <div class="section-title">⚠ Ressalvas</div>
+      <div class="caveat-list" id="caveats-list"></div>
+    </div>
+
+    <!-- Controles do mapa -->
+    <div class="sidebar-section">
+      <div class="section-title">Controles do Mapa</div>
+      <div class="map-ctrl-btns">
+        <button class="ctrl-btn" id="btn-centralizar">🎯 Centralizar região</button>
+        <button class="ctrl-btn" id="btn-bbox">□ Mostrar/ocultar polígono</button>
+        <button class="ctrl-btn" id="btn-all-targets">👁 Enquadrar todos os alvos</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAPA -->
+  <div id="map-wrapper">
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     BOTTOM PANEL — TABS
+============================================================ -->
+<div class="bottom-panel">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="analise">📊 Análise</button>
+    <button class="tab-btn" data-tab="alvos">🎯 Alvos</button>
+    <button class="tab-btn" data-tab="qualidade">📈 Qualidade</button>
+    <button class="tab-btn" data-tab="json">{ } JSON</button>
+  </div>
+  <div class="tab-contents">
+    <div class="tab-pane active" id="tab-analise"></div>
+    <div class="tab-pane" id="tab-alvos"></div>
+    <div class="tab-pane" id="tab-qualidade"></div>
+    <div class="tab-pane" id="tab-json"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCRIPTS
+============================================================ -->
+<!-- Leaflet.js embutido -->
+<script>{{ leaflet_js }}</script>
+<!-- Chart.js embutido -->
+<script>{{ chart_js }}</script>
+
+<script>
+// ============================================================
+// DADOS DO RELATÓRIO (injetados pelo renderer Python)
+// ============================================================
+const REPORT = {{ report_json_str }};
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+const CONF_COLORS = {high:'#22c55e', medium:'#eab308', low:'#f97316', insufficient:'#ef4444'};
+const CONF_LABELS = {high:'ALTA', medium:'MÉDIA', low:'BAIXA', insufficient:'INSUF.'};
+const CONF_SCORES = {high:3, medium:2, low:1, insufficient:0};
+const PRIORITY_COLORS = ['','#ef4444','#f97316','#eab308','#3b82f6','#6b7280'];
+const STEP_NAMES = {
+  tectonic_history: 'Hist. Tectônica',
+  structural_architecture: 'Arq. Estrutural',
+  magmatic_fertility: 'Fertil. Magmática',
+  indirect_evidence: 'Evid. Indiretas',
+  total_integration: 'Integração Total',
+};
+
+function stepName(s) { return STEP_NAMES[s] || s; }
+function durFmt(ms) {
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return (ms/1000).toFixed(1) + 's';
+  return Math.floor(ms/60000) + 'm ' + Math.floor((ms%60000)/1000) + 's';
+}
+function qualityLabel(q) {
+  if (q >= 0.8) return {label:'ALTA', color: '#22c55e'};
+  if (q >= 0.5) return {label:'MÉDIA', color: '#eab308'};
+  if (q >= 0.3) return {label:'BAIXA', color: '#f97316'};
+  return {label:'INSUF.', color: '#ef4444'};
+}
+
+// ============================================================
+// HEADER
+// ============================================================
+(function initHeader() {
+  const r = REPORT;
+  document.getElementById('h-region').textContent = r.region_name;
+
+  const qInfo = qualityLabel(r.data_quality_score);
+  const badge = document.getElementById('h-quality-badge');
+  badge.textContent = qInfo.label + ' ' + Math.round(r.data_quality_score * 100) + '%';
+  badge.style.background = qInfo.color + '22';
+  badge.style.color = qInfo.color;
+  badge.style.border = '1px solid ' + qInfo.color + '66';
+
+  const date = new Date(r.analysis_date).toLocaleString('pt-BR');
+  document.getElementById('h-meta').textContent = date;
+  document.getElementById('h-model').textContent = '🤖 ' + r.model_used;
+})();
+
+// ============================================================
+// SIDEBAR — QUALITY DONUT
+// ============================================================
+(function initQualityDonut() {
+  const q = REPORT.data_quality_score;
+  const qInfo = qualityLabel(q);
+
+  document.getElementById('quality-score-label').textContent = Math.round(q * 100) + '%';
+
+  new Chart(document.getElementById('chart-quality-donut'), {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [q * 100, (1 - q) * 100],
+        backgroundColor: [qInfo.color, '#1e293b'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: {display:false}, tooltip: {enabled:false} },
+      animation: { duration: 600 },
+    }
+  });
+
+  const r = REPORT;
+  const totalDur = durFmt(r.total_duration_ms);
+  const date = new Date(r.analysis_date).toLocaleDateString('pt-BR');
+  document.getElementById('quality-meta').innerHTML = `
+    <div class="q-row"><span class="q-label">Data:</span><span class="q-val">${date}</span></div>
+    <div class="q-row"><span class="q-label">Modelo:</span><span class="q-val">${r.model_used}</span></div>
+    <div class="q-row"><span class="q-label">Duração:</span><span class="q-val">${totalDur}</span></div>
+    <div class="q-row"><span class="q-label">Alvos:</span><span class="q-val">${r.targets.length}</span></div>
+    <div class="q-row"><span class="q-label">Passos:</span><span class="q-val">${r.steps.length}</span></div>
+  `;
+})();
+
+// ============================================================
+// MAPA LEAFLET
+// ============================================================
+const map = L.map('map', { zoomControl: true });
+
+// Tile layers
+const tilesOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+  maxZoom: 18,
+});
+const tilesSat = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '© <a href="https://esri.com">ESRI</a>',
+  maxZoom: 18,
+});
+const tilesTopo = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '© <a href="https://esri.com">ESRI</a>',
+  maxZoom: 18,
+});
+tilesOSM.addTo(map);
+L.control.layers(
+  {'OpenStreetMap': tilesOSM, 'Satélite ESRI': tilesSat, 'Topo ESRI': tilesTopo},
+  {},
+  {position: 'topright'}
+).addTo(map);
+
+// BBox
+const bbox = REPORT.bbox;
+const bboxBounds = [[bbox.lat_min, bbox.lon_min], [bbox.lat_max, bbox.lon_max]];
+const bboxLayer = L.rectangle(bboxBounds, {
+  color: '#f59e0b', weight: 2, dashArray: '8 4',
+  fillColor: '#f59e0b', fillOpacity: 0.05,
+}).addTo(map);
+map.fitBounds(bboxBounds, { padding: [24, 24] });
+
+// Priority icon factory
+function createPriorityIcon(priority) {
+  const color = PRIORITY_COLORS[priority] || '#6b7280';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24S24 21 24 12C24 5.37 18.63 0 12 0z"
+          fill="${color}" stroke="white" stroke-width="1.5"/>
+    <circle cx="12" cy="12" r="5.5" fill="white"/>
+    <text x="12" y="16" text-anchor="middle" fill="${color}"
+          font-size="8" font-weight="700" font-family="system-ui,sans-serif">${priority}</text>
+  </svg>`;
+  return L.divIcon({ html: svg, iconSize:[24,36], iconAnchor:[12,36], popupAnchor:[0,-38], className:'' });
+}
+
+function buildPopup(t) {
+  const color = PRIORITY_COLORS[t.priority] || '#6b7280';
+  const cColor = CONF_COLORS[t.confidence] || '#6b7280';
+  const cLabel = CONF_LABELS[t.confidence] || t.confidence;
+  const comms = (t.commodities || []).join(', ');
+  const followup = (t.recommended_followup || []).slice(0, 3).join(' · ');
+  const rationale = (t.rationale || '').slice(0, 200);
+  return `<div>
+    <div class="popup-title" style="color:${color}">P${t.priority} — ${t.name}</div>
+    <div class="popup-row"><span class="popup-label">Sistema:</span><span class="popup-val">${t.mineral_system}</span></div>
+    <div class="popup-row"><span class="popup-label">Commodities:</span><span class="popup-val">${comms}</span></div>
+    <div class="popup-row"><span class="popup-label">Raio:</span><span class="popup-val">${t.radius_km} km</span></div>
+    <div class="popup-row"><span class="popup-label">Confiança:</span>
+      <span class="popup-val t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span></div>
+    <div class="popup-row"><span class="popup-label">Coord:</span>
+      <span class="popup-val">${t.latitude.toFixed(4)}, ${t.longitude.toFixed(4)}</span></div>
+    ${followup ? `<div class="popup-row"><span class="popup-label">Follow-up:</span><span class="popup-val">${followup}</span></div>` : ''}
+    ${rationale ? `<div class="popup-rationale">${rationale}${t.rationale && t.rationale.length > 200 ? '…' : ''}</div>` : ''}
+  </div>`;
+}
+
+// Render targets on map
+const targetLayers = [];
+REPORT.targets.forEach(function(t, idx) {
+  const color = PRIORITY_COLORS[t.priority] || '#6b7280';
+  const circle = L.circle([t.latitude, t.longitude], {
+    radius: t.radius_km * 1000,
+    color: color, fillColor: color, fillOpacity: 0.12, weight: 2,
+  }).addTo(map);
+  const marker = L.marker([t.latitude, t.longitude], {icon: createPriorityIcon(t.priority)});
+  marker.bindPopup(buildPopup(t), { maxWidth: 280 });
+  marker.addTo(map);
+  targetLayers.push({marker, circle, target: t, idx});
+});
+
+// flyTo from sidebar/cards
+function flyToTarget(idx) {
+  const layer = targetLayers[idx];
+  if (!layer) return;
+  map.flyTo([layer.target.latitude, layer.target.longitude], 11, {duration: 1.2});
+  setTimeout(() => layer.marker.openPopup(), 1300);
+  document.querySelectorAll('.target-item').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector('[data-target-idx="' + idx + '"]');
+  if (el) el.classList.add('active');
+  // Switch to map by scrolling into view
+}
+
+// Sidebar controls
+document.getElementById('btn-centralizar').onclick = function() {
+  map.fitBounds(bboxBounds, {padding:[24,24], animate:true, duration:0.8});
+};
+
+let bboxVisible = true;
+document.getElementById('btn-bbox').onclick = function() {
+  if (bboxVisible) { map.removeLayer(bboxLayer); this.classList.add('inactive'); }
+  else { bboxLayer.addTo(map); this.classList.remove('inactive'); }
+  bboxVisible = !bboxVisible;
+};
+
+document.getElementById('btn-all-targets').onclick = function() {
+  if (targetLayers.length === 0) { map.fitBounds(bboxBounds, {padding:[24,24]}); return; }
+  const group = L.featureGroup(targetLayers.map(l => l.marker));
+  map.fitBounds(group.getBounds().pad(0.3), {animate:true});
+};
+
+// ============================================================
+// SIDEBAR — TARGETS LIST
+// ============================================================
+(function initTargetsList() {
+  const container = document.getElementById('targets-list');
+  if (REPORT.targets.length === 0) return;
+  container.innerHTML = '';
+
+  REPORT.targets.forEach(function(t, idx) {
+    const color = PRIORITY_COLORS[t.priority] || '#6b7280';
+    const cColor = CONF_COLORS[t.confidence] || '#6b7280';
+    const cLabel = CONF_LABELS[t.confidence] || t.confidence;
+    const comms = (t.commodities || []).join(', ');
+
+    const item = document.createElement('div');
+    item.className = 'target-item';
+    item.dataset.targetIdx = idx;
+    item.innerHTML = `
+      <div class="t-header">
+        <div class="t-priority" style="background:${color}">P${t.priority}</div>
+        <div class="t-name">${t.name}</div>
+        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span>
+      </div>
+      <div class="t-sub">${comms} · ${t.mineral_system}</div>
+      <button class="btn-fly" onclick="flyToTarget(${idx})">📍 Ver no mapa</button>
+    `;
+    item.addEventListener('click', function(e) {
+      if (e.target.tagName === 'BUTTON') return;
+      flyToTarget(idx);
+    });
+    container.appendChild(item);
+  });
+})();
+
+// ============================================================
+// SIDEBAR — CAVEATS
+// ============================================================
+(function initCaveats() {
+  const caveats = REPORT.caveats || [];
+  if (caveats.length === 0) return;
+  const section = document.getElementById('caveats-section');
+  const list = document.getElementById('caveats-list');
+  section.style.display = '';
+  caveats.forEach(function(c) {
+    const el = document.createElement('div');
+    el.className = 'caveat-item';
+    el.textContent = c;
+    list.appendChild(el);
+  });
+})();
+
+// ============================================================
+// TAB SYSTEM
+// ============================================================
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tab = this.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    // Lazy-init quality charts on first open
+    if (tab === 'qualidade' && !window._chartsInited) {
+      window._chartsInited = true;
+      initQualityCharts();
+    }
+    // Resize map if returning to main view (not needed here)
+    map.invalidateSize();
+  });
+});
+
+// ============================================================
+// TAB: ANÁLISE
+// ============================================================
+(function initAnaliseTab() {
+  const pane = document.getElementById('tab-analise');
+  if (REPORT.steps.length === 0) {
+    pane.innerHTML = '<div class="empty-state">Sem passos de análise disponíveis.</div>';
+    return;
+  }
+
+  REPORT.steps.forEach(function(step, si) {
+    const conf = step.confidence || 'insufficient';
+    const cColor = CONF_COLORS[conf] || '#6b7280';
+    const cLabel = CONF_LABELS[conf] || conf;
+    const sName = stepName(step.step);
+    const agent = step.agent || '';
+    const dur = durFmt(step.duration_ms || 0);
+
+    const findings = (step.findings || []).slice(0, 10);
+    const sources = (step.data_sources_used || []).join(', ') || '—';
+    const gaps = (step.data_gaps || []).join(', ') || '—';
+    const reasoning = (step.raw_reasoning || '').slice(0, 2000);
+
+    const findingsHtml = findings.length
+      ? findings.map(f => `<div class="finding-item">${esc(f)}</div>`).join('')
+      : '<div style="color:var(--text-muted);font-size:11px">Sem achados.</div>';
+
+    const acc = document.createElement('div');
+    acc.className = 'step-accordion';
+    acc.innerHTML = `
+      <div class="step-header" data-si="${si}">
+        <span class="step-chevron">▶</span>
+        <span class="step-name">${sName}</span>
+        <span class="step-agent">${agent}</span>
+        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span>
+        <span style="font-size:10px;color:var(--text-muted);margin-left:4px">${dur}</span>
+      </div>
+      <div class="step-body" data-si="${si}">
+        <div class="step-summary">${esc(step.summary || '')}</div>
+        <div class="step-findings">${findingsHtml}</div>
+        <div class="step-meta">
+          <div class="meta-block">
+            <div class="meta-label">Fontes usadas</div>
+            <div class="meta-vals">${esc(sources)}</div>
+          </div>
+          <div class="meta-block">
+            <div class="meta-label">Lacunas</div>
+            <div class="meta-vals">${esc(gaps)}</div>
+          </div>
+        </div>
+        ${reasoning ? `
+          <div class="reasoning-toggle" data-si="${si}">▶ Raciocínio completo do agente</div>
+          <div class="reasoning-text" data-si="${si}">${esc(reasoning)}</div>
+        ` : ''}
+      </div>
+    `;
+    pane.appendChild(acc);
+  });
+
+  // Accordion toggle
+  pane.addEventListener('click', function(e) {
+    const header = e.target.closest('.step-header');
+    if (header) {
+      const si = header.dataset.si;
+      const body = pane.querySelector('.step-body[data-si="' + si + '"]');
+      header.classList.toggle('open');
+      body.classList.toggle('open');
+      return;
+    }
+    const rtoggle = e.target.closest('.reasoning-toggle');
+    if (rtoggle) {
+      const si = rtoggle.dataset.si;
+      const rt = pane.querySelector('.reasoning-text[data-si="' + si + '"]');
+      const open = rt.style.display === 'block';
+      rt.style.display = open ? 'none' : 'block';
+      rtoggle.textContent = (open ? '▶' : '▼') + ' Raciocínio completo do agente';
+    }
+  });
+
+  // Open first step by default
+  const firstHeader = pane.querySelector('.step-header');
+  const firstBody = pane.querySelector('.step-body');
+  if (firstHeader && firstBody) {
+    firstHeader.classList.add('open');
+    firstBody.classList.add('open');
+  }
+})();
+
+// ============================================================
+// TAB: ALVOS
+// ============================================================
+(function initAlvosTab() {
+  const pane = document.getElementById('tab-alvos');
+  if (REPORT.targets.length === 0) {
+    pane.innerHTML = '<div class="empty-state">Sem alvos identificados no relatório.</div>';
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'targets-grid';
+
+  REPORT.targets.forEach(function(t, idx) {
+    const color = PRIORITY_COLORS[t.priority] || '#6b7280';
+    const cColor = CONF_COLORS[t.confidence] || '#6b7280';
+    const cLabel = CONF_LABELS[t.confidence] || t.confidence;
+    const comms = (t.commodities || []).join(', ');
+    const followup = (t.recommended_followup || []);
+
+    const card = document.createElement('div');
+    card.className = 'target-card';
+    card.innerHTML = `
+      <div class="tc-header">
+        <div class="tc-priority-badge" style="background:${color}">P${t.priority}</div>
+        <div class="tc-name">${esc(t.name)}</div>
+        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span>
+      </div>
+      <div class="tc-row"><span class="tc-label">Commodities</span><span class="tc-val">${esc(comms)}</span></div>
+      <div class="tc-row"><span class="tc-label">Sistema mineral</span><span class="tc-val">${esc(t.mineral_system)}</span></div>
+      <div class="tc-row"><span class="tc-label">Coordenadas</span>
+        <span class="tc-val">${t.latitude.toFixed(4)}, ${t.longitude.toFixed(4)}</span></div>
+      <div class="tc-row"><span class="tc-label">Raio</span><span class="tc-val">${t.radius_km} km</span></div>
+      <div class="tc-row"><span class="tc-label">Confiança</span>
+        <span class="tc-val t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span></div>
+      ${t.rationale ? `<div class="tc-rationale">${esc(t.rationale)}</div>` : ''}
+      ${followup.length ? `<div class="tc-followup">${followup.map(f => `<span class="tc-followup-tag">${esc(f)}</span>`).join('')}</div>` : ''}
+      <div style="margin-top:8px">
+        <button class="btn-fly" onclick="flyToTarget(${idx})">📍 Ver no mapa</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  pane.appendChild(grid);
+})();
+
+// ============================================================
+// TAB: QUALIDADE — Charts (lazy init on tab open)
+// ============================================================
+function initQualityCharts() {
+  const pane = document.getElementById('tab-qualidade');
+  pane.innerHTML = `
+    <div class="quality-charts">
+      <div class="chart-card">
+        <div class="chart-title">Confiança por Passo</div>
+        <canvas id="chart-conf"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Duração por Passo (s)</div>
+        <canvas id="chart-dur"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Cobertura de Serviços GeoSGB</div>
+        <canvas id="chart-radar"></canvas>
+      </div>
+    </div>
+  `;
+
+  // Chart.js dark defaults
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.borderColor = '#334155';
+
+  const steps = REPORT.steps || [];
+  const stepLabels = steps.map(s => stepName(s.step));
+
+  // Confidence bar
+  new Chart(document.getElementById('chart-conf'), {
+    type: 'bar',
+    data: {
+      labels: stepLabels,
+      datasets: [{
+        label: 'Confiança',
+        data: steps.map(s => CONF_SCORES[s.confidence] || 0),
+        backgroundColor: steps.map(s => (CONF_COLORS[s.confidence] || '#6b7280') + 'cc'),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: {display:false} },
+      scales: {
+        y: {
+          min:0, max:3, stepSize:1,
+          ticks: { callback: v => ['INSUF.','BAIXA','MÉDIA','ALTA'][v] || '' },
+          grid: { color: '#334155' },
+        },
+        x: { grid: { display:false } },
+      }
+    }
+  });
+
+  // Duration bar
+  new Chart(document.getElementById('chart-dur'), {
+    type: 'bar',
+    data: {
+      labels: stepLabels,
+      datasets: [{
+        label: 'Duração (s)',
+        data: steps.map(s => +(s.duration_ms / 1000).toFixed(1)),
+        backgroundColor: '#f59e0bcc',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: {display:false} },
+      scales: {
+        y: { grid: { color: '#334155' } },
+        x: { grid: { display:false } },
+      }
+    }
+  });
+
+  // Service coverage radar
+  const SERVICES = ['ocorrencias','gravimetria','geoquimica','geocronologia','litoestratigrafia','aerogeofisica'];
+  const SVC_LABELS = ['Ocorrências','Gravimetria','Geoquímica','Geocronologia','Litoestratigr.','Aerogeofísica'];
+  const svcCounts = SERVICES.map(svc =>
+    steps.filter(s => (s.data_sources_used || []).some(d => d.toLowerCase().includes(svc))).length
+  );
+  new Chart(document.getElementById('chart-radar'), {
+    type: 'radar',
+    data: {
+      labels: SVC_LABELS,
+      datasets: [{
+        label: 'Passos que usaram o serviço',
+        data: svcCounts,
+        backgroundColor: 'rgba(245,158,11,0.15)',
+        borderColor: '#f59e0b',
+        pointBackgroundColor: '#f59e0b',
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: {display:false} },
+      scales: {
+        r: {
+          min: 0, max: Math.max(steps.length, 1),
+          ticks: { stepSize: 1, backdropColor: 'transparent' },
+          grid: { color: '#334155' },
+          pointLabels: { color: '#94a3b8', font: { size: 10 } },
+          angleLines: { color: '#334155' },
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// TAB: JSON
+// ============================================================
+(function initJsonTab() {
+  const pane = document.getElementById('tab-json');
+  const pretty = JSON.stringify(REPORT, null, 2);
+  pane.innerHTML = `
+    <div class="json-wrap">
+      <button class="json-copy-btn" id="btn-copy-json">📋 Copiar JSON</button>
+      <pre class="json-pre">${esc(pretty)}</pre>
+    </div>
+  `;
+  document.getElementById('btn-copy-json').onclick = function() {
+    navigator.clipboard.writeText(pretty).then(() => {
+      this.textContent = '✓ Copiado!';
+      setTimeout(() => { this.textContent = '📋 Copiar JSON'; }, 2000);
+    });
+  };
+})();
+
+// ============================================================
+// UTIL
+// ============================================================
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Force map to correct size after layout settles
+setTimeout(() => map.invalidateSize(), 100);
+</script>
+</body>
+</html>
