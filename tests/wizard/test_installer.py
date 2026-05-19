@@ -99,6 +99,34 @@ class TestWriteEnvHint:
         assert "MINER_HOME" in content
 
 
+class TestWriteInitialConfigOSError:
+    """Cobre OSError em write_initial_config (linhas 112-113)."""
+
+    def test_oserror_returns_failed_step(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        home = tmp_path / ".miner"
+        home.mkdir()
+        with patch("pathlib.Path.write_text", side_effect=OSError("permission denied")):
+            step = write_initial_config(home)
+        assert step.success is False
+        assert "permission denied" in step.message
+
+
+class TestWriteEnvHintOSError:
+    """Cobre OSError em write_env_hint (linhas 132-133)."""
+
+    def test_oserror_returns_failed_step(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        home = tmp_path / ".miner"
+        home.mkdir()
+        with patch("pathlib.Path.write_text", side_effect=OSError("read-only")):
+            step = write_env_hint(home)
+        assert step.success is False
+        assert "read-only" in step.message
+
+
 class TestRunInstallation:
     def test_full_install(self, tmp_path: Path) -> None:
         home = tmp_path / ".miner-harness"

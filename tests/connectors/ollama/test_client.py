@@ -137,3 +137,65 @@ class TestOllamaClient:
     async def test_context_manager(self, fast_config: OrchestratorConfig) -> None:
         async with OllamaClient(fast_config) as client:
             assert client is not None
+
+    async def test_generate_with_system_prompt(self, fast_config: OrchestratorConfig) -> None:
+        """generate() com system inclui payload system (linha 152)."""
+        client = OllamaClient(fast_config)
+        mock_response = httpx.Response(
+            200,
+            json={"response": "text"},
+            request=httpx.Request("POST", "http://localhost:11434/api/generate"),
+        )
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            result = await client.generate("qwen3:8b", "Hello", system="Be concise")
+            assert result == "text"
+            assert mock_post.call_args.kwargs["json"]["system"] == "Be concise"
+        await client.close()
+
+    async def test_embeddings_empty_response_returns_empty(
+        self, fast_config: OrchestratorConfig
+    ) -> None:
+        """Embeddings vazio retorna lista vazia (linha 175)."""
+        client = OllamaClient(fast_config)
+        mock_response = httpx.Response(
+            200,
+            json={"embeddings": [[]]},
+            request=httpx.Request("POST", "http://localhost:11434/api/embed"),
+        )
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            result = await client.embeddings("nomic-embed-text", "test")
+            assert result == []
+        await client.close()
+
+    async def test_list_models_connect_error_raises(self, fast_config: OrchestratorConfig) -> None:
+        """ConnectError em list_models levanta OllamaNotRunningError (linhas 193-194)."""
+        client = OllamaClient(fast_config)
+        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = httpx.ConnectError("refused")
+            with pytest.raises(OllamaNotRunningError):
+                await client.list_models()
+        await client.close()
+
+    async def test_pull_model_success(self, fast_config: OrchestratorConfig) -> None:
+        """pull_model() completa sem erro (linhas 208-209)."""
+        client = OllamaClient(fast_config)
+        mock_response = httpx.Response(
+            200,
+            json={},
+            request=httpx.Request("POST", "http://localhost:11434/api/pull"),
+        )
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await client.pull_model("qwen3:8b")
+        await client.close()
+
+    async def test_timeout_raises_inference_error(self, fast_config: OrchestratorConfig) -> None:
+        """TimeoutException em _post levanta InferenceError (linha 239)."""
+        client = OllamaClient(fast_config)
+        with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.side_effect = httpx.TimeoutException("timeout")
+            with pytest.raises(InferenceError):
+                await client.generate("qwen3:8b", "test")
+        await client.close()
