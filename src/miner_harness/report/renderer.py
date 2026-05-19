@@ -35,7 +35,7 @@ def _safe_json(data: object) -> Markup:
     raw = json.dumps(data, ensure_ascii=False, default=str)
     for char, escape in _SCRIPT_ESCAPES.items():
         raw = raw.replace(char, escape)
-    return Markup(raw)
+    return Markup(raw)  # nosec B704 — raw is HTML-escaped above; safe for <script> embedding
 
 
 class HtmlReportRenderer:
@@ -60,9 +60,10 @@ class HtmlReportRenderer:
         template = self._env.get_template("report.html.j2")
         return template.render(
             report_json_str=_safe_json(report.model_dump(mode="json")),
-            leaflet_js=Markup(self._static("leaflet.min.js")),
-            leaflet_css=Markup(self._static("leaflet.min.css")),
-            chart_js=Markup(self._static("chart.umd.min.js")),
+            # nosec B704 — bundled static assets from the package, not user data
+            leaflet_js=Markup(self._static("leaflet.min.js")),  # nosec B704
+            leaflet_css=Markup(self._static("leaflet.min.css")),  # nosec B704
+            chart_js=Markup(self._static("chart.umd.min.js")),  # nosec B704
         )
 
     def render_to_file(self, report: ProspectionReport, path: Path) -> Path:
