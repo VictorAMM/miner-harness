@@ -13,12 +13,29 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import jinja2
+from markupsafe import Markup
 
 if TYPE_CHECKING:
     from miner_harness.core.types import ProspectionReport
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
 _STATIC_DIR = Path(__file__).parent / "static"
+
+# Characters that must be escaped when embedding JSON inside a <script> tag
+# to prevent early script-tag termination (</script>) or CDATA injection.
+_SCRIPT_ESCAPES = {
+    "<": r"<",
+    ">": r">",
+    "&": r"&",
+}
+
+
+def _safe_json(data: object) -> Markup:
+    """Serialize *data* to JSON safe for embedding inside a <script> tag."""
+    raw = json.dumps(data, ensure_ascii=False, default=str)
+    for char, escape in _SCRIPT_ESCAPES.items():
+        raw = raw.replace(char, escape)
+    return Markup(raw)
 
 
 class HtmlReportRenderer:
@@ -35,21 +52,17 @@ class HtmlReportRenderer:
     def __init__(self) -> None:
         self._env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(str(_TEMPLATE_DIR)),
-            autoescape=False,
+            autoescape=True,
         )
 
     def render(self, report: ProspectionReport) -> str:
         """Renderiza relatório como HTML string completa."""
         template = self._env.get_template("report.html.j2")
         return template.render(
-            report_json_str=json.dumps(
-                report.model_dump(mode="json"),
-                ensure_ascii=False,
-                default=str,
-            ),
-            leaflet_js=self._static("leaflet.min.js"),
-            leaflet_css=self._static("leaflet.min.css"),
-            chart_js=self._static("chart.umd.min.js"),
+            report_json_str=_safe_json(report.model_dump(mode="json")),
+            leaflet_js=Markup(self._static("leaflet.min.js")),
+            leaflet_css=Markup(self._static("leaflet.min.css")),
+            chart_js=Markup(self._static("chart.umd.min.js")),
         )
 
     def render_to_file(self, report: ProspectionReport, path: Path) -> Path:
