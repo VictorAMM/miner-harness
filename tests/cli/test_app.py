@@ -66,3 +66,11 @@ class TestMainCLI:
         with patch("miner_harness.cli.app.cmd_validate", side_effect=RuntimeError("boom")):
             result = main(["validate", "/nonexistent.json"])
         assert result == 1
+
+    def test_health_command(self) -> None:
+        """main(['health']) delega ao cmd_health assíncrono (linhas 195-196)."""
+        from unittest.mock import AsyncMock, patch
+
+        with patch("miner_harness.cli.app.cmd_health", new=AsyncMock(return_value=0)):
+            result = main(["health"])
+        assert result == 0

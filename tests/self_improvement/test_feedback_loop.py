@@ -131,3 +131,17 @@ class TestFeedbackLoop:
         metrics.cache["svc"] = CacheMetrics(hits=9, misses=1)
         summary = loop.run(metrics)
         assert not summary.config_updated
+
+
+class TestFeedbackLoopPrivate:
+    """Testa branch de guarda em _persist_tuned_config (linha 137)."""
+
+    def test_persist_tuned_config_no_op_when_none(self, tmp_path: Path) -> None:
+        """_persist_tuned_config retorna cedo quando _tuned_config é None."""
+        cfg = _make_config(tmp_path)
+        out_dir = tmp_path / "out"
+        loop = FeedbackLoop(cfg, rca_dir=tmp_path / "rca", output_dir=out_dir)
+        # _tuned_config começa como None
+        loop._persist_tuned_config()
+        # Nenhum arquivo deve ter sido criado
+        assert not out_dir.exists()

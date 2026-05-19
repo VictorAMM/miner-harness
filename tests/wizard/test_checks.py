@@ -165,6 +165,13 @@ class TestCheckMinerHome:
         assert result.status == CheckStatus.FAIL
         assert not result.passed
 
+    def test_inaccessible_parent_fails(self) -> None:
+        """OSError ao acessar parent retorna FAIL (linhas 202-203)."""
+        home = Path("/nonexistent_root/very/deep/.miner-harness")
+        result = check_miner_home(home)
+        assert result.status == CheckStatus.FAIL
+        assert not result.passed
+
 
 class TestRunAllChecks:
     def test_returns_system_report(self, tmp_path: Path) -> None:

@@ -104,6 +104,26 @@ class TestEmbedder:
         call_args = mock_ollama.embeddings.call_args
         assert len(call_args.args[1]) == 512
 
+    def test_model_property(self, embedder: Embedder) -> None:
+        """Propriedade model retorna nome do modelo (linha 44)."""
+        assert isinstance(embedder.model, str)
+        assert len(embedder.model) > 0
+
+    def test_dimensions_property(self, embedder: Embedder) -> None:
+        """Propriedade dimensions retorna dimensão do embedding (linha 49)."""
+        assert embedder.dimensions == 768  # noqa: PLR2004
+
+    @pytest.mark.asyncio
+    async def test_embed_text_dimension_mismatch_logs_warning(self, mock_ollama: MagicMock) -> None:
+        """embedding com dimensão errada loga warning (linha 67)."""
+        from miner_harness.index.types import EmbeddingConfig
+
+        # Config de 768 dims mas mock retorna 512
+        mock_ollama.embeddings = AsyncMock(return_value=[0.1] * 512)
+        embedder = Embedder(mock_ollama, EmbeddingConfig(dimensions=768))
+        result = await embedder.embed_text("test")
+        assert len(result) == 512  # retorna o que vier, apesar do mismatch
+
 
 class TestSearchEngine:
     """Testes do SearchEngine."""

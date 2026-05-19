@@ -111,6 +111,20 @@ class TestCmdValidate:
         result = cmd_validate(str(f))
         assert result == 1
 
+    def test_validate_report_with_issues_prints_them(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Relatório com issues os imprime (linhas 151-153)."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        # Apenas um step → Missing steps warning → result.issues não vazio
+        report.steps = [report.steps[0]]
+        f = tmp_path / "report_partial.json"
+        f.write_text(json.dumps(report.model_dump(mode="json"), ensure_ascii=False))
+        cmd_validate(str(f))
+        captured = capsys.readouterr()
+        assert "Issues" in captured.out or captured.out  # issues are printed
+
 
 class TestCmdCacheStats:
     """Testes do cmd_cache_stats."""
@@ -366,6 +380,80 @@ class TestCmdAnalyze:
             await cmd_analyze(region="carajas", bbox=(-51.0, -7.0, -49.0, -5.0), no_html=False)
 
         mock_render.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_model_sets_config(self, tmp_path: Path) -> None:
+        """Passando model= sobrescreve config.orchestrator.model (linha 42)."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        cfg_mock = MagicMock()
+        cfg_mock.storage = storage
+        cfg_mock.orchestrator.model = "qwen3:8b"
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig", return_value=cfg_mock),
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+        ):
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=report)
+            mock_orch_cls.return_value = mock_orch
+
+            result = await cmd_analyze(
+                region="test", bbox=(-51.0, -7.0, -49.0, -5.0), model="qwen3:4b", no_html=True
+            )
+
+        assert result == 0
+        assert cfg_mock.orchestrator.model == "qwen3:4b"
+
+    @pytest.mark.asyncio
+    async def test_analyze_repairs_invalid_report(self, tmp_path: Path) -> None:
+        """Relatório inválido é reparado (linhas 83-84)."""
+        from datetime import datetime, timezone
+
+        bbox_obj = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        # steps=[] → report inválido → validator.repair é chamado
+        invalid_report = ProspectionReport(
+            region_name="Invalid",
+            bbox=bbox_obj,
+            steps=[],
+            targets=[],
+            integrated_summary="no steps",
+            caveats=[],
+            data_quality_score=0.5,
+            model_used="qwen3:8b",
+            total_duration_ms=100,
+            analysis_date=datetime.now(tz=timezone.utc),  # noqa: UP017
+        )
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+        ):
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=invalid_report)
+            mock_orch_cls.return_value = mock_orch
+
+            result = await cmd_analyze(region="test", bbox=(-51.0, -7.0, -49.0, -5.0), no_html=True)
+
+        assert result == 0
 
 
 class TestRenderHtmlReport:

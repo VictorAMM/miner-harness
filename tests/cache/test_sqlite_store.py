@@ -268,3 +268,65 @@ class TestBBoxHash:
         bbox1 = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
         bbox2 = BoundingBox(lon_min=-45.0, lat_min=-10.0, lon_max=-43.0, lat_max=-8.0)
         assert bbox1.hash() != bbox2.hash()
+
+
+class TestSQLiteStoreDbPath:
+    """Cobre a property db_path (linha 84)."""
+
+    def test_db_path_property(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "test.db"
+        store = SQLiteStore(db_path)
+        assert store.db_path == db_path
+        store.close()
+
+
+class TestSQLiteStoreSchemaVersion:
+    """Cobre CacheCorruptedError quando versão do schema diverge (linha 120)."""
+
+    def test_schema_mismatch_raises(self, tmp_path: Path) -> None:
+        import sqlite3
+
+        from miner_harness.core.exceptions import CacheCorruptedError
+
+        db_path = tmp_path / "old.db"
+        # Criar DB com schema_version errada
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        conn.execute("INSERT INTO schema_meta (key, value) VALUES ('schema_version', '999')")
+        conn.commit()
+        conn.close()
+
+        with pytest.raises(CacheCorruptedError):
+            SQLiteStore(db_path)
+
+
+class TestSQLiteStoreOversized:
+    """Cobre log de aviso para features oversized (linha 197)."""
+
+    def test_oversized_feature_does_not_raise(self, store: SQLiteStore, bbox: BoundingBox) -> None:
+        """Feature acima de MAX_SINGLE_FEATURE_KB loga aviso mas não levanta exceção."""
+        # MAX_SINGLE_FEATURE_KB=100, len(features)=1 → need size_kb > 100
+        big_value = "x" * (105 * 1024)  # 105 KB de string
+        store.put("ocorrencias", bbox, [{"big": big_value}])
+        result = store.get("ocorrencias", bbox)
+        assert result is not None
+
+
+class TestSQLiteStoreNaiveDatetime:
+    """Cobre branches de fallback para datetime sem tzinfo (linhas 338, 387)."""
+
+    def test_is_fresh_with_naive_datetime(self, store: SQLiteStore, bbox: BoundingBox) -> None:
+        """Entrada com datetime sem tzinfo ainda é tratada como fresca."""
+        store.put("ocorrencias", bbox, [{"id": 1}])
+        conn = store._get_conn()
+        # Substituir fetched_at por datetime naive (sem timezone)
+        from datetime import datetime
+
+        naive_now = datetime.utcnow().isoformat()  # noqa: DTZ003
+        conn.execute(
+            "UPDATE cache_entries SET fetched_at = ? WHERE service = ?",
+            (naive_now, "ocorrencias"),
+        )
+        conn.commit()
+        # is_fresh deve tratar tzinfo=None adicionando UTC
+        assert store.contains("ocorrencias", bbox)

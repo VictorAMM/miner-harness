@@ -156,11 +156,11 @@ class TestOllamaClient:
     async def test_embeddings_empty_response_returns_empty(
         self, fast_config: OrchestratorConfig
     ) -> None:
-        """Embeddings vazio retorna lista vazia (linha 175)."""
+        """embeddings=[] (lista vazia) retorna [] pela linha 175."""
         client = OllamaClient(fast_config)
         mock_response = httpx.Response(
             200,
-            json={"embeddings": [[]]},
+            json={"embeddings": []},
             request=httpx.Request("POST", "http://localhost:11434/api/embed"),
         )
         with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:

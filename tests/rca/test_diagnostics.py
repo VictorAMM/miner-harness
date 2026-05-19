@@ -56,6 +56,15 @@ class TestCollectDiskInfo:
         assert isinstance(total, float)
         assert total > 0
 
+    def test_oserror_returns_zeros(self) -> None:
+        """OSError em disk_usage retorna (0.0, 0.0) (linhas 63-64)."""
+        import shutil
+
+        with patch.object(shutil, "disk_usage", side_effect=OSError("no disk")):
+            free, total = collect_disk_info()
+        assert free == 0.0
+        assert total == 0.0
+
 
 class TestCollectSystemInfo:
     """Tests for collect_system_info."""
@@ -97,6 +106,12 @@ class TestCollectCacheSize:
     def test_no_cache_returns_none(self, tmp_path: Path) -> None:
         result = collect_cache_size(tmp_path)
         assert result is None
+
+    def test_default_dir_uses_miner_harness_home(self) -> None:
+        """collect_cache_size() sem argumento usa ~/.miner-harness (linha 91)."""
+        result = collect_cache_size()
+        # Pode ser None (não existe) ou float (existe) — o importante é não levantar
+        assert result is None or isinstance(result, float)
 
     def test_with_cache_file(self, tmp_path: Path) -> None:
         cache_db = tmp_path / "cache.db"
