@@ -158,7 +158,7 @@ class ThrottledClient:
         # Todos os retries esgotados
         if last_exc is not None:
             raise last_exc
-        msg = f"All {self._config.max_retries} retries exhausted for {url}"
+        msg = f"All {self._config.max_retries} retries exhausted for {url}"  # pragma: no cover
         raise GeoSGBConnectionError(msg)  # pragma: no cover
 
     async def _backoff(self, attempt: int) -> None:

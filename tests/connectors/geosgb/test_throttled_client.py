@@ -132,3 +132,26 @@ class TestThrottledClient:
         config = GeoSGBConfig(min_delay_ms=500)
         client = ThrottledClient(config)
         assert client.min_delay_s == 0.5
+
+    async def test_throttle_sleeps_on_rapid_requests(self, fast_config: GeoSGBConfig) -> None:
+        """asyncio.sleep é chamado quando elapsed < min_delay_s (linha 64)."""
+        import time as time_module
+
+        config = GeoSGBConfig(min_delay_ms=500, max_retries=1, backoff_factor=1.0)
+        client = ThrottledClient(config)
+        mock_response = httpx.Response(
+            200, json={"ok": True}, request=httpx.Request("GET", "https://example.com")
+        )
+        # 4 monotonic() calls per get(): _throttle×2, start, latency
+        # First call: elapsed=1000.0 (no sleep); second call: elapsed=0.05 < 0.5 (sleep)
+        mono_seq = [1000.0, 1000.0, 1000.0, 1000.0, 1000.05, 1000.05, 1000.05, 1000.05]
+        with (
+            patch.object(time_module, "monotonic", side_effect=mono_seq),
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
+        ):
+            mock_get.return_value = mock_response
+            await client.get("https://example.com/1")
+            await client.get("https://example.com/2")
+        mock_sleep.assert_called()
+        await client.close()

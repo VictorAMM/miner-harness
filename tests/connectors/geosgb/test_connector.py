@@ -605,3 +605,30 @@ class TestExtractViaIdentify:
             results = await connector._extract_via_identify("fake_map", bbox_small)
         assert isinstance(results, list)
         await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_extract_via_identify_exception_is_swallowed(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Erro no identify de um ponto é logado e ignorado (linhas 237-238)."""
+        from miner_harness.connectors.geosgb.services import ServiceEndpoint
+        from miner_harness.core.exceptions import GeoSGBConnectionError
+
+        fake_endpoint = ServiceEndpoint(
+            name="fake_map",
+            path="geologia/fake_map",
+            server_type="MapServer",
+            default_layers=[0],
+        )
+        connector = GeoSGBConnector(fast_config)
+        with (
+            patch.dict(
+                "miner_harness.connectors.geosgb.connector.SERVICE_REGISTRY",
+                {"fake_map": fake_endpoint},
+            ),
+            patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get,
+        ):
+            mock_get.side_effect = GeoSGBConnectionError("identify failed")
+            results = await connector._extract_via_identify("fake_map", bbox_small)
+        assert results == []
+        await connector.close()

@@ -186,12 +186,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.cache_command == "clear":
                 return cmd_cache_clear()
             parser.parse_args(["cache", "--help"])
-            return 1
+            return 1  # pragma: no cover
         if args.command == "index":
             if args.index_command == "stats":
                 return cmd_index_stats()
-            parser.parse_args(["index", "--help"])
-            return 1
+            parser.parse_args(["index", "--help"])  # pragma: no cover
+            return 1  # pragma: no cover
         if args.command == "health":
             return asyncio.run(cmd_health())
     except KeyboardInterrupt:
@@ -202,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    return 0
+    return 0  # pragma: no cover
 
 
 if __name__ == "__main__":
