@@ -1,6 +1,6 @@
 """Fixtures e configuração para testes e2e.
 
-Testes e2e requerem serviços externos (GeoSGB API, Ollama).
+Testes e2e requerem serviços externos (GeoSGB API, Ollama, ANM, USGS).
 Por padrão são pulados. Para executar:
 
     MINER_E2E=1 uv run pytest tests/e2e/ -v
@@ -8,6 +8,12 @@ Por padrão são pulados. Para executar:
 Ou somente GeoSGB (sem Ollama):
 
     MINER_E2E=1 MINER_E2E_NO_OLLAMA=1 uv run pytest tests/e2e/ -v -k "geosgb"
+
+Somente ANM:
+    MINER_E2E=1 uv run pytest tests/e2e/test_anm_live.py -v
+
+Somente USGS:
+    MINER_E2E=1 uv run pytest tests/e2e/test_usgs_live.py -v
 """
 
 from __future__ import annotations
