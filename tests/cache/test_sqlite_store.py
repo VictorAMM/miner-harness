@@ -330,3 +330,19 @@ class TestSQLiteStoreNaiveDatetime:
         conn.commit()
         # is_fresh deve tratar tzinfo=None adicionando UTC
         assert store.contains("ocorrencias", bbox)
+
+    def test_age_days_with_naive_datetime(self, store: SQLiteStore, bbox: BoundingBox) -> None:
+        """_age_days trata fetched_at naive adicionando UTC (linha 387)."""
+        from datetime import datetime
+
+        store.put("ocorrencias", bbox, [{"id": 1}])
+        conn = store._get_conn()
+        naive_now = datetime.utcnow().isoformat()  # noqa: DTZ003
+        conn.execute(
+            "UPDATE cache_entries SET fetched_at = ? WHERE service = ?",
+            (naive_now, "ocorrencias"),
+        )
+        conn.commit()
+        # get() chama _age_days() em cache hits → cobre linha 387
+        result = store.get("ocorrencias", bbox)
+        assert result is not None

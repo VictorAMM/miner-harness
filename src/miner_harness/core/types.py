@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 # StrEnum: use stdlib on 3.11+, fallback for older runtimes (dev/CI only)
 if sys.version_info >= (3, 11):  # noqa: UP036
     from enum import StrEnum  # noqa: F811
-else:
+else:  # pragma: no cover
 
     class StrEnum(str, Enum):  # noqa: UP042
         """Compatibility shim — project requires 3.11+ but CI sandbox may differ."""
