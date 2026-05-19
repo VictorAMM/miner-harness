@@ -115,6 +115,86 @@ class TestGenerateRCAReport:
         assert len(report.timeline) == 2  # noqa: PLR2004
 
 
+class TestRCAReportMarkdownBranches:
+    """Cobre branches opcionais de to_markdown."""
+
+    def test_contributing_factors_listed(
+        self, sample_classified: ClassifiedError, sample_diagnostics: DiagnosticSnapshot
+    ) -> None:
+        """contributing_factors não-vazio aparece no markdown (linhas 82-83)."""
+        report = RCAReport(
+            id="RCA-TEST",
+            title="Test",
+            classified_error=sample_classified,
+            diagnostics=sample_diagnostics,
+            contributing_factors=["Fator A", "Fator B"],
+        )
+        md = report.to_markdown()
+        assert "Fator A" in md
+        assert "Fator B" in md
+
+    def test_timeline_events_listed(
+        self, sample_classified: ClassifiedError, sample_diagnostics: DiagnosticSnapshot
+    ) -> None:
+        """timeline não-vazia aparece no markdown (linhas 96-99)."""
+        report = RCAReport(
+            id="RCA-TEST",
+            title="Test",
+            classified_error=sample_classified,
+            diagnostics=sample_diagnostics,
+            timeline=[{"timestamp": "12:00", "description": "Erro ocorreu"}],
+        )
+        md = report.to_markdown()
+        assert "12:00" in md
+        assert "Erro ocorreu" in md
+
+    def test_empty_remediation_uses_suggested_action(
+        self, sample_classified: ClassifiedError, sample_diagnostics: DiagnosticSnapshot
+    ) -> None:
+        """remediation_steps vazia usa suggested_action (linha 115)."""
+        report = RCAReport(
+            id="RCA-TEST",
+            title="Test",
+            classified_error=sample_classified,
+            diagnostics=sample_diagnostics,
+            remediation_steps=[],
+        )
+        md = report.to_markdown()
+        assert sample_classified.suggested_action in md
+
+    def test_empty_prevention_shows_placeholder(
+        self, sample_classified: ClassifiedError, sample_diagnostics: DiagnosticSnapshot
+    ) -> None:
+        """prevention_measures vazia exibe placeholder (linha 129)."""
+        report = RCAReport(
+            id="RCA-TEST",
+            title="Test",
+            classified_error=sample_classified,
+            diagnostics=sample_diagnostics,
+            prevention_measures=[],
+        )
+        md = report.to_markdown()
+        assert "_Medidas a definir_" in md
+
+    def test_cache_size_in_markdown(self, sample_classified: ClassifiedError) -> None:
+        """cache_size_mb não-nulo aparece no markdown (linha 148)."""
+        diag_with_cache = DiagnosticSnapshot(
+            disk_free_gb=50.0,
+            disk_total_gb=200.0,
+            python_version="3.11",
+            platform_info="Linux",
+            cache_size_mb=42.5,
+        )
+        report = RCAReport(
+            id="RCA-TEST",
+            title="Test",
+            classified_error=sample_classified,
+            diagnostics=diag_with_cache,
+        )
+        md = report.to_markdown()
+        assert "42.5 MB" in md
+
+
 class TestSaveRCAReport:
     """Tests for save_rca_report function."""
 
@@ -136,3 +216,18 @@ class TestSaveRCAReport:
 
         content = md_path.read_text()
         assert "# RCA:" in content
+
+    @pytest.mark.asyncio
+    async def test_saves_to_default_dir(
+        self,
+        sample_classified: ClassifiedError,
+        sample_diagnostics: DiagnosticSnapshot,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """output_dir=None usa docs/rca relativo ao cwd (linha 276)."""
+        monkeypatch.chdir(tmp_path)
+        report = await generate_rca_report(sample_classified, sample_diagnostics)
+        md_path = await save_rca_report(report, output_dir=None)
+        assert md_path.exists()
+        assert "docs" in str(md_path)
