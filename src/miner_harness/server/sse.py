@@ -26,9 +26,7 @@ class SseChannel:
         """Enfileira uma mensagem SSE formatada."""
         self._counter += 1
         payload = (
-            f"id: {self._counter}\n"
-            f"event: {event}\n"
-            f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+            f"id: {self._counter}\nevent: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
         )
         self._queue.put_nowait(payload)
 

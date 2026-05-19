@@ -37,7 +37,7 @@ class TestSseChannel:
         assert "event: step_start\n" in msg
         assert "data: " in msg
         data_line = next(line for line in msg.split("\n") if line.startswith("data: "))
-        payload = json.loads(data_line[len("data: "):])
+        payload = json.loads(data_line[len("data: ") :])
         assert payload["step"] == "tectonic_history"
 
     def test_close_stops_iteration(self) -> None:

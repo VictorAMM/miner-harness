@@ -212,16 +212,12 @@ class TestHtmlReportRenderer:
         assert "Nova Pesquisa" in html
         assert "progress-overlay" in html
 
-    def test_render_static_mode_omits_nova_pesquisa(
-        self, sample_report: ProspectionReport
-    ) -> None:
+    def test_render_static_mode_omits_nova_pesquisa(self, sample_report: ProspectionReport) -> None:
         html = HtmlReportRenderer().render(sample_report, serve_mode=False)
         assert "np-submit" not in html
         assert "progress-overlay" not in html
 
-    def test_render_serve_mode_default_is_false(
-        self, sample_report: ProspectionReport
-    ) -> None:
+    def test_render_serve_mode_default_is_false(self, sample_report: ProspectionReport) -> None:
         html = HtmlReportRenderer().render(sample_report)
         assert "np-submit" not in html
 

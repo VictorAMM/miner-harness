@@ -583,11 +583,18 @@ class TestServeMode:
         from miner_harness.cli.app import _build_parser
 
         parser = _build_parser()
-        args = parser.parse_args([
-            "analyze", "carajas",
-            "--bbox", "-51", "-7", "-49", "-5",
-            "--serve",
-        ])
+        args = parser.parse_args(
+            [
+                "analyze",
+                "carajas",
+                "--bbox",
+                "-51",
+                "-7",
+                "-49",
+                "-5",
+                "--serve",
+            ]
+        )
         assert args.serve is True
         assert args.port == 8765
 
@@ -596,17 +603,24 @@ class TestServeMode:
         from miner_harness.cli.app import _build_parser
 
         parser = _build_parser()
-        args = parser.parse_args([
-            "analyze", "carajas",
-            "--bbox", "-51", "-7", "-49", "-5",
-            "--serve", "--port", "9999",
-        ])
+        args = parser.parse_args(
+            [
+                "analyze",
+                "carajas",
+                "--bbox",
+                "-51",
+                "-7",
+                "-49",
+                "-5",
+                "--serve",
+                "--port",
+                "9999",
+            ]
+        )
         assert args.port == 9999
 
     @pytest.mark.asyncio
-    async def test_serve_dashboard_opens_browser_and_calls_server(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_serve_dashboard_opens_browser_and_calls_server(self, tmp_path: Path) -> None:
         """_serve_dashboard abre browser e chama server.run()."""
         bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
         report = _make_report(bbox)

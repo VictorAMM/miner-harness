@@ -78,7 +78,7 @@ def _collect_chunks_sync(channel: SseChannel) -> list[str]:
 
 def _event_types(chunks: list[str]) -> list[str]:
     return [
-        line[len("event: "):]
+        line[len("event: ") :]
         for chunk in chunks
         for line in chunk.split("\n")
         if line.startswith("event: ")
@@ -149,12 +149,10 @@ class TestAnalysisRunner:
         async for chunk in channel:
             chunks.append(chunk)
 
-        complete_chunk = next(
-            (c for c in chunks if "event: complete" in c), None
-        )
+        complete_chunk = next((c for c in chunks if "event: complete" in c), None)
         assert complete_chunk is not None
         data_line = next(line for line in complete_chunk.split("\n") if line.startswith("data: "))
-        payload = json.loads(data_line[len("data: "):])
+        payload = json.loads(data_line[len("data: ") :])
         assert payload["report"]["region_name"] == "Teste"
 
     @pytest.mark.asyncio
@@ -185,7 +183,7 @@ class TestAnalysisRunner:
         error_chunk = next((c for c in chunks if "event: error" in c), None)
         assert error_chunk is not None
         data_line = next(line for line in error_chunk.split("\n") if line.startswith("data: "))
-        payload = json.loads(data_line[len("data: "):])
+        payload = json.loads(data_line[len("data: ") :])
         assert "GeoSGB timeout" in payload["msg"]
 
     @pytest.mark.asyncio
