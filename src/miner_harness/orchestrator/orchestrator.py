@@ -8,6 +8,7 @@ Ref: RFC-002 §4.2, §6
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import datetime, timezone  # noqa: UP017
 from typing import TYPE_CHECKING, Any
@@ -218,25 +219,21 @@ class Orchestrator:
     ) -> StepResult:
         """Executa um passo individual da análise.
 
-        Para passos com múltiplos agentes (3 e 4), executa o
-        primeiro agente que suporta o passo.
+        Para passos com múltiplos agentes (3 e 4), todos os agentes rodam
+        em paralelo via asyncio.gather() e seus resultados são fundidos.
         """
         agent_names = _STEP_AGENTS.get(step, [])
         if not agent_names:
             msg = f"No agents configured for step {step.value}"
             raise ValueError(msg)
 
-        # Usar o primeiro agente disponível para o passo
-        agent_name = agent_names[0]
-        agent = self._agents[agent_name]
-
         logger.info(
             "step_start",
             step=step.value,
-            agent=agent_name,
+            agents=agent_names,
         )
 
-        # Enriquecer dados com contexto RAG antes de chamar o agente
+        # Enriquecer dados com contexto RAG antes de chamar os agentes
         effective_data = geological_data
         if self._search_engine is not None:
             query = _STEP_RAG_QUERIES.get(step, step.value)
@@ -246,18 +243,74 @@ class Orchestrator:
             except Exception:
                 logger.warning("rag_context_failed", step=step.value, exc_info=True)
 
-        result = await agent.analyze(step, effective_data, previous_results or None)
+        if len(agent_names) == 1:
+            result = await self._agents[agent_names[0]].analyze(
+                step, effective_data, previous_results or None
+            )
+        else:
+            results = await asyncio.gather(
+                *(
+                    self._agents[name].analyze(step, effective_data, previous_results or None)
+                    for name in agent_names
+                )
+            )
+            result = self._merge_step_results(list(results))
 
         logger.info(
             "step_complete",
             step=step.value,
-            agent=agent_name,
+            agent=result.agent,
             confidence=result.confidence.value,
             findings=len(result.findings),
             duration_ms=result.duration_ms,
         )
 
         return result
+
+    @staticmethod
+    def _merge_step_results(results: list[StepResult]) -> StepResult:
+        """Funde resultados de múltiplos agentes num único StepResult.
+
+        Estratégia: melhor confiança, union de findings/sources/gaps,
+        duration_ms = tempo de parede (max, pois correm em paralelo).
+        """
+        if len(results) == 1:
+            return results[0]
+
+        _confidence_rank = {
+            Confidence.HIGH: 3,
+            Confidence.MEDIUM: 2,
+            Confidence.LOW: 1,
+            Confidence.INSUFFICIENT: 0,
+        }
+        best = max(results, key=lambda r: _confidence_rank[r.confidence])
+
+        all_findings: list[str] = []
+        all_sources: list[str] = []
+        all_gaps: list[str] = []
+        summaries: list[str] = []
+        all_targets = []
+
+        for r in results:
+            all_findings.extend(r.findings)
+            all_sources.extend(r.data_sources_used)
+            all_gaps.extend(r.data_gaps)
+            all_targets.extend(r.targets)
+            if r.summary:
+                summaries.append(f"[{r.agent}] {r.summary}")
+
+        return StepResult(
+            step=results[0].step,
+            agent=" + ".join(r.agent for r in results),
+            summary=" | ".join(summaries),
+            findings=list(dict.fromkeys(all_findings)),
+            confidence=best.confidence,
+            data_sources_used=list(dict.fromkeys(all_sources)),
+            data_gaps=list(dict.fromkeys(all_gaps)),
+            raw_reasoning=" | ".join(r.raw_reasoning for r in results),
+            duration_ms=max(r.duration_ms for r in results),
+            targets=all_targets,
+        )
 
     def _build_extra_sources(self) -> ExtraSourcesMap:
         """Instancia conectores adicionais (ANM, USGS) quando habilitados."""

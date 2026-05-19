@@ -560,3 +560,288 @@ class TestBuildExtraSources:
             orch = Orchestrator(mock_connector, cache, mock_llm, cfg)
         # ANM ainda deve estar presente
         assert "anm" in orch._context_builder._extra_sources
+
+
+# ---------------------------------------------------------------------------
+# _merge_step_results
+# ---------------------------------------------------------------------------
+
+
+def _make_step_result(
+    step: AnalysisStep,
+    agent: str,
+    confidence: Confidence,
+    findings: list[str] | None = None,
+    sources: list[str] | None = None,
+    gaps: list[str] | None = None,
+    summary: str = "",
+    duration_ms: int = 100,
+) -> StepResult:
+    return StepResult(
+        step=step,
+        agent=agent,
+        summary=summary or f"Summary from {agent}",
+        findings=findings or [f"Finding from {agent}"],
+        confidence=confidence,
+        data_sources_used=sources or [agent],
+        data_gaps=gaps or [],
+        raw_reasoning=f"Reasoning from {agent}",
+        duration_ms=duration_ms,
+    )
+
+
+class TestMergeStepResults:
+    """Testes para Orchestrator._merge_step_results."""
+
+    def test_single_result_returned_unchanged(self) -> None:
+        r = _make_step_result(AnalysisStep.MAGMATIC_FERTILITY, "geochemist", Confidence.HIGH)
+        merged = Orchestrator._merge_step_results([r])
+        assert merged is r
+
+    def test_merged_agent_name_concatenated(self) -> None:
+        r1 = _make_step_result(AnalysisStep.MAGMATIC_FERTILITY, "geochemist", Confidence.HIGH)
+        r2 = _make_step_result(AnalysisStep.MAGMATIC_FERTILITY, "geophysicist", Confidence.MEDIUM)
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert merged.agent == "geochemist + geophysicist"
+
+    def test_merged_confidence_is_best(self) -> None:
+        r1 = _make_step_result(AnalysisStep.MAGMATIC_FERTILITY, "geochemist", Confidence.LOW)
+        r2 = _make_step_result(AnalysisStep.MAGMATIC_FERTILITY, "geophysicist", Confidence.HIGH)
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert merged.confidence == Confidence.HIGH
+
+    def test_merged_confidence_insufficient_when_all_insufficient(self) -> None:
+        r1 = _make_step_result(
+            AnalysisStep.INDIRECT_EVIDENCE, "geochemist", Confidence.INSUFFICIENT
+        )
+        r2 = _make_step_result(
+            AnalysisStep.INDIRECT_EVIDENCE, "geophysicist", Confidence.INSUFFICIENT
+        )
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert merged.confidence == Confidence.INSUFFICIENT
+
+    def test_merged_findings_union(self) -> None:
+        r1 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geochemist",
+            Confidence.MEDIUM,
+            findings=["A", "B"],
+        )
+        r2 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geophysicist",
+            Confidence.MEDIUM,
+            findings=["C", "D"],
+        )
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert "A" in merged.findings
+        assert "B" in merged.findings
+        assert "C" in merged.findings
+        assert "D" in merged.findings
+
+    def test_merged_findings_deduplicated(self) -> None:
+        r1 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY, "geochemist", Confidence.MEDIUM, findings=["X", "Y"]
+        )
+        r2 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geophysicist",
+            Confidence.MEDIUM,
+            findings=["Y", "Z"],
+        )
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert merged.findings.count("Y") == 1
+
+    def test_merged_sources_union(self) -> None:
+        r1 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geochemist",
+            Confidence.MEDIUM,
+            sources=["geoquimica", "ocorrencias"],
+        )
+        r2 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geophysicist",
+            Confidence.MEDIUM,
+            sources=["gravimetria", "ocorrencias"],
+        )
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert "geoquimica" in merged.data_sources_used
+        assert "gravimetria" in merged.data_sources_used
+        assert merged.data_sources_used.count("ocorrencias") == 1
+
+    def test_merged_duration_is_wall_clock_max(self) -> None:
+        r1 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY, "geochemist", Confidence.MEDIUM, duration_ms=800
+        )
+        r2 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY, "geophysicist", Confidence.MEDIUM, duration_ms=1200
+        )
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert merged.duration_ms == 1200
+
+    def test_merged_summary_includes_agent_labels(self) -> None:
+        r1 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geochemist",
+            Confidence.MEDIUM,
+            summary="Geoquímica positiva",
+        )
+        r2 = _make_step_result(
+            AnalysisStep.MAGMATIC_FERTILITY,
+            "geophysicist",
+            Confidence.MEDIUM,
+            summary="Anomalia gravimétrica",
+        )
+        merged = Orchestrator._merge_step_results([r1, r2])
+        assert "[geochemist]" in merged.summary
+        assert "[geophysicist]" in merged.summary
+        assert "Geoquímica positiva" in merged.summary
+        assert "Anomalia gravimétrica" in merged.summary
+
+    def test_merged_step_matches_first_result(self) -> None:
+        r1 = _make_step_result(AnalysisStep.INDIRECT_EVIDENCE, "geochemist", Confidence.MEDIUM)
+        r2 = _make_step_result(AnalysisStep.INDIRECT_EVIDENCE, "remote_sensing", Confidence.LOW)
+        r3 = _make_step_result(AnalysisStep.INDIRECT_EVIDENCE, "geophysicist", Confidence.HIGH)
+        merged = Orchestrator._merge_step_results([r1, r2, r3])
+        assert merged.step == AnalysisStep.INDIRECT_EVIDENCE
+        assert merged.confidence == Confidence.HIGH
+
+
+# ---------------------------------------------------------------------------
+# Execução paralela de agentes via _execute_step
+# ---------------------------------------------------------------------------
+
+
+class TestParallelAgentExecution:
+    """Testes que _execute_step chama múltiplos agentes em paralelo."""
+
+    def _make_orchestrator(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> Orchestrator:
+        from miner_harness.core.config import OrchestratorConfig
+
+        cfg = MinerHarnessConfig(orchestrator=OrchestratorConfig(use_rag=False))
+        return Orchestrator(mock_connector, cache, mock_llm, cfg)
+
+    async def test_step3_calls_geochemist_and_geophysicist(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """Passo 3 (MAGMATIC_FERTILITY) chama geochemist + geophysicist em paralelo."""
+        orch = self._make_orchestrator(mock_connector, cache, mock_llm)
+
+        geo_data = {
+            "ocorrencias": [{"objectid": 1}],
+            "gravimetria": [{"objectid": 2}],
+            "geoquimica": [{"objectid": 3}],
+            "geocronologia": [],
+            "litoestratigrafia": [],
+            "aerogeofisica": [],
+        }
+
+        called_agents: list[str] = []
+
+        async def tracking_analyze(self_agent, step, data, prev):  # noqa: ANN001
+            called_agents.append(self_agent.name)
+            return _make_step_result(step, self_agent.name, Confidence.MEDIUM)
+
+        from miner_harness.agents.base import BaseAgent
+
+        original = BaseAgent.analyze
+        BaseAgent.analyze = tracking_analyze
+        try:
+            result = await orch._execute_step(AnalysisStep.MAGMATIC_FERTILITY, geo_data, [])
+        finally:
+            BaseAgent.analyze = original
+
+        assert "geochemist" in called_agents
+        assert "geophysicist" in called_agents
+        assert result.agent == "geochemist + geophysicist"
+
+    async def test_step4_calls_three_agents(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """Passo 4 (INDIRECT_EVIDENCE) chama geochemist + remote_sensing + geophysicist."""
+        orch = self._make_orchestrator(mock_connector, cache, mock_llm)
+
+        geo_data = {
+            k: [{"objectid": i}]
+            for i, k in enumerate(
+                [
+                    "ocorrencias",
+                    "gravimetria",
+                    "geoquimica",
+                    "geocronologia",
+                    "litoestratigrafia",
+                    "aerogeofisica",
+                ]
+            )
+        }
+
+        called_agents: list[str] = []
+
+        async def tracking_analyze(self_agent, step, data, prev):  # noqa: ANN001
+            called_agents.append(self_agent.name)
+            return _make_step_result(step, self_agent.name, Confidence.LOW)
+
+        from miner_harness.agents.base import BaseAgent
+
+        original = BaseAgent.analyze
+        BaseAgent.analyze = tracking_analyze
+        try:
+            result = await orch._execute_step(AnalysisStep.INDIRECT_EVIDENCE, geo_data, [])
+        finally:
+            BaseAgent.analyze = original
+
+        assert set(called_agents) == {"geochemist", "remote_sensing", "geophysicist"}
+        assert result.agent == "geochemist + remote_sensing + geophysicist"
+
+    async def test_step1_calls_single_agent(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """Passo 1 (TECTONIC_HISTORY) chama apenas structural_geologist."""
+        orch = self._make_orchestrator(mock_connector, cache, mock_llm)
+
+        geo_data = {
+            k: [{"objectid": i}]
+            for i, k in enumerate(
+                [
+                    "ocorrencias",
+                    "gravimetria",
+                    "geoquimica",
+                    "geocronologia",
+                    "litoestratigrafia",
+                    "aerogeofisica",
+                ]
+            )
+        }
+
+        called_agents: list[str] = []
+
+        async def tracking_analyze(self_agent, step, data, prev):  # noqa: ANN001
+            called_agents.append(self_agent.name)
+            return _make_step_result(step, self_agent.name, Confidence.MEDIUM)
+
+        from miner_harness.agents.base import BaseAgent
+
+        original = BaseAgent.analyze
+        BaseAgent.analyze = tracking_analyze
+        try:
+            result = await orch._execute_step(AnalysisStep.TECTONIC_HISTORY, geo_data, [])
+        finally:
+            BaseAgent.analyze = original
+
+        assert called_agents == ["structural_geologist"]
+        assert result.agent == "structural_geologist"
