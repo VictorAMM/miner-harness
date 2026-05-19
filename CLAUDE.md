@@ -58,9 +58,10 @@ Fase 11 — Self-Improvement ✅ CONCLUÍDA (2026-05-17)
 Wizard  — Instalação Guiada ✅ CONCLUÍDA (2026-05-17)
 RAG     — Retrieval-Augmented Generation ✅ CONCLUÍDA (2026-05-18) [v0.2.0]
 Dashboard — Relatório HTML Interativo ✅ CONCLUÍDA (2026-05-18) [v0.2.1]
+Nova Pesquisa — Servidor HTTP + SSE + Dashboard Interativo ✅ CONCLUÍDA (2026-05-19) [v0.3.0]
 ```
 
-**Status**: v0.2.1 em produção. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
+**Status**: v0.3.0 em produção. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
 
 ## Grafo de Rastreabilidade
 
@@ -90,6 +91,7 @@ miner-harness/
 │   ├── observability/     # Health checks, logging estruturado
 │   ├── orchestrator/      # Orchestrator, ContextBuilder, ReportValidator
 │   ├── report/            # HtmlReportRenderer (Jinja2 + Leaflet + Chart.js)
+│   ├── server/            # DashboardServer (aiohttp) + SseChannel + AnalysisRunner
 │   └── wizard/            # Wizard de instalação guiada
 ├── tests/                 # Testes (pytest)
 ├── scripts/               # setup_dev.sh, pull_models.sh, run_analysis.sh
