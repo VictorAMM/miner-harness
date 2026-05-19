@@ -342,3 +342,32 @@ class TestAgentDataKeys:
         agent = self._make_agent(EvaluatorAgent)
         keys = agent._get_relevant_data_keys(AnalysisStep.TOTAL_INTEGRATION)
         assert len(keys) == 6  # All 6 datasets
+
+    def test_remote_sensing_data_keys(self) -> None:
+        """_get_relevant_data_keys de RemoteSensing cobre linha 22."""
+        agent = self._make_agent(RemoteSensingAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.INDIRECT_EVIDENCE)
+        assert "aerogeofisica" in keys
+        assert "litoestratigrafia" in keys
+
+    def test_geophysicist_indirect_evidence_keys(self) -> None:
+        """_get_relevant_data_keys com INDIRECT_EVIDENCE cobre linha 25."""
+        agent = self._make_agent(GeophysicistAgent)
+        keys = agent._get_relevant_data_keys(AnalysisStep.INDIRECT_EVIDENCE)
+        assert "gravimetria" in keys
+        assert "aerogeofisica" in keys
+
+
+class TestEvaluatorTargetsBlockException:
+    """Cobre bloco except externo de _extract_targets (linhas 59-60)."""
+
+    def _make_evaluator(self) -> EvaluatorAgent:
+        mock_llm = AsyncMock(spec=OllamaClient)
+        return EvaluatorAgent(llm=mock_llm)
+
+    def test_non_json_content_with_total_integration(self) -> None:
+        """Conteúdo sem JSON com TOTAL_INTEGRATION → except outer (linhas 59-60)."""
+        agent = self._make_evaluator()
+        response = _mock_llm_response("Análise descritiva sem JSON algum para extrair.")
+        result = agent.parse_response(response, AnalysisStep.TOTAL_INTEGRATION)
+        assert result.targets == []

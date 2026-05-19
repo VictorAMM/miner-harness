@@ -114,3 +114,51 @@ class TestCacheManagerDirs:
         assert config.index_dir.exists()
         assert config.exports_dir.exists()
         assert config.logs_dir.exists()
+
+
+class TestCacheManagerExtraAPIs:
+    """Cobre linhas não testadas: sqlite_store, evict_expired, context manager, auto-evict."""
+
+    def test_sqlite_store_property(self, config: StorageConfig) -> None:
+        """sqlite_store property retorna o SQLiteStore interno (linha 61)."""
+        cache = CacheManager(config)
+        try:
+            assert cache.sqlite_store is not None
+        finally:
+            cache.close()
+
+    def test_evict_expired_returns_int(self, cache: CacheManager) -> None:
+        """evict_expired() retorna contagem de entradas removidas (linha 115)."""
+        removed = cache.evict_expired()
+        assert isinstance(removed, int)
+        assert removed >= 0
+
+    def test_context_manager(self, config: StorageConfig) -> None:
+        """__enter__ e __exit__ funcionam corretamente (linhas 178, 181)."""
+        with CacheManager(config) as cache:
+            assert cache is not None
+
+    def test_auto_evict_triggered_when_over_limit(
+        self, config: StorageConfig, bbox: BoundingBox
+    ) -> None:
+        """Auto-evict é chamado quando size_bytes excede max (linhas 101-102)."""
+        from unittest.mock import patch
+
+        from miner_harness.cache.types import CacheStats
+
+        cache = CacheManager(config)
+        try:
+            # Adiciona dado para que put() seja chamado
+            oversized_stats = CacheStats(
+                total_entries=1,
+                total_records=1,
+                size_bytes=int(10 * 1024**3),  # 10 GB > 5 GB default
+            )
+            with (
+                patch.object(cache._sqlite, "stats", return_value=oversized_stats),
+                patch.object(cache._sqlite, "evict_expired", return_value=1) as mock_evict,
+            ):
+                cache.put("ocorrencias", bbox, [{"id": 1}])
+            mock_evict.assert_called_once()
+        finally:
+            cache.close()
