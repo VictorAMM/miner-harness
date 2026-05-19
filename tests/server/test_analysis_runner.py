@@ -63,19 +63,6 @@ def _make_report() -> ProspectionReport:
     )
 
 
-def _collect_chunks_sync(channel: SseChannel) -> list[str]:
-    import asyncio
-
-    chunks: list[str] = []
-
-    async def collect() -> None:
-        async for chunk in channel:
-            chunks.append(chunk)
-
-    asyncio.get_event_loop().run_until_complete(collect())
-    return chunks
-
-
 def _event_types(chunks: list[str]) -> list[str]:
     return [
         line[len("event: ") :]
