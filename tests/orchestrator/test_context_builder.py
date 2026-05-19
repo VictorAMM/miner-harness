@@ -146,3 +146,42 @@ class TestContextBuilder:
         with patch.object(cache, "put", side_effect=RuntimeError("cache broken")):
             context = await builder.build(bbox)
         assert context["ocorrencias"] == []
+
+    @pytest.mark.asyncio
+    async def test_extra_sources_fetched_and_included(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """extra_sources são consultados e incluídos no contexto."""
+        extra_connector = MagicMock()
+        mock_item = MagicMock()
+        mock_item.model_dump = MagicMock(return_value={"objectid": 0, "magnitude": 3.0})
+        extra_connector.sismos = AsyncMock(return_value=[mock_item])
+
+        builder = ContextBuilder(
+            mock_connector,
+            cache,
+            extra_sources={"usgs": (extra_connector, "sismos")},
+        )
+        context = await builder.build(bbox)
+        assert "usgs" in context
+        assert len(context["usgs"]) == 1
+        extra_connector.sismos.assert_awaited_once_with(bbox)
+
+    @pytest.mark.asyncio
+    async def test_extra_sources_truncated(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """extra_sources com mais de max_records_per_service são truncados (linhas 102-103)."""
+        extra_connector = MagicMock()
+        items = [MagicMock() for _ in range(60)]
+        for item in items:
+            item.model_dump = MagicMock(return_value={"objectid": 0})
+        extra_connector.sismos = AsyncMock(return_value=items)
+
+        builder = ContextBuilder(
+            mock_connector,
+            cache,
+            extra_sources={"usgs": (extra_connector, "sismos")},
+        )
+        context = await builder.build(bbox, max_records_per_service=10)
+        assert len(context["usgs"]) == 10

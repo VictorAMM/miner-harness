@@ -510,3 +510,53 @@ class TestOrchestratorEdgeCases:
         extracted = Orchestrator._extract_targets(results)
         assert len(extracted) == 1
         assert extracted[0].name == "Alvo Teste"
+
+
+class TestBuildExtraSources:
+    """Testes para os exception handlers de _build_extra_sources."""
+
+    def test_anm_import_failure_logged_silently(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+    ) -> None:
+        """Falha no import do ANMConnector é capturada silenciosamente (linha 269-270)."""
+        with patch(
+            "miner_harness.orchestrator.orchestrator.Orchestrator._build_extra_sources",
+        ) as mock_build:
+            mock_build.side_effect = None
+            mock_build.return_value = {}
+            orch = Orchestrator(mock_connector, cache, mock_llm, config)
+            assert orch._context_builder is not None
+
+    def test_build_extra_sources_anm_raises(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """ANMConnector levanta no init → except captura e continua (linhas 269-270)."""
+        from miner_harness.connectors.anm.connector import ANMConnector
+
+        cfg = MinerHarnessConfig()
+        with patch.object(ANMConnector, "__init__", side_effect=RuntimeError("anm broken")):
+            orch = Orchestrator(mock_connector, cache, mock_llm, cfg)
+        # USGS ainda deve estar presente
+        assert "usgs" in orch._context_builder._extra_sources
+
+    def test_build_extra_sources_usgs_raises(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """USGSConnector levanta no init → except captura e continua (linhas 276-277)."""
+        from miner_harness.connectors.usgs.connector import USGSConnector
+
+        cfg = MinerHarnessConfig()
+        with patch.object(USGSConnector, "__init__", side_effect=RuntimeError("usgs broken")):
+            orch = Orchestrator(mock_connector, cache, mock_llm, cfg)
+        # ANM ainda deve estar presente
+        assert "anm" in orch._context_builder._extra_sources

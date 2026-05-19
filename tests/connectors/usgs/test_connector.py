@@ -113,6 +113,34 @@ class TestParseFeature:
         assert result is not None
         assert result.objectid == 7
 
+    def test_non_numeric_coordinates_returns_none(self) -> None:
+        """coords com valor não numérico dispara TypeError (linhas 92-93)."""
+        feat = {
+            "geometry": {"type": "Point", "coordinates": ["bad", "data", 5.0]},
+            "properties": {"mag": 2.0, "time": 0},
+        }
+        assert _parse_feature(0, feat) is None
+
+    def test_non_numeric_magnitude_defaults_to_zero(self) -> None:
+        """mag não numérico dispara ValueError (linhas 104-105)."""
+        feat = {
+            "geometry": {"type": "Point", "coordinates": [-50.0, -6.0, 5.0]},
+            "properties": {"mag": "not_a_number", "time": 0},
+        }
+        result = _parse_feature(0, feat)
+        assert result is not None
+        assert result.magnitude == pytest.approx(0.0)
+
+    def test_non_numeric_timestamp_defaults_to_zero(self) -> None:
+        """time não numérico dispara ValueError (linhas 109-110)."""
+        feat = {
+            "geometry": {"type": "Point", "coordinates": [-50.0, -6.0, 5.0]},
+            "properties": {"mag": 2.5, "time": "not_a_timestamp"},
+        }
+        result = _parse_feature(0, feat)
+        assert result is not None
+        assert result.timestamp_ms == 0
+
 
 # ---------------------------------------------------------------------------
 # Tests — USGSConnector.sismos
