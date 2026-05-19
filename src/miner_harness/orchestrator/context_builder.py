@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from miner_harness.core.types import BoundingBox
     from miner_harness.index.search_engine import SearchEngine
 
+# (connector_instance, method_name) — serviços adicionais além do GeoSGB
+ExtraSourcesMap = dict[str, tuple[Any, str]]
+
 logger = structlog.get_logger(__name__)
 
 # Serviços e seus métodos no GeoSGBConnector
@@ -51,10 +54,12 @@ class ContextBuilder:
         connector: GeoSGBConnector,
         cache: CacheManager,
         search_engine: SearchEngine | None = None,
+        extra_sources: ExtraSourcesMap | None = None,
     ) -> None:
         self._connector = connector
         self._cache = cache
         self._search_engine = search_engine
+        self._extra_sources: ExtraSourcesMap = extra_sources or {}
 
     async def build(
         self,
@@ -80,8 +85,19 @@ class ContextBuilder:
         context: dict[str, list[dict[str, Any]]] = {}
 
         for service, method_name in _SERVICE_METHODS.items():
-            features = await self._get_service_data(service, method_name, bbox)
-            # Truncar para orçamento de tokens
+            features = await self._get_service_data(service, method_name, bbox, self._connector)
+            if len(features) > max_records_per_service:
+                features = features[:max_records_per_service]
+                logger.info(
+                    "context_truncated",
+                    service=service,
+                    original=len(features),
+                    truncated_to=max_records_per_service,
+                )
+            context[service] = features
+
+        for service, (connector, method_name) in self._extra_sources.items():
+            features = await self._get_service_data(service, method_name, bbox, connector)
             if len(features) > max_records_per_service:
                 features = features[:max_records_per_service]
                 logger.info(
@@ -145,6 +161,7 @@ class ContextBuilder:
         service: str,
         method_name: str,
         bbox: BoundingBox,
+        connector: Any,
     ) -> list[dict[str, Any]]:
         """Busca dados de um serviço, usando cache quando possível."""
         # 1. Check cache
@@ -153,9 +170,9 @@ class ContextBuilder:
             logger.debug("context_cache_hit", service=service, records=len(cached))
             return cached
 
-        # 2. Fetch from GeoSGB
+        # 2. Fetch from connector
         try:
-            connector_method = getattr(self._connector, method_name)
+            connector_method = getattr(connector, method_name)
             typed_features = await connector_method(bbox)
             # Convert to dicts for cache storage
             features = [f.model_dump() for f in typed_features]

@@ -165,6 +165,44 @@ class ProjetoAerogeofisico(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# ANM SIGMINE — Concessões minerárias
+# ---------------------------------------------------------------------------
+
+
+class ConcessaoMineira(BaseModel):
+    """Concessão minerária do ANM/SIGMINE."""
+
+    objectid: int
+    processo: str | None = Field(default=None, description='Ex: "860384/2007"')
+    fase: str | None = Field(
+        default=None,
+        description='Ex: "Concessão de Lavra", "Autorização de Pesquisa"',
+    )
+    nome_titular: str | None = None
+    substancias: str | None = Field(default=None, description='Ex: "FERRO, MANGANÊS"')
+    uf: str | None = Field(default=None, max_length=2)
+    area_ha: float | None = Field(default=None, description="Área em hectares")
+    ano: int | None = None
+    coordenada: Coordenada
+
+
+# ---------------------------------------------------------------------------
+# USGS — Eventos sísmicos
+# ---------------------------------------------------------------------------
+
+
+class EventoSismico(BaseModel):
+    """Evento sísmico do catálogo USGS Earthquake Hazards."""
+
+    objectid: int
+    magnitude: float = Field(description="Magnitude Richter/Mw")
+    profundidade_km: float = Field(description="Profundidade do foco em km")
+    lugar: str | None = Field(default=None, description="Descrição geográfica do evento")
+    timestamp_ms: int = Field(description="Tempo do evento em ms desde epoch Unix")
+    coordenada: Coordenada
+
+
+# ---------------------------------------------------------------------------
 # Análise — Modelos de resultado (RFC-002 §4.1)
 # ---------------------------------------------------------------------------
 

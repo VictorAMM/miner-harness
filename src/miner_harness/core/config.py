@@ -115,6 +115,35 @@ class GeoSGBConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# ANM SIGMINE Connector
+# ---------------------------------------------------------------------------
+
+
+class ANMConfig(BaseModel):
+    """Configuração do conector ANM/SIGMINE."""
+
+    enabled: bool = True
+    base_url: str = "https://app.anm.gov.br/sigmine_opc/ows"
+    timeout_s: int = 60
+    max_features: int = 500
+
+
+# ---------------------------------------------------------------------------
+# USGS Earthquake Connector
+# ---------------------------------------------------------------------------
+
+
+class USGSConfig(BaseModel):
+    """Configuração do conector USGS Earthquake Hazards."""
+
+    enabled: bool = True
+    base_url: str = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    timeout_s: int = 30
+    min_magnitude: float = 2.0
+    max_events: int = 100
+
+
+# ---------------------------------------------------------------------------
 # Config raiz
 # ---------------------------------------------------------------------------
 
@@ -125,3 +154,5 @@ class MinerHarnessConfig(BaseModel):
     storage: StorageConfig = Field(default_factory=StorageConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     geosgb: GeoSGBConfig = Field(default_factory=GeoSGBConfig)
+    anm: ANMConfig = Field(default_factory=ANMConfig)
+    usgs: USGSConfig = Field(default_factory=USGSConfig)
