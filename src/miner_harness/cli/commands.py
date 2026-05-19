@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import sys
+import webbrowser
+from datetime import datetime
 from pathlib import Path
 
 import structlog
@@ -28,6 +30,7 @@ async def cmd_analyze(
     bbox: tuple[float, float, float, float],
     model: str | None = None,
     output_path: str | None = None,
+    no_html: bool = False,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -80,7 +83,7 @@ async def cmd_analyze(
             print(f"\nWarning: {validation.error_count} validation errors")
             report = validator.repair(report, validation)
 
-        # Output
+        # Output JSON se solicitado
         report_dict = report.model_dump(mode="json")
         if output_path:
             Path(output_path).write_text(
@@ -91,10 +94,35 @@ async def cmd_analyze(
         else:
             _print_report_summary(report)
 
+        # Gerar dashboard HTML
+        if not no_html:
+            _render_html_report(report, storage, region)
+
         return 0
 
     finally:
         cache.close()
+
+
+def _render_html_report(
+    report: ProspectionReport,
+    storage: StorageConfig,
+    region: str,
+) -> None:
+    """Gera dashboard HTML e abre no browser."""
+    try:
+        from miner_harness.report import HtmlReportRenderer
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_region = region.replace(" ", "_").replace("/", "_")
+        html_path = storage.exports_dir / "reports" / f"{safe_region}_{ts}.html"
+        renderer = HtmlReportRenderer()
+        renderer.render_to_file(report, html_path)
+        print(f"\nDashboard HTML: {html_path}")
+        webbrowser.open(html_path.as_uri())
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("html_report_failed", error=str(exc))
+        print(f"Aviso: não foi possível gerar dashboard HTML: {exc}", file=sys.stderr)
 
 
 def cmd_validate(report_file: str) -> int:

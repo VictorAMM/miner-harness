@@ -101,6 +101,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Output file path for the report (JSON)",
     )
+    analyze_parser.add_argument(
+        "--no-html",
+        action="store_true",
+        default=False,
+        help="Não gerar dashboard HTML após a análise.",
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -169,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
                     bbox=tuple(args.bbox),
                     model=args.model,
                     output_path=args.output,
+                    no_html=args.no_html,
                 )
             )
         if args.command == "validate":

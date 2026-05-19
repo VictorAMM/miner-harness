@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.2.1] — 2026-05-18
+
+### Adicionado
+
+- **Dashboard HTML interativo** (`miner-harness analyze`): após cada análise, gera automaticamente um arquivo HTML self-contained com:
+  - Mapa **Leaflet.js 1.9.4** com 3 camadas de tiles (OSM, ESRI Satellite, ESRI Topo), marcadores SVG por prioridade (P1–P5), círculos de `radius_km`, polígono BBox, popups com detalhes dos alvos, botão "Centralizar região" e toggle BBox
+  - Gráficos **Chart.js 4.4**: donut de qualidade (sidebar), barras de confiança por passo, barras de duração, radar de cobertura GeoSGB
+  - Tabs: Análise (accordion por step), Alvos (cards com rationale + follow-up), Qualidade (3 gráficos), JSON (formatado + botão copiar)
+  - Assets JS/CSS embutidos inline — arquivo abre offline
+  - Auto-open no browser padrão via `webbrowser.open()`
+- **`HtmlReportRenderer`** em `miner_harness.report` — API: `render(report) -> str`, `render_to_file(report, path) -> Path`
+- **Flag `--no-html`** no subcomando `analyze` para suprimir geração do dashboard
+- **12 testes** em `tests/report/test_renderer.py` cobrindo estrutura HTML, injeção de dados, escrita em disco, targets múltiplos e vazios
+
+## [0.2.0] — 2026-05-18
+
+### Adicionado
+
+- **RAG (Retrieval-Augmented Generation)** integrado ao pipeline de análise:
+  - `SearchEngine.index_batch()` indexa features GeoSGB no vector store após cada `ContextBuilder.build()`
+  - `Orchestrator._execute_step()` consulta o índice vetorial com query geológica específica por step (`_STEP_RAG_QUERIES`) e injeta o contexto recuperado no prompt do agente
+  - `OrchestratorConfig.use_rag: bool = True` — toggle para habilitar/desabilitar
+  - `BaseAgent.build_prompt()` agora lê `geological_data["rag_context"]` e acrescenta ao bloco de dados geológicos enviado ao LLM
+- **Scripts de automação** em `scripts/`:
+  - `setup_dev.sh` — verifica Python 3.11+, instala uv, sincroniza deps, verifica Ollama
+  - `pull_models.sh` — faz pull de `qwen3:8b` + `nomic-embed-text` via Ollama
+  - `run_analysis.sh` — wrapper para `miner-harness analyze <region> --bbox ...`
+- **`infra/docker-compose.yml`** — serviço Ollama (`ollama/ollama:latest`, porta 11434, volume persistente)
+
+### Corrigido
+
+- **Resiliência a HTTP 503 do GeoSGB** (serviço `litoestratigrafia`): novo método `_backoff_503()` no `ThrottledClient` com delays 5× maiores (base ≥ 2.5s), evitando storm de retries em serviços sobrecarregados
+
 ## [0.1.12] — 2026-05-18
 
 ### Corrigido

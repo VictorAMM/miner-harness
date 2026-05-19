@@ -105,6 +105,13 @@ class BaseAgent(ABC):
 
         geo_data_str = "\n\n".join(data_parts) if data_parts else "Sem dados disponiveis."
 
+        # Injetar contexto RAG se disponível (indexado previamente pelo ContextBuilder)
+        rag_records = geological_data.get("rag_context", [])
+        if rag_records:
+            rag_text = rag_records[0].get("text", "")
+            if rag_text:
+                geo_data_str = geo_data_str + f"\n\n{rag_text}"
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]

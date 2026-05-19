@@ -117,7 +117,7 @@ class ThrottledClient:
                         last_exc = GeoSGBConnectionError(
                             f"Service unavailable on {url} (attempt {attempt})"
                         )
-                        await self._backoff(attempt)
+                        await self._backoff_503(attempt)
                         continue
 
                     response.raise_for_status()
@@ -165,6 +165,14 @@ class ThrottledClient:
         """Backoff exponencial entre retries."""
         delay = self._config.min_delay_ms / 1000.0 * (self._config.backoff_factor ** (attempt - 1))
         logger.debug("geosgb_backoff", attempt=attempt, delay_s=round(delay, 2))
+        await asyncio.sleep(delay)
+
+    async def _backoff_503(self, attempt: int) -> None:
+        """Backoff para 503 — base maior para dar tempo ao servidor recuperar."""
+        # Usa 5x o delay mínimo como base (min 2s) para 503 (servidor sobrecarregado)
+        base = max(2.0, self._config.min_delay_ms / 1000.0 * 5)
+        delay = base * (self._config.backoff_factor ** (attempt - 1))
+        logger.debug("geosgb_backoff_503", attempt=attempt, delay_s=round(delay, 2))
         await asyncio.sleep(delay)
 
     async def close(self) -> None:
