@@ -202,3 +202,116 @@ async def test_pipeline_segunda_execucao_mais_rapida(
     assert second_duration < first_duration * 0.9, (
         f"Segunda execução não foi mais rápida: 1ª={first_duration:.1f}s, 2ª={second_duration:.1f}s"
     )
+
+
+# ---------------------------------------------------------------------------
+# geological_data — campo populado no relatório (v0.4.0+)
+# ---------------------------------------------------------------------------
+
+
+@skip_no_ollama
+@pytest.mark.asyncio
+async def test_pipeline_relatorio_contem_geological_data(
+    bbox_carajas_small: BoundingBox,
+    live_config: MinerHarnessConfig,
+    live_cache: CacheManager,
+) -> None:
+    """ProspectionReport.geological_data é populado com os dados coletados."""
+    connector = GeoSGBConnector(live_config.geosgb)
+    llm = OllamaClient(live_config.orchestrator)
+
+    try:
+        orch = Orchestrator(connector, live_cache, llm, live_config)
+        report = await orch.analyze_region(bbox_carajas_small, "carajas_geodata_e2e")
+    finally:
+        await connector.close()
+        await llm.close()
+
+    assert report.geological_data is not None, (
+        "geological_data deve estar populado no relatório (v0.4.0)"
+    )
+    assert isinstance(report.geological_data, dict)
+
+    # Ao menos uma das 6 fontes GeoSGB deve ter retornado dados
+    total_records = sum(len(v) for v in report.geological_data.values())
+    keys = list(report.geological_data.keys())
+    assert total_records > 0, f"geological_data está vazio — nenhum dado coletado. Keys: {keys}"
+
+
+@skip_no_e2e
+@pytest.mark.asyncio
+async def test_pipeline_geological_data_tem_chaves_geosgb(
+    bbox_carajas_small: BoundingBox,
+    live_config: MinerHarnessConfig,
+    live_cache: CacheManager,
+) -> None:
+    """geological_data contém as chaves dos 6 serviços GeoSGB quando habilitados."""
+    from miner_harness.orchestrator.context_builder import ContextBuilder
+
+    async with GeoSGBConnector(live_config.geosgb) as connector:
+        ctx = ContextBuilder(connector, live_cache)
+        data = await ctx.build(bbox_carajas_small)
+
+    expected_keys = {
+        "ocorrencias",
+        "gravimetria",
+        "geoquimica",
+        "geocronologia",
+        "litoestratigrafia",
+        "aerogeofisica",
+    }
+    assert expected_keys.issubset(set(data.keys())), (
+        f"Chaves GeoSGB faltando. Presentes: {set(data.keys())}"
+    )
+
+
+@skip_no_e2e
+@pytest.mark.asyncio
+async def test_pipeline_geological_data_inclui_usgs_quando_habilitado(
+    bbox_carajas_small: BoundingBox,
+    live_config: MinerHarnessConfig,
+    live_cache: CacheManager,
+) -> None:
+    """Quando USGS está habilitado, geological_data inclui chave 'usgs'."""
+    if not live_config.usgs.enabled:
+        pytest.skip("USGS desabilitado na config — defina usgs.enabled=True para este teste")
+
+    from miner_harness.connectors.usgs.connector import USGSConnector
+    from miner_harness.orchestrator.context_builder import ContextBuilder
+
+    async with GeoSGBConnector(live_config.geosgb) as connector:
+        usgs_conn = USGSConnector(live_config.usgs)
+        ctx = ContextBuilder(
+            connector,
+            live_cache,
+            extra_sources={"usgs": (usgs_conn, "sismos")},
+        )
+        data = await ctx.build(bbox_carajas_small)
+
+    assert "usgs" in data, f"Chave 'usgs' ausente em geological_data. Keys: {list(data.keys())}"
+
+
+@skip_no_e2e
+@pytest.mark.asyncio
+async def test_pipeline_geological_data_inclui_anm_quando_habilitado(
+    bbox_carajas_small: BoundingBox,
+    live_config: MinerHarnessConfig,
+    live_cache: CacheManager,
+) -> None:
+    """Quando ANM está habilitado, geological_data inclui chave 'anm'."""
+    if not live_config.anm.enabled:
+        pytest.skip("ANM desabilitado na config — defina anm.enabled=True para este teste")
+
+    from miner_harness.connectors.anm.connector import ANMConnector
+    from miner_harness.orchestrator.context_builder import ContextBuilder
+
+    async with GeoSGBConnector(live_config.geosgb) as connector:
+        anm_conn = ANMConnector(live_config.anm)
+        ctx = ContextBuilder(
+            connector,
+            live_cache,
+            extra_sources={"anm": (anm_conn, "concessoes")},
+        )
+        data = await ctx.build(bbox_carajas_small)
+
+    assert "anm" in data, f"Chave 'anm' ausente em geological_data. Keys: {list(data.keys())}"
