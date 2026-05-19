@@ -144,7 +144,7 @@ class DashboardServer:
     # Lifecycle
     # ------------------------------------------------------------------
 
-    async def run(self) -> None:
+    async def run(self) -> None:  # pragma: no cover
         """Inicia o servidor e bloqueia até Ctrl+C."""
         runner = web.AppRunner(self._app)
         await runner.setup()
