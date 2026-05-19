@@ -144,6 +144,58 @@ class TestFeatureToTextAerogeofisica:
         assert "15000" in text
 
 
+class TestFeatureToTextOcorrenciaExtraFields:
+    """Cobre campos opcionais de OcorrenciaMineral não testados antes."""
+
+    def test_rochas_encaixantes_status_morfologia(self) -> None:
+        oc = OcorrenciaMineral(
+            objectid=2,
+            substancias="Ouro",
+            municipio="Canaã dos Carajás",
+            uf="PA",
+            rochas_encaixantes="Granito",
+            status_economico="Mina",
+            morfologia="Veio",
+            coordenada=Coordenada(longitude=-50.0, latitude=-6.0),
+        )
+        text = feature_to_text(oc, "geosgb/ocorrencias")
+        assert "Granito" in text
+        assert "Mina" in text
+        assert "Veio" in text
+
+
+class TestFeatureToTextGeoquimicaRochaMatriz:
+    """Cobre campo rocha_matriz de AmostraGeoquimica."""
+
+    def test_rocha_matriz_presente(self) -> None:
+        gq = AmostraGeoquimica(
+            objectid=2,
+            projeto="FOLIO",
+            classe="Rocha",
+            rocha_matriz="Granodiorito",
+            coordenada=Coordenada(longitude=-50.0, latitude=-6.0),
+        )
+        text = feature_to_text(gq, "geosgb/geoquimica")
+        assert "Granodiorito" in text
+
+
+class TestFeatureToTextGenericFallback:
+    """Cobre _generic_to_text para tipos não reconhecidos (linha 50 + 163-168)."""
+
+    def test_unknown_basemodel_uses_generic(self) -> None:
+        from pydantic import BaseModel as PydanticBaseModel
+
+        class CustomFeature(PydanticBaseModel):
+            objectid: int
+            descricao: str
+            valor: float | None = None
+
+        feat = CustomFeature(objectid=99, descricao="teste", valor=1.5)
+        text = feature_to_text(feat, "geosgb/custom")
+        assert "geosgb/custom" in text
+        assert "descricao" in text
+
+
 class TestDictToText:
     """Testes do dict_to_text fallback."""
 
