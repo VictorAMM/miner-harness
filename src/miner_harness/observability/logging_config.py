@@ -10,6 +10,7 @@ Ref: ASO v3 Phase 9 — Observabilidade
 
 from __future__ import annotations
 
+import io
 import logging
 import sys
 from typing import Any
@@ -62,7 +63,10 @@ def configure_logging(
         ],
     )
 
-    handler = logging.StreamHandler(sys.stderr)
+    stderr = sys.stderr
+    if hasattr(stderr, "buffer") and getattr(stderr, "encoding", "utf-8").lower() != "utf-8":
+        stderr = io.TextIOWrapper(stderr.buffer, encoding="utf-8", errors="replace")
+    handler = logging.StreamHandler(stderr)
     handler.setFormatter(formatter)
 
     root = logging.getLogger()
