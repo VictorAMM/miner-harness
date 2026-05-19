@@ -25,15 +25,18 @@
 
 ### Decisão de Stack (Discovery-First)
 - **Python 3** — core do sistema: agentes, análise geoespacial, ML, integração com LLMs locais
-- **LLMs embarcados** — modelos rodando localmente (ollama/llama.cpp ou similar)
+- **LLMs embarcados** — modelos rodando localmente (Ollama + qwen3:8b por padrão)
 - **Execução local** — aplicação instala e roda na máquina do usuário
 - **Wizard de instalação** — installer para download com setup guiado
+- **RAG** — features GeoSGB indexadas via `nomic-embed-text` + sqlite-vec; contexto recuperado por step
+- **Dashboard HTML** — Jinja2 + Leaflet.js 1.9.4 + Chart.js 4.4, self-contained, auto-open no browser
 
-### Dependências esperadas
-- GeoSGB como fonte de dados principal
-- Bibliotecas geocientíficas (geopandas, rasterio, shapely, etc.)
-- Framework de agentes com LLM local
-- Interface de usuário para o wizard
+### Dependências principais
+- GeoSGB como fonte de dados principal (6 serviços: ocorrências, gravimetria, geoquímica, geocronologia, litoestratigrafia, aerogeofísica)
+- Bibliotecas geocientíficas (geopandas, shapely, fiona, pyproj)
+- Framework de agentes com LLM local (ollama)
+- sqlite-vec para vector store do RAG
+- jinja2 para geração de relatórios HTML
 
 ## Fases do Projeto (ASO v3)
 
@@ -53,9 +56,11 @@ Fase 9  — Observabilidade ✅ CONCLUÍDA (2026-05-16)
 Fase 10 — RCA Autônomo ✅ CONCLUÍDA (2026-05-17)
 Fase 11 — Self-Improvement ✅ CONCLUÍDA (2026-05-17)
 Wizard  — Instalação Guiada ✅ CONCLUÍDA (2026-05-17)
+RAG     — Retrieval-Augmented Generation ✅ CONCLUÍDA (2026-05-18) [v0.2.0]
+Dashboard — Relatório HTML Interativo ✅ CONCLUÍDA (2026-05-18) [v0.2.1]
 ```
 
-**Status**: Todas as fases concluídas. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
+**Status**: v0.2.1 em produção. Próximo entregável: testes e2e com GeoSGB real + Ollama local.
 
 ## Grafo de Rastreabilidade
 
@@ -75,11 +80,21 @@ miner-harness/
 │   ├── rca/               # Root Cause Analysis
 │   ├── architecture/      # Diagramas e decisões de arquitetura
 │   └── personas/          # Personas dos agentes
-├── src/                   # Código-fonte
-├── tests/                 # Testes
-├── scripts/               # Scripts de automação e instalação
-├── infra/                 # Configuração de infraestrutura
-└── .github/workflows/     # GitHub Actions CI/CD
+├── src/miner_harness/
+│   ├── agents/            # Agentes especialistas (geologia, geofísica, etc.)
+│   ├── cache/             # CacheManager + SQLite store
+│   ├── cli/               # CLI (argparse): analyze, validate, cache, index, health
+│   ├── connectors/        # GeoSGB connector + Ollama client
+│   ├── core/              # Tipos, config, exceções
+│   ├── index/             # Vector store (sqlite-vec) + SearchEngine + Embedder
+│   ├── observability/     # Health checks, logging estruturado
+│   ├── orchestrator/      # Orchestrator, ContextBuilder, ReportValidator
+│   ├── report/            # HtmlReportRenderer (Jinja2 + Leaflet + Chart.js)
+│   └── wizard/            # Wizard de instalação guiada
+├── tests/                 # Testes (pytest)
+├── scripts/               # setup_dev.sh, pull_models.sh, run_analysis.sh
+├── infra/                 # docker-compose.yml (Ollama)
+└── .github/workflows/     # CI/CD: lint, test, typecheck, security, gate, release
 ```
 
 ## Convenções de Código
