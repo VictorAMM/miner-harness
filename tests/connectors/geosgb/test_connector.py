@@ -348,3 +348,154 @@ class TestServices:
         from miner_harness.connectors.geosgb.services import AEROGEOFISICA
 
         assert len(AEROGEOFISICA.default_layers) == 4
+
+
+class TestConnectorServiceMethods:
+    """Testes dos métodos de serviço do GeoSGBConnector."""
+
+    @pytest.mark.asyncio
+    async def test_geocronologia(self, fast_config: GeoSGBConfig, bbox_small: BoundingBox) -> None:
+        connector = GeoSGBConnector(fast_config)
+        resp = _make_query_response(
+            [{"objectid": 1, "idade_minima": 2100.0, "idade_maxima": 2200.0, "metodo": "U-Pb"}]
+        )
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = resp
+            results = await connector.geocronologia(bbox_small)
+        assert len(results) == 1
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_litoestratigrafia(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        connector = GeoSGBConnector(fast_config)
+        resp = _make_query_response(
+            [{"objectid": 1, "sigla": "Xbj", "nome": "Formação Carajás", "era": "Arqueano"}]
+        )
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = resp
+            results = await connector.litoestratigrafia(bbox_small)
+        assert len(results) == 1
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_aerogeofisica(self, fast_config: GeoSGBConfig, bbox_small: BoundingBox) -> None:
+        connector = GeoSGBConnector(fast_config)
+        resp = _make_query_response(
+            [{"objectid": 1, "projeto": "Carajás", "ano": 1997, "empresa": "CPRM"}]
+        )
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = resp
+            results = await connector.aerogeofisica(bbox_small)
+        assert isinstance(results, list)
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_count_ocorrencias_sem_bbox(self, fast_config: GeoSGBConfig) -> None:
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = {"count": 42000}
+            total = await connector.count_ocorrencias()
+        assert total == 42000
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_count_ocorrencias_com_bbox(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = {"count": 7}
+            total = await connector.count_ocorrencias(bbox_small)
+        assert total == 7
+        await connector.close()
+
+
+class TestConnectorQueryEdgeCases:
+    """Testes de edge cases nos métodos de query interno."""
+
+    @pytest.mark.asyncio
+    async def test_query_features_service_not_supporting_query_raises(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """_query_features levanta GeoSGBQueryError se endpoint não suporta query."""
+        from miner_harness.connectors.geosgb.services import ServiceEndpoint
+
+        connector = GeoSGBConnector(fast_config)
+        bad_endpoint = ServiceEndpoint(
+            name="fake",
+            path="Fake/Service",
+            server_type="FeatureServer",
+            default_layers=[0],
+            supports_query=False,
+        )
+        with pytest.raises(GeoSGBQueryError):
+            await connector._query_features(bad_endpoint, bbox=bbox_small)
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_via_ids_empty_ids_returns_empty(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """_query_via_ids retorna [] quando servidor retorna objectIds vazio."""
+        from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = {"objectIdFieldName": "OBJECTID", "objectIds": []}
+            results = await connector._query_via_ids(OCORRENCIAS, bbox=bbox_small)
+        assert results == []
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_via_ids_error_in_response_raises(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """_query_via_ids levanta GeoSGBQueryError quando resposta contém 'error'."""
+        from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = {
+                "error": {"code": 400, "message": "Invalid parameters", "details": []}
+            }
+            with pytest.raises(GeoSGBQueryError):
+                await connector._query_via_ids(OCORRENCIAS, bbox=bbox_small)
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_via_ids_batch_http_error_continues(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Falha HTTP em um lote de IDs não aborta — continua com os demais."""
+        from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+        connector = GeoSGBConnector(fast_config)
+        ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [1, 2]}
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 500
+        http_error = httpx.HTTPStatusError("500", request=MagicMock(), response=mock_response)
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [ids_resp, http_error]
+            results = await connector._query_via_ids(OCORRENCIAS, bbox=bbox_small)
+        assert results == []
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_query_via_ids_batch_error_in_body_continues(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Erro no body de um lote de IDs não aborta — continua com os demais."""
+        from miner_harness.connectors.geosgb.services import OCORRENCIAS
+
+        connector = GeoSGBConnector(fast_config)
+        ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [1, 2]}
+        error_batch = {"error": {"code": 500, "message": "Internal error", "details": []}}
+
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [ids_resp, error_batch]
+            results = await connector._query_via_ids(OCORRENCIAS, bbox=bbox_small)
+        assert results == []
+        await connector.close()
