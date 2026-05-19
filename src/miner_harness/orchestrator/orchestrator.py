@@ -30,7 +30,7 @@ from miner_harness.core.types import (
     ProspectionReport,
     StepResult,
 )
-from miner_harness.orchestrator.context_builder import ContextBuilder
+from miner_harness.orchestrator.context_builder import ContextBuilder, ExtraSourcesMap
 
 if TYPE_CHECKING:
     from miner_harness.agents.base import BaseAgent
@@ -122,7 +122,8 @@ class Orchestrator:
             except Exception:
                 logger.warning("rag_init_failed", exc_info=True)
 
-        self._context_builder = ContextBuilder(connector, cache, self._search_engine)
+        extra_sources = self._build_extra_sources()
+        self._context_builder = ContextBuilder(connector, cache, self._search_engine, extra_sources)
 
         # Inicializar agentes
         self._agents: dict[str, BaseAgent] = {
@@ -256,6 +257,25 @@ class Orchestrator:
         )
 
         return result
+
+    def _build_extra_sources(self) -> ExtraSourcesMap:
+        """Instancia conectores adicionais (ANM, USGS) quando habilitados."""
+        sources: ExtraSourcesMap = {}
+        try:
+            from miner_harness.connectors.anm.connector import ANMConnector
+
+            if self._config.anm.enabled:
+                sources["anm"] = (ANMConnector(self._config.anm), "concessoes")
+        except Exception:
+            logger.warning("anm_connector_init_failed", exc_info=True)
+        try:
+            from miner_harness.connectors.usgs.connector import USGSConnector
+
+            if self._config.usgs.enabled:
+                sources["usgs"] = (USGSConnector(self._config.usgs), "sismos")
+        except Exception:
+            logger.warning("usgs_connector_init_failed", exc_info=True)
+        return sources
 
     def get_agent_for_step(self, step: AnalysisStep) -> BaseAgent:
         """Retorna o agente principal para um passo."""
