@@ -259,3 +259,70 @@ class TestSearchEngine:
     async def test_get_context_empty(self, engine: SearchEngine) -> None:
         context = await engine.get_context("query")
         assert "Sem dados relevantes" in context
+
+    @pytest.mark.asyncio
+    async def test_get_context_truncates_at_budget(
+        self,
+        engine: SearchEngine,
+        store: DocumentStore,
+    ) -> None:
+        """Docs que excedem char_budget são descartados (linha 177)."""
+        for i in range(5):
+            store.add(
+                IndexDocument(
+                    id=f"doc:{i}",
+                    source="test",
+                    text="A" * 100,
+                    metadata={},
+                    embedding=[0.5] * 768,
+                )
+            )
+        # max_tokens=1 → char_budget=4, impossível caber os docs
+        context = await engine.get_context("query", max_tokens=1)
+        assert "<rag_context>" in context
+        assert "</rag_context>" in context
+        # Nenhum <doc> deve ter sido incluído
+        assert "<doc" not in context
+
+    @pytest.mark.asyncio
+    async def test_index_batch_empty_returns_zero(self, engine: SearchEngine) -> None:
+        """index_batch([]) retorna 0 imediatamente (linha 194)."""
+        result = await engine.index_batch([])
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_index_batch_indexes_documents(
+        self,
+        engine: SearchEngine,
+        store: DocumentStore,
+    ) -> None:
+        """index_batch() gera embeddings e indexa documentos (linhas 197-199)."""
+        docs = [
+            IndexDocument(id=f"new:{i}", source="test", text=f"text {i}", metadata={})
+            for i in range(3)
+        ]
+        count = await engine.index_batch(docs)
+        assert count == 3
+        assert store.count() == 3
+
+    @pytest.mark.asyncio
+    async def test_search_bbox_includes_doc_without_bbox(
+        self,
+        engine: SearchEngine,
+        store: DocumentStore,
+        bbox_carajas: BoundingBox,
+    ) -> None:
+        """Doc sem bbox passa pelo filtro espacial (linhas 221-222)."""
+        store.add(
+            IndexDocument(
+                id="no-bbox:1",
+                source="test",
+                text="no spatial info",
+                metadata={},
+                embedding=[0.5] * 768,
+                bbox=None,
+            )
+        )
+        results = await engine.search_by_bbox("query", bbox_carajas, k=10)
+        assert len(results) == 1
+        assert results[0].document.id == "no-bbox:1"

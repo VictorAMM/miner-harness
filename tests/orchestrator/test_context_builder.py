@@ -108,3 +108,41 @@ class TestContextBuilder:
         builder = ContextBuilder(mock_connector, cache)
         context = await builder.build(bbox)
         assert context["ocorrencias"] == []
+
+    @pytest.mark.asyncio
+    async def test_index_features_skips_when_no_documents(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """_index_features retorna cedo quando context está vazio (linha 130)."""
+        mock_engine = MagicMock()
+        mock_engine.index_batch = AsyncMock(return_value=0)
+        builder = ContextBuilder(mock_connector, cache, search_engine=mock_engine)
+        # All services return empty → context has no features → _index_features returns early
+        context = await builder.build(bbox)
+        assert all(len(v) == 0 for v in context.values())
+        mock_engine.index_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_index_features_calls_index_batch(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """_index_features chama index_batch quando há features (linha 139)."""
+        mock_engine = MagicMock()
+        mock_engine.index_batch = AsyncMock(return_value=1)
+        cache.put("ocorrencias", bbox, [{"objectid": 1, "substancias": "Cu"}])
+        builder = ContextBuilder(mock_connector, cache, search_engine=mock_engine)
+        await builder.build(bbox)
+        mock_engine.index_batch.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_fetch_error_cache_put_fails_silently(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """Quando fetch falha e cache.put também falha, retorna [] sem crash (linhas 184-185)."""
+        from unittest.mock import patch
+
+        mock_connector.ocorrencias = AsyncMock(side_effect=RuntimeError("API down"))
+        builder = ContextBuilder(mock_connector, cache)
+        with patch.object(cache, "put", side_effect=RuntimeError("cache broken")):
+            context = await builder.build(bbox)
+        assert context["ocorrencias"] == []

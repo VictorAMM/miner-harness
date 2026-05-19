@@ -176,6 +176,50 @@ class TestCheckOllama:
             assert result.status == HealthStatus.UNHEALTHY
 
 
+class TestCheckIndexCorrupt:
+    """Cobre branch de erro no check_index (linhas 172-173)."""
+
+    def test_corrupt_index_db(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "documents.db"
+        db_path.write_text("not a valid sqlite db")
+        result = check_index(tmp_path)
+        assert result.status == HealthStatus.UNHEALTHY
+
+
+class TestCheckDiskSpaceException:
+    """Cobre branch de exceção em check_disk_space (linhas 209-210)."""
+
+    def test_disk_usage_exception(self, tmp_path: Path) -> None:
+        with patch("shutil.disk_usage", side_effect=OSError("No such file")):
+            result = check_disk_space(tmp_path)
+        assert result.status == HealthStatus.DEGRADED
+
+
+class TestCheckOllamaExtraBranches:
+    """Cobre status DEGRADED e Exception em check_ollama (linhas 95, 107-108)."""
+
+    @pytest.mark.asyncio
+    async def test_ollama_degraded_on_non_200(self) -> None:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 503
+
+        async def mock_get(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            return mock_resp
+
+        with patch("httpx.AsyncClient.get", new=mock_get):
+            result = await check_ollama()
+        assert result.status == HealthStatus.DEGRADED
+
+    @pytest.mark.asyncio
+    async def test_ollama_unexpected_exception(self) -> None:
+        async def mock_get(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            raise ValueError("unexpected error")
+
+        with patch("httpx.AsyncClient.get", new=mock_get):
+            result = await check_ollama()
+        assert result.status == HealthStatus.UNHEALTHY
+
+
 class TestRunHealthChecks:
     """Test aggregated health checks."""
 

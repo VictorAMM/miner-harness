@@ -17,7 +17,7 @@ from miner_harness.core.types import (
     ProspectionReport,
     StepResult,
 )
-from miner_harness.orchestrator.report_validator import ReportValidator
+from miner_harness.orchestrator.report_validator import ReportValidator, ValidationIssue
 
 
 def _make_step(
@@ -230,3 +230,68 @@ class TestReportValidatorRepair:
         result = validator.validate(report)
         repaired = validator.repair(report, result)
         assert repaired.data_quality_score < report.data_quality_score
+
+
+class TestValidationIssueRepr:
+    """Testa __repr__ de ValidationIssue (linhas 42-43)."""
+
+    def test_repr_with_step(self) -> None:
+        issue = ValidationIssue(
+            severity="error",
+            step=AnalysisStep.TECTONIC_HISTORY,
+            message="bad data",
+        )
+        r = repr(issue)
+        assert "tectonic_history" in r
+        assert "error" in r
+
+    def test_repr_without_step(self) -> None:
+        issue = ValidationIssue(severity="warning", message="suspicious")
+        r = repr(issue)
+        assert "warning" in r
+        assert "[" not in r
+
+
+class TestReportValidatorExtraBranches:
+    """Cobre branches de validação não alcançados antes (linhas 303, 314, 338, 364, 373)."""
+
+    def test_data_quality_above_1_flagged(self, validator: ReportValidator) -> None:
+        """quality_score > 1 deve gerar erro (linha 303)."""
+        report = _make_report()
+        report = report.model_copy(update={"data_quality_score": 1.5})
+        result = validator.validate(report)
+        assert any("data_quality_score" in i.field for i in result.issues)
+
+    def test_high_quality_many_gaps_warns(self, validator: ReportValidator) -> None:
+        """quality > 0.8 com > 5 gaps gera warning (linha 314)."""
+        steps = [
+            _make_step(
+                step=s,
+                data_gaps=["gap1", "gap2"] if i < 3 else [],
+            )
+            for i, s in enumerate(AnalysisStep)
+        ]
+        report = _make_report(steps=steps, quality=0.9)
+        result = validator.validate(report)
+        assert any("data gaps" in i.message for i in result.issues)
+
+    def test_negative_step_duration_error(self, validator: ReportValidator) -> None:
+        """Step com duration_ms negativo gera erro (linha 338)."""
+        steps = [_make_step(duration_ms=-50)]
+        report = _make_report(steps=steps)
+        result = validator.validate(report)
+        assert any("Negative step" in i.message for i in result.issues)
+
+    def test_empty_region_name_error(self, validator: ReportValidator) -> None:
+        """region_name vazio gera erro (linha 364)."""
+        report = _make_report()
+        report = report.model_copy(update={"region_name": "  "})
+        result = validator.validate(report)
+        assert any("region_name" in i.field for i in result.issues)
+
+    def test_empty_model_used_error(self, validator: ReportValidator) -> None:
+        """model_used vazio gera erro (linha 373)."""
+        report = _make_report()
+        report = report.model_copy(update={"model_used": ""})
+        result = validator.validate(report)
+        assert any("model_used" in i.field for i in result.issues)
