@@ -68,3 +68,52 @@ class TestModelRegistry:
         models = registry.list_recommended()
         assert len(models) >= 2
         assert "default" in models
+
+
+class TestEnsureAvailable:
+    """Testes do ensure_available — linhas 132-149."""
+
+    @pytest.mark.asyncio
+    async def test_exact_match_returns_true(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        registry = ModelRegistry()
+        spec = RECOMMENDED_MODELS["default"]
+
+        mock_model = MagicMock()
+        mock_model.name = spec.name
+
+        client = AsyncMock()
+        client.list_models = AsyncMock(return_value=[mock_model])
+
+        assert await registry.ensure_available(client, spec) is True
+
+    @pytest.mark.asyncio
+    async def test_partial_match_returns_true(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        registry = ModelRegistry()
+        spec = RECOMMENDED_MODELS["default"]  # "qwen3:8b"
+
+        mock_model = MagicMock()
+        mock_model.name = "qwen3:latest"  # mesmo prefixo "qwen3"
+
+        client = AsyncMock()
+        client.list_models = AsyncMock(return_value=[mock_model])
+
+        assert await registry.ensure_available(client, spec) is True
+
+    @pytest.mark.asyncio
+    async def test_no_match_returns_false(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        registry = ModelRegistry()
+        spec = RECOMMENDED_MODELS["default"]
+
+        mock_model = MagicMock()
+        mock_model.name = "llama3:8b"  # família diferente
+
+        client = AsyncMock()
+        client.list_models = AsyncMock(return_value=[mock_model])
+
+        assert await registry.ensure_available(client, spec) is False

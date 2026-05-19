@@ -39,3 +39,30 @@ class TestMainCLI:
         # Should show help or return error
         with pytest.raises(SystemExit):
             main(["cache"])
+
+    def test_install_with_miner_home_builds_path(self, tmp_path) -> None:
+        """install --miner-home trigga construção de Path (linhas 163-165)."""
+        from unittest.mock import patch
+
+        with patch("miner_harness.cli.app.cmd_install", return_value=0) as mock_install:
+            result = main(["install", "--miner-home", str(tmp_path), "--non-interactive"])
+        assert result == 0
+        mock_install.assert_called_once()
+        call_kwargs = mock_install.call_args.kwargs
+        assert call_kwargs["miner_home"] == tmp_path
+
+    def test_keyboard_interrupt_returns_130(self) -> None:
+        """KeyboardInterrupt durante comando retorna 130 (linhas 198-199)."""
+        from unittest.mock import patch
+
+        with patch("miner_harness.cli.app.cmd_validate", side_effect=KeyboardInterrupt):
+            result = main(["validate", "/nonexistent.json"])
+        assert result == 130
+
+    def test_exception_in_command_returns_1(self) -> None:
+        """Exceção inesperada durante comando retorna 1 (linhas 201-205)."""
+        from unittest.mock import patch
+
+        with patch("miner_harness.cli.app.cmd_validate", side_effect=RuntimeError("boom")):
+            result = main(["validate", "/nonexistent.json"])
+        assert result == 1
