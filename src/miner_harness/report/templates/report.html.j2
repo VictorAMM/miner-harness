@@ -528,6 +528,27 @@ aside {
   color: var(--text-muted);
   font-size: 12px;
 }
+{% if serve_mode %}
+/* ================================================================
+   NOVA PESQUISA
+================================================================ */
+.np-label { display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+.np-input {
+  width: 100%; padding: 5px 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 12px; outline: none;
+}
+.np-input:focus { border-color: var(--accent); }
+.np-form-row { margin-bottom: 6px; }
+.np-submit-btn {
+  width: 100%; text-align: center;
+  background: rgba(245,158,11,0.15);
+  border-color: rgba(245,158,11,0.5);
+  color: var(--accent);
+}
+.np-submit-btn:hover { background: rgba(245,158,11,0.25); }
+.np-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+{% endif %}
 </style>
 </head>
 
@@ -588,6 +609,37 @@ aside {
         <button class="ctrl-btn" id="btn-all-targets">👁 Enquadrar todos os alvos</button>
       </div>
     </div>
+
+    {% if serve_mode %}
+    <!-- Nova Pesquisa -->
+    <div class="sidebar-section" id="nova-pesquisa-section">
+      <div class="section-title">Nova Pesquisa</div>
+      <div class="np-form-row">
+        <label class="np-label">Região</label>
+        <input type="text" id="np-region" class="np-input" placeholder="Ex: Serra Pelada">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <div>
+          <label class="np-label">Lon Min</label>
+          <input type="number" id="np-lon-min" class="np-input" step="0.0001" placeholder="-51.5">
+        </div>
+        <div>
+          <label class="np-label">Lat Min</label>
+          <input type="number" id="np-lat-min" class="np-input" step="0.0001" placeholder="-7.0">
+        </div>
+        <div>
+          <label class="np-label">Lon Max</label>
+          <input type="number" id="np-lon-max" class="np-input" step="0.0001" placeholder="-49.5">
+        </div>
+        <div>
+          <label class="np-label">Lat Max</label>
+          <input type="number" id="np-lat-max" class="np-input" step="0.0001" placeholder="-5.0">
+        </div>
+      </div>
+      <button class="ctrl-btn np-submit-btn" id="np-submit">🔍 Analisar</button>
+      <div id="np-error" style="display:none;color:var(--insuf);font-size:11px;margin-top:6px;"></div>
+    </div>
+    {% endif %}
   </aside>
 
   <!-- MAPA -->
@@ -595,6 +647,21 @@ aside {
     <div id="map"></div>
   </div>
 </div>
+
+{% if serve_mode %}
+<!-- Progress overlay -->
+<div id="progress-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px 36px;min-width:420px;max-width:520px;">
+    <div style="font-weight:700;font-size:15px;color:var(--accent);margin-bottom:6px;">Analisando região...</div>
+    <div id="np-progress-region" style="color:var(--text-muted);font-size:12px;margin-bottom:16px;"></div>
+    <div style="background:var(--bg);border-radius:6px;height:6px;margin-bottom:16px;">
+      <div id="np-progress-bar" style="height:6px;border-radius:6px;background:var(--accent);width:0%;transition:width 0.4s;"></div>
+    </div>
+    <div id="np-progress-steps" style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px;"></div>
+    <div id="np-progress-status" style="font-size:11px;color:var(--text-muted);"></div>
+  </div>
+</div>
+{% endif %}
 
 <!-- ============================================================
      BOTTOM PANEL — TABS
@@ -628,6 +695,9 @@ aside {
 // ============================================================
 const REPORT = {{ report_json_str }};
 
+// Estado global do relatório corrente (atualizado pelo renderDashboard)
+let CURRENT_REPORT = REPORT;
+
 // ============================================================
 // CONSTANTES
 // ============================================================
@@ -655,12 +725,16 @@ function qualityLabel(q) {
   if (q >= 0.3) return {label:'BAIXA', color: '#f97316'};
   return {label:'INSUF.', color: '#ef4444'};
 }
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 // ============================================================
 // HEADER
 // ============================================================
-(function initHeader() {
-  const r = REPORT;
+function renderHeader(r) {
   document.getElementById('h-region').textContent = r.region_name;
 
   const qInfo = qualityLabel(r.data_quality_score);
@@ -673,18 +747,21 @@ function qualityLabel(q) {
   const date = new Date(r.analysis_date).toLocaleString('pt-BR');
   document.getElementById('h-meta').textContent = date;
   document.getElementById('h-model').textContent = '🤖 ' + r.model_used;
-})();
+}
 
 // ============================================================
 // SIDEBAR — QUALITY DONUT
 // ============================================================
-(function initQualityDonut() {
-  const q = REPORT.data_quality_score;
+let _qualityDonutChart = null;
+
+function renderQualityDonut(r) {
+  const q = r.data_quality_score;
   const qInfo = qualityLabel(q);
 
   document.getElementById('quality-score-label').textContent = Math.round(q * 100) + '%';
 
-  new Chart(document.getElementById('chart-quality-donut'), {
+  if (_qualityDonutChart) { _qualityDonutChart.destroy(); _qualityDonutChart = null; }
+  _qualityDonutChart = new Chart(document.getElementById('chart-quality-donut'), {
     type: 'doughnut',
     data: {
       datasets: [{
@@ -700,7 +777,6 @@ function qualityLabel(q) {
     }
   });
 
-  const r = REPORT;
   const totalDur = durFmt(r.total_duration_ms);
   const date = new Date(r.analysis_date).toLocaleDateString('pt-BR');
   document.getElementById('quality-meta').innerHTML = `
@@ -710,14 +786,13 @@ function qualityLabel(q) {
     <div class="q-row"><span class="q-label">Alvos:</span><span class="q-val">${r.targets.length}</span></div>
     <div class="q-row"><span class="q-label">Passos:</span><span class="q-val">${r.steps.length}</span></div>
   `;
-})();
+}
 
 // ============================================================
-// MAPA LEAFLET
+// MAPA LEAFLET — inicializado uma única vez
 // ============================================================
 const map = L.map('map', { zoomControl: true });
 
-// Tile layers
 const tilesOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
   maxZoom: 18,
@@ -739,16 +814,11 @@ L.control.layers(
   {position: 'topright'}
 ).addTo(map);
 
-// BBox
-const bbox = REPORT.bbox;
-const bboxBounds = [[bbox.lat_min, bbox.lon_min], [bbox.lat_max, bbox.lon_max]];
-const bboxLayer = L.rectangle(bboxBounds, {
-  color: '#f59e0b', weight: 2, dashArray: '8 4',
-  fillColor: '#f59e0b', fillOpacity: 0.05,
-}).addTo(map);
-map.fitBounds(bboxBounds, { padding: [24, 24] });
+// Estado das camadas do mapa (renovado a cada relatório)
+let bboxLayer = null;
+let bboxVisible = true;
+let targetLayers = [];
 
-// Priority icon factory
 function createPriorityIcon(priority) {
   const color = PRIORITY_COLORS[priority] || '#6b7280';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
@@ -782,59 +852,81 @@ function buildPopup(t) {
   </div>`;
 }
 
-// Render targets on map
-const targetLayers = [];
-REPORT.targets.forEach(function(t, idx) {
-  const color = PRIORITY_COLORS[t.priority] || '#6b7280';
-  const circle = L.circle([t.latitude, t.longitude], {
-    radius: t.radius_km * 1000,
-    color: color, fillColor: color, fillOpacity: 0.12, weight: 2,
-  }).addTo(map);
-  const marker = L.marker([t.latitude, t.longitude], {icon: createPriorityIcon(t.priority)});
-  marker.bindPopup(buildPopup(t), { maxWidth: 280 });
-  marker.addTo(map);
-  targetLayers.push({marker, circle, target: t, idx});
-});
+function renderMapForReport(r) {
+  // Limpar camadas antigas
+  if (bboxLayer) { map.removeLayer(bboxLayer); bboxLayer = null; }
+  targetLayers.forEach(function(l) { map.removeLayer(l.marker); map.removeLayer(l.circle); });
+  targetLayers = [];
 
-// flyTo from sidebar/cards
+  // Adicionar novo bbox
+  const bbox = r.bbox;
+  const bboxBounds = [[bbox.lat_min, bbox.lon_min], [bbox.lat_max, bbox.lon_max]];
+  bboxVisible = true;
+  document.getElementById('btn-bbox').classList.remove('inactive');
+
+  bboxLayer = L.rectangle(bboxBounds, {
+    color: '#f59e0b', weight: 2, dashArray: '8 4',
+    fillColor: '#f59e0b', fillOpacity: 0.05,
+  }).addTo(map);
+  map.fitBounds(bboxBounds, { padding: [24, 24] });
+
+  // Adicionar novos targets
+  r.targets.forEach(function(t, idx) {
+    const color = PRIORITY_COLORS[t.priority] || '#6b7280';
+    const circle = L.circle([t.latitude, t.longitude], {
+      radius: t.radius_km * 1000,
+      color: color, fillColor: color, fillOpacity: 0.12, weight: 2,
+    }).addTo(map);
+    const marker = L.marker([t.latitude, t.longitude], {icon: createPriorityIcon(t.priority)});
+    marker.bindPopup(buildPopup(t), { maxWidth: 280 });
+    marker.addTo(map);
+    targetLayers.push({marker, circle, target: t, idx});
+  });
+
+  setupMapControls(bboxBounds);
+}
+
+function setupMapControls(bboxBounds) {
+  document.getElementById('btn-centralizar').onclick = function() {
+    map.fitBounds(bboxBounds, {padding:[24,24], animate:true, duration:0.8});
+  };
+
+  document.getElementById('btn-bbox').onclick = function() {
+    if (bboxVisible) { map.removeLayer(bboxLayer); this.classList.add('inactive'); }
+    else { bboxLayer.addTo(map); this.classList.remove('inactive'); }
+    bboxVisible = !bboxVisible;
+  };
+
+  document.getElementById('btn-all-targets').onclick = function() {
+    if (targetLayers.length === 0) { map.fitBounds(bboxBounds, {padding:[24,24]}); return; }
+    const group = L.featureGroup(targetLayers.map(function(l) { return l.marker; }));
+    map.fitBounds(group.getBounds().pad(0.3), {animate:true});
+  };
+}
+
+// flyTo reutiliza targetLayers, que é reconstruído por renderMapForReport
 function flyToTarget(idx) {
   const layer = targetLayers[idx];
   if (!layer) return;
   map.flyTo([layer.target.latitude, layer.target.longitude], 11, {duration: 1.2});
-  setTimeout(() => layer.marker.openPopup(), 1300);
-  document.querySelectorAll('.target-item').forEach(el => el.classList.remove('active'));
+  setTimeout(function() { layer.marker.openPopup(); }, 1300);
+  document.querySelectorAll('.target-item').forEach(function(el) { el.classList.remove('active'); });
   const el = document.querySelector('[data-target-idx="' + idx + '"]');
   if (el) el.classList.add('active');
-  // Switch to map by scrolling into view
 }
-
-// Sidebar controls
-document.getElementById('btn-centralizar').onclick = function() {
-  map.fitBounds(bboxBounds, {padding:[24,24], animate:true, duration:0.8});
-};
-
-let bboxVisible = true;
-document.getElementById('btn-bbox').onclick = function() {
-  if (bboxVisible) { map.removeLayer(bboxLayer); this.classList.add('inactive'); }
-  else { bboxLayer.addTo(map); this.classList.remove('inactive'); }
-  bboxVisible = !bboxVisible;
-};
-
-document.getElementById('btn-all-targets').onclick = function() {
-  if (targetLayers.length === 0) { map.fitBounds(bboxBounds, {padding:[24,24]}); return; }
-  const group = L.featureGroup(targetLayers.map(l => l.marker));
-  map.fitBounds(group.getBounds().pad(0.3), {animate:true});
-};
 
 // ============================================================
 // SIDEBAR — TARGETS LIST
 // ============================================================
-(function initTargetsList() {
+function renderTargetsList(r) {
   const container = document.getElementById('targets-list');
-  if (REPORT.targets.length === 0) return;
   container.innerHTML = '';
+  if (r.targets.length === 0) {
+    container.innerHTML = '<div class="empty-state">Sem alvos identificados.</div>';
+    return;
+  }
 
-  REPORT.targets.forEach(function(t, idx) {
+  r.targets.forEach(function(t, idx) {
     const color = PRIORITY_COLORS[t.priority] || '#6b7280';
     const cColor = CONF_COLORS[t.confidence] || '#6b7280';
     const cLabel = CONF_LABELS[t.confidence] || t.confidence;
@@ -858,16 +950,17 @@ document.getElementById('btn-all-targets').onclick = function() {
     });
     container.appendChild(item);
   });
-})();
+}
 
 // ============================================================
 // SIDEBAR — CAVEATS
 // ============================================================
-(function initCaveats() {
-  const caveats = REPORT.caveats || [];
-  if (caveats.length === 0) return;
+function renderCaveats(r) {
   const section = document.getElementById('caveats-section');
   const list = document.getElementById('caveats-list');
+  list.innerHTML = '';
+  const caveats = r.caveats || [];
+  if (caveats.length === 0) { section.style.display = 'none'; return; }
   section.style.display = '';
   caveats.forEach(function(c) {
     const el = document.createElement('div');
@@ -875,39 +968,20 @@ document.getElementById('btn-all-targets').onclick = function() {
     el.textContent = c;
     list.appendChild(el);
   });
-})();
-
-// ============================================================
-// TAB SYSTEM
-// ============================================================
-document.querySelectorAll('.tab-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    const tab = this.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    this.classList.add('active');
-    document.getElementById('tab-' + tab).classList.add('active');
-    // Lazy-init quality charts on first open
-    if (tab === 'qualidade' && !window._chartsInited) {
-      window._chartsInited = true;
-      initQualityCharts();
-    }
-    // Resize map if returning to main view (not needed here)
-    map.invalidateSize();
-  });
-});
+}
 
 // ============================================================
 // TAB: ANÁLISE
 // ============================================================
-(function initAnaliseTab() {
+function renderAnaliseTab(r) {
   const pane = document.getElementById('tab-analise');
-  if (REPORT.steps.length === 0) {
+  pane.innerHTML = '';
+  if (r.steps.length === 0) {
     pane.innerHTML = '<div class="empty-state">Sem passos de análise disponíveis.</div>';
     return;
   }
 
-  REPORT.steps.forEach(function(step, si) {
+  r.steps.forEach(function(step, si) {
     const conf = step.confidence || 'insufficient';
     const cColor = CONF_COLORS[conf] || '#6b7280';
     const cLabel = CONF_LABELS[conf] || conf;
@@ -921,7 +995,7 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     const reasoning = (step.raw_reasoning || '').slice(0, 2000);
 
     const findingsHtml = findings.length
-      ? findings.map(f => `<div class="finding-item">${esc(f)}</div>`).join('')
+      ? findings.map(function(f) { return `<div class="finding-item">${esc(f)}</div>`; }).join('')
       : '<div style="color:var(--text-muted);font-size:11px">Sem achados.</div>';
 
     const acc = document.createElement('div');
@@ -956,7 +1030,6 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     pane.appendChild(acc);
   });
 
-  // Accordion toggle
   pane.addEventListener('click', function(e) {
     const header = e.target.closest('.step-header');
     if (header) {
@@ -976,21 +1049,21 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     }
   });
 
-  // Open first step by default
   const firstHeader = pane.querySelector('.step-header');
   const firstBody = pane.querySelector('.step-body');
   if (firstHeader && firstBody) {
     firstHeader.classList.add('open');
     firstBody.classList.add('open');
   }
-})();
+}
 
 // ============================================================
 // TAB: ALVOS
 // ============================================================
-(function initAlvosTab() {
+function renderAlvosTab(r) {
   const pane = document.getElementById('tab-alvos');
-  if (REPORT.targets.length === 0) {
+  pane.innerHTML = '';
+  if (r.targets.length === 0) {
     pane.innerHTML = '<div class="empty-state">Sem alvos identificados no relatório.</div>';
     return;
   }
@@ -998,7 +1071,7 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
   const grid = document.createElement('div');
   grid.className = 'targets-grid';
 
-  REPORT.targets.forEach(function(t, idx) {
+  r.targets.forEach(function(t, idx) {
     const color = PRIORITY_COLORS[t.priority] || '#6b7280';
     const cColor = CONF_COLORS[t.confidence] || '#6b7280';
     const cLabel = CONF_LABELS[t.confidence] || t.confidence;
@@ -1021,7 +1094,7 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
       <div class="tc-row"><span class="tc-label">Confiança</span>
         <span class="tc-val t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span></div>
       ${t.rationale ? `<div class="tc-rationale">${esc(t.rationale)}</div>` : ''}
-      ${followup.length ? `<div class="tc-followup">${followup.map(f => `<span class="tc-followup-tag">${esc(f)}</span>`).join('')}</div>` : ''}
+      ${followup.length ? `<div class="tc-followup">${followup.map(function(f) { return `<span class="tc-followup-tag">${esc(f)}</span>`; }).join('')}</div>` : ''}
       <div style="margin-top:8px">
         <button class="btn-fly" onclick="flyToTarget(${idx})">📍 Ver no mapa</button>
       </div>
@@ -1030,12 +1103,20 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
   });
 
   pane.appendChild(grid);
-})();
+}
 
 // ============================================================
-// TAB: QUALIDADE — Charts (lazy init on tab open)
+// TAB: QUALIDADE — Charts (lazy init, re-renderizável)
 // ============================================================
-function initQualityCharts() {
+let _confChart = null;
+let _durChart = null;
+let _radarChart = null;
+
+function renderQualityCharts(r) {
+  if (_confChart) { _confChart.destroy(); _confChart = null; }
+  if (_durChart) { _durChart.destroy(); _durChart = null; }
+  if (_radarChart) { _radarChart.destroy(); _radarChart = null; }
+
   const pane = document.getElementById('tab-qualidade');
   pane.innerHTML = `
     <div class="quality-charts">
@@ -1053,23 +1134,22 @@ function initQualityCharts() {
       </div>
     </div>
   `;
+  window._chartsInited = true;
 
-  // Chart.js dark defaults
   Chart.defaults.color = '#94a3b8';
   Chart.defaults.borderColor = '#334155';
 
-  const steps = REPORT.steps || [];
-  const stepLabels = steps.map(s => stepName(s.step));
+  const steps = r.steps || [];
+  const stepLabels = steps.map(function(s) { return stepName(s.step); });
 
-  // Confidence bar
-  new Chart(document.getElementById('chart-conf'), {
+  _confChart = new Chart(document.getElementById('chart-conf'), {
     type: 'bar',
     data: {
       labels: stepLabels,
       datasets: [{
         label: 'Confiança',
-        data: steps.map(s => CONF_SCORES[s.confidence] || 0),
-        backgroundColor: steps.map(s => (CONF_COLORS[s.confidence] || '#6b7280') + 'cc'),
+        data: steps.map(function(s) { return CONF_SCORES[s.confidence] || 0; }),
+        backgroundColor: steps.map(function(s) { return (CONF_COLORS[s.confidence] || '#6b7280') + 'cc'; }),
         borderRadius: 4,
       }]
     },
@@ -1079,7 +1159,7 @@ function initQualityCharts() {
       scales: {
         y: {
           min:0, max:3, stepSize:1,
-          ticks: { callback: v => ['INSUF.','BAIXA','MÉDIA','ALTA'][v] || '' },
+          ticks: { callback: function(v) { return ['INSUF.','BAIXA','MÉDIA','ALTA'][v] || ''; } },
           grid: { color: '#334155' },
         },
         x: { grid: { display:false } },
@@ -1087,14 +1167,13 @@ function initQualityCharts() {
     }
   });
 
-  // Duration bar
-  new Chart(document.getElementById('chart-dur'), {
+  _durChart = new Chart(document.getElementById('chart-dur'), {
     type: 'bar',
     data: {
       labels: stepLabels,
       datasets: [{
         label: 'Duração (s)',
-        data: steps.map(s => +(s.duration_ms / 1000).toFixed(1)),
+        data: steps.map(function(s) { return +(s.duration_ms / 1000).toFixed(1); }),
         backgroundColor: '#f59e0bcc',
         borderRadius: 4,
       }]
@@ -1109,13 +1188,14 @@ function initQualityCharts() {
     }
   });
 
-  // Service coverage radar
   const SERVICES = ['ocorrencias','gravimetria','geoquimica','geocronologia','litoestratigrafia','aerogeofisica'];
   const SVC_LABELS = ['Ocorrências','Gravimetria','Geoquímica','Geocronologia','Litoestratigr.','Aerogeofísica'];
-  const svcCounts = SERVICES.map(svc =>
-    steps.filter(s => (s.data_sources_used || []).some(d => d.toLowerCase().includes(svc))).length
-  );
-  new Chart(document.getElementById('chart-radar'), {
+  const svcCounts = SERVICES.map(function(svc) {
+    return steps.filter(function(s) {
+      return (s.data_sources_used || []).some(function(d) { return d.toLowerCase().includes(svc); });
+    }).length;
+  });
+  _radarChart = new Chart(document.getElementById('chart-radar'), {
     type: 'radar',
     data: {
       labels: SVC_LABELS,
@@ -1147,9 +1227,9 @@ function initQualityCharts() {
 // ============================================================
 // TAB: JSON
 // ============================================================
-(function initJsonTab() {
+function renderJsonTab(r) {
   const pane = document.getElementById('tab-json');
-  const pretty = JSON.stringify(REPORT, null, 2);
+  const pretty = JSON.stringify(r, null, 2);
   pane.innerHTML = `
     <div class="json-wrap">
       <button class="json-copy-btn" id="btn-copy-json">📋 Copiar JSON</button>
@@ -1157,24 +1237,182 @@ function initQualityCharts() {
     </div>
   `;
   document.getElementById('btn-copy-json').onclick = function() {
-    navigator.clipboard.writeText(pretty).then(() => {
-      this.textContent = '✓ Copiado!';
-      setTimeout(() => { this.textContent = '📋 Copiar JSON'; }, 2000);
+    navigator.clipboard.writeText(pretty).then(function() {
+      document.getElementById('btn-copy-json').textContent = '✓ Copiado!';
+      setTimeout(function() { document.getElementById('btn-copy-json').textContent = '📋 Copiar JSON'; }, 2000);
     });
   };
-})();
-
-// ============================================================
-// UTIL
-// ============================================================
-function esc(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ============================================================
+// MASTER RENDER — chamado no load e após cada nova análise
+// ============================================================
+function renderDashboard(r) {
+  CURRENT_REPORT = r;
+  renderHeader(r);
+  renderQualityDonut(r);
+  renderTargetsList(r);
+  renderCaveats(r);
+  renderAnaliseTab(r);
+  renderAlvosTab(r);
+  renderJsonTab(r);
+  if (window._chartsInited) { renderQualityCharts(r); }
+  renderMapForReport(r);
+}
+
+// Render inicial
+renderDashboard(REPORT);
+
+// ============================================================
+// TAB SYSTEM — setup único
+// ============================================================
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const tab = this.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+    this.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (tab === 'qualidade' && !window._chartsInited) {
+      renderQualityCharts(CURRENT_REPORT);
+    }
+    map.invalidateSize();
+  });
+});
+
 // Force map to correct size after layout settles
-setTimeout(() => map.invalidateSize(), 100);
+setTimeout(function() { map.invalidateSize(); }, 100);
+
+{% if serve_mode %}
+// ============================================================
+// NOVA PESQUISA — SSE client
+// ============================================================
+(function initNovaPesquisa() {
+  const STEP_ORDER = [
+    'tectonic_history','structural_architecture',
+    'magmatic_fertility','indirect_evidence','total_integration'
+  ];
+  const submitBtn = document.getElementById('np-submit');
+  const errorEl = document.getElementById('np-error');
+  const overlay = document.getElementById('progress-overlay');
+
+  function showError(msg) { errorEl.textContent = msg; errorEl.style.display = ''; }
+  function clearError() { errorEl.style.display = 'none'; }
+
+  function validateForm() {
+    const region = document.getElementById('np-region').value.trim();
+    const lonMin = parseFloat(document.getElementById('np-lon-min').value);
+    const latMin = parseFloat(document.getElementById('np-lat-min').value);
+    const lonMax = parseFloat(document.getElementById('np-lon-max').value);
+    const latMax = parseFloat(document.getElementById('np-lat-max').value);
+    if (!region) return {error: 'Nome da região obrigatório.'};
+    if ([lonMin, latMin, lonMax, latMax].some(isNaN)) return {error: 'Preencha todos os campos de coordenadas.'};
+    if (lonMin >= lonMax) return {error: 'Lon Min deve ser menor que Lon Max.'};
+    if (latMin >= latMax) return {error: 'Lat Min deve ser menor que Lat Max.'};
+    return {region: region, bbox: {lon_min: lonMin, lat_min: latMin, lon_max: lonMax, lat_max: latMax}};
+  }
+
+  function initOverlay(region) {
+    document.getElementById('np-progress-region').textContent = 'Região: ' + region;
+    document.getElementById('np-progress-bar').style.width = '0%';
+    document.getElementById('np-progress-status').textContent = 'Iniciando...';
+    const stepsEl = document.getElementById('np-progress-steps');
+    stepsEl.innerHTML = '';
+    STEP_ORDER.forEach(function(s) {
+      const el = document.createElement('div');
+      el.id = 'np-step-' + s;
+      el.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)';
+      el.innerHTML = '<span style="font-size:14px">○</span><span>' + (STEP_NAMES[s] || s) + '</span>';
+      stepsEl.appendChild(el);
+    });
+    overlay.style.display = 'flex';
+  }
+
+  function markStep(step, active) {
+    const el = document.getElementById('np-step-' + step);
+    if (!el) return;
+    const label = STEP_NAMES[step] || step;
+    if (active) {
+      el.innerHTML = '<span style="font-size:14px;color:var(--accent)">◉</span>'
+        + '<span style="color:var(--accent)">' + label + '</span>';
+    } else {
+      el.innerHTML = '<span style="font-size:14px;color:var(--high)">✓</span>'
+        + '<span style="color:var(--high)">' + label + '</span>';
+    }
+  }
+
+  submitBtn.addEventListener('click', function() {
+    clearError();
+    var v = validateForm();
+    if (v.error) { showError(v.error); return; }
+
+    submitBtn.disabled = true;
+    initOverlay(v.region);
+
+    // POST para iniciar análise
+    fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({region: v.region, bbox: v.bbox}),
+    }).then(function(resp) {
+      if (!resp.ok) {
+        return resp.json().catch(function() { return {msg: resp.statusText}; }).then(function(d) {
+          throw new Error(d.msg || 'Erro ao iniciar análise.');
+        });
+      }
+
+      // Abre SSE stream
+      var completedSteps = 0;
+      var evtSource = new EventSource('/api/analyze/stream');
+
+      evtSource.addEventListener('step_start', function(e) {
+        var d = JSON.parse(e.data);
+        document.getElementById('np-progress-status').textContent =
+          'Executando: ' + (STEP_NAMES[d.step] || d.step);
+        markStep(d.step, true);
+      });
+
+      evtSource.addEventListener('step_complete', function(e) {
+        var d = JSON.parse(e.data);
+        completedSteps++;
+        markStep(d.step, false);
+        var pct = Math.round((completedSteps / STEP_ORDER.length) * 100);
+        document.getElementById('np-progress-bar').style.width = pct + '%';
+      });
+
+      evtSource.addEventListener('complete', function(e) {
+        evtSource.close();
+        var d = JSON.parse(e.data);
+        overlay.style.display = 'none';
+        submitBtn.disabled = false;
+        renderDashboard(d.report);
+      });
+
+      evtSource.addEventListener('error', function(e) {
+        evtSource.close();
+        overlay.style.display = 'none';
+        submitBtn.disabled = false;
+        var msg = 'Erro durante análise.';
+        try { var d = JSON.parse(e.data); msg = d.msg || msg; } catch(ex) {}
+        showError(msg);
+      });
+
+      evtSource.onerror = function() {
+        if (evtSource.readyState === EventSource.CLOSED) {
+          overlay.style.display = 'none';
+          submitBtn.disabled = false;
+          showError('Conexão com o servidor perdida.');
+        }
+      };
+
+    }).catch(function(err) {
+      overlay.style.display = 'none';
+      submitBtn.disabled = false;
+      showError(err.message || 'Erro de conexão.');
+    });
+  });
+})();
+{% endif %}
 </script>
 </body>
 </html>

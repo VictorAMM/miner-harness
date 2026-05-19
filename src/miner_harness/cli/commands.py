@@ -31,6 +31,8 @@ async def cmd_analyze(
     model: str | None = None,
     output_path: str | None = None,
     no_html: bool = False,
+    serve: bool = False,
+    port: int = 8765,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -94,14 +96,21 @@ async def cmd_analyze(
         else:
             _print_report_summary(report)
 
-        # Gerar dashboard HTML
+        # Modo --serve: inicia servidor HTTP interativo (gerencia cache internamente)
+        if serve:
+            await _serve_dashboard(report, connector, cache, llm, config, port)
+            return 0
+
+        # Gerar dashboard HTML estático
         if not no_html:
             _render_html_report(report, storage, region)
 
         return 0
 
     finally:
-        cache.close()
+        # Em modo serve, o DashboardServer fecha o cache no seu próprio cleanup
+        if not serve:
+            cache.close()
 
 
 def _render_html_report(
@@ -123,6 +132,32 @@ def _render_html_report(
     except Exception as exc:  # noqa: BLE001
         logger.warning("html_report_failed", error=str(exc))
         print(f"Aviso: não foi possível gerar dashboard HTML: {exc}", file=sys.stderr)
+
+
+async def _serve_dashboard(
+    report: ProspectionReport,
+    connector: object,
+    cache: object,
+    llm: object,
+    config: MinerHarnessConfig,
+    port: int,
+) -> None:
+    """Inicia o DashboardServer e abre o browser no URL local."""
+    from miner_harness.server import DashboardServer
+
+    server = DashboardServer(
+        initial_report=report,
+        connector=connector,  # type: ignore[arg-type]
+        cache=cache,  # type: ignore[arg-type]
+        llm=llm,  # type: ignore[arg-type]
+        config=config,
+        port=port,
+    )
+    url = f"http://localhost:{port}"
+    print(f"\nServidor iniciado: {url}")
+    print("Pressione Ctrl+C para encerrar.")
+    webbrowser.open(url)
+    await server.run()
 
 
 def cmd_validate(report_file: str) -> int:

@@ -203,3 +203,30 @@ class TestHtmlReportRenderer:
         # O JSON embute os dados raw, mas o JS usa esc() para renderizar no DOM
         # O region_name aparece no JSON (não em HTML diretamente fora do script)
         assert "</html>" in html  # renderizou sem erro
+
+    def test_render_serve_mode_contains_nova_pesquisa(
+        self, sample_report: ProspectionReport
+    ) -> None:
+        html = HtmlReportRenderer().render(sample_report, serve_mode=True)
+        assert "np-submit" in html
+        assert "Nova Pesquisa" in html
+        assert "progress-overlay" in html
+
+    def test_render_static_mode_omits_nova_pesquisa(self, sample_report: ProspectionReport) -> None:
+        html = HtmlReportRenderer().render(sample_report, serve_mode=False)
+        assert "np-submit" not in html
+        assert "progress-overlay" not in html
+
+    def test_render_serve_mode_default_is_false(self, sample_report: ProspectionReport) -> None:
+        html = HtmlReportRenderer().render(sample_report)
+        assert "np-submit" not in html
+
+    def test_render_to_file_does_not_include_serve_mode(
+        self,
+        sample_report: ProspectionReport,
+        tmp_path: Path,
+    ) -> None:
+        out = tmp_path / "report.html"
+        HtmlReportRenderer().render_to_file(sample_report, out)
+        content = out.read_text(encoding="utf-8")
+        assert "np-submit" not in content

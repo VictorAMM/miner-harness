@@ -55,11 +55,17 @@ class HtmlReportRenderer:
             autoescape=True,
         )
 
-    def render(self, report: ProspectionReport) -> str:
-        """Renderiza relatório como HTML string completa."""
+    def render(self, report: ProspectionReport, serve_mode: bool = False) -> str:
+        """Renderiza relatório como HTML string completa.
+
+        Args:
+            report: Relatório de prospecção.
+            serve_mode: Se True, inclui o painel "Nova Pesquisa" com SSE client.
+        """
         template = self._env.get_template("report.html.j2")
         return template.render(
             report_json_str=_safe_json(report.model_dump(mode="json")),
+            serve_mode=serve_mode,
             # nosec B704 — bundled static assets from the package, not user data
             leaflet_js=Markup(self._static("leaflet.min.js")),  # nosec B704
             leaflet_css=Markup(self._static("leaflet.min.css")),  # nosec B704

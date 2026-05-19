@@ -21,6 +21,7 @@ from miner_harness.cli.app import main
 from miner_harness.cli.commands import (
     _print_report_summary,
     _render_html_report,
+    _serve_dashboard,
     cmd_analyze,
     cmd_cache_clear,
     cmd_cache_stats,
@@ -537,6 +538,115 @@ class TestCmdInstall:
             result = cmd_install(non_interactive=False)
         assert result == 0
         mock_runner.run.assert_called_once()
+
+
+class TestServeMode:
+    """Testes do modo --serve e da função _serve_dashboard."""
+
+    @pytest.mark.asyncio
+    async def test_analyze_serve_mode_calls_serve_dashboard(self, tmp_path: Path) -> None:
+        """Com serve=True, _serve_dashboard é chamado e cmd_analyze retorna 0."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._serve_dashboard", new=AsyncMock()) as mock_serve,
+        ):
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=report)
+            mock_orch_cls.return_value = mock_orch
+
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                serve=True,
+                port=8765,
+            )
+
+        assert result == 0
+        mock_serve.assert_called_once()
+
+    def test_serve_flag_in_argparse(self) -> None:
+        """Flag --serve deve ser reconhecida pelo parser."""
+
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(
+            [
+                "analyze",
+                "carajas",
+                "--bbox",
+                "-51",
+                "-7",
+                "-49",
+                "-5",
+                "--serve",
+            ]
+        )
+        assert args.serve is True
+        assert args.port == 8765
+
+    def test_port_flag_in_argparse(self) -> None:
+        """Flag --port deve ser reconhecida e passada ao cmd_analyze."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(
+            [
+                "analyze",
+                "carajas",
+                "--bbox",
+                "-51",
+                "-7",
+                "-49",
+                "-5",
+                "--serve",
+                "--port",
+                "9999",
+            ]
+        )
+        assert args.port == 9999
+
+    @pytest.mark.asyncio
+    async def test_serve_dashboard_opens_browser_and_calls_server(self, tmp_path: Path) -> None:
+        """_serve_dashboard abre browser e chama server.run()."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+
+        mock_server = AsyncMock()
+        mock_server.run = AsyncMock()
+
+        with (
+            patch(
+                "miner_harness.server.DashboardServer",
+                return_value=mock_server,
+            ) as mock_server_cls,
+            patch("miner_harness.cli.commands.webbrowser") as mock_browser,
+        ):
+            await _serve_dashboard(
+                report=report,
+                connector=MagicMock(),
+                cache=MagicMock(),
+                llm=MagicMock(),
+                config=MagicMock(),
+                port=8765,
+            )
+
+        mock_server_cls.assert_called_once()
+        mock_browser.open.assert_called_once_with("http://localhost:8765")
+        mock_server.run.assert_called_once()
 
 
 class TestCmdHealth:
