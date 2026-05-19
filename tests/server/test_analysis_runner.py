@@ -204,3 +204,154 @@ class TestAnalysisRunner:
             result = await runner.analyze_region(bb, "Teste")
 
         assert result.region_name == "Teste"
+
+    @pytest.mark.asyncio
+    async def test_execute_step_emits_step_start_and_step_complete(self) -> None:
+        """_execute_step emite step_start e step_complete via SSE."""
+        mock_result = StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="structural_geologist",
+            summary="Sumário.",
+            findings=["finding"],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="reasoning",
+            duration_ms=100,
+        )
+
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=mock_result),
+        ):
+            result = await runner._execute_step(AnalysisStep.TECTONIC_HISTORY, {}, [])
+
+        assert result is mock_result
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        types = _event_types(chunks)
+        assert "step_start" in types
+        assert "step_complete" in types
+
+    @pytest.mark.asyncio
+    async def test_execute_step_step_complete_payload(self) -> None:
+        """step_complete payload contém step, step_index e result."""
+        mock_result = StepResult(
+            step=AnalysisStep.MAGMATIC_FERTILITY,
+            agent="geochemist",
+            summary="Magmatismo intenso.",
+            findings=["Granito Jamon"],
+            confidence=Confidence.MEDIUM,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="dados geoquímicos",
+            duration_ms=200,
+        )
+
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=mock_result),
+        ):
+            await runner._execute_step(AnalysisStep.MAGMATIC_FERTILITY, {}, [])
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        complete_chunk = next((c for c in chunks if "event: step_complete" in c), None)
+        assert complete_chunk is not None
+        data_line = next(line for line in complete_chunk.split("\n") if line.startswith("data: "))
+        payload = json.loads(data_line[len("data: ") :])
+        assert payload["step"] == AnalysisStep.MAGMATIC_FERTILITY.value
+        assert payload["step_index"] >= 0
+        assert payload["result"]["agent"] == "geochemist"
+
+    @pytest.mark.asyncio
+    async def test_execute_step_unknown_step_index_is_minus_one(self) -> None:
+        """Step não pertencente a _STEP_ORDER recebe step_index -1."""
+        from unittest.mock import MagicMock
+
+        mock_result = StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="structural_geologist",
+            summary=".",
+            findings=[],
+            confidence=Confidence.LOW,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        unknown_step = MagicMock(spec=AnalysisStep)
+        unknown_step.value = "unknown_step"
+
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=mock_result),
+        ):
+            await runner._execute_step(unknown_step, {}, [])
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        start_chunk = next((c for c in chunks if "event: step_start" in c), None)
+        assert start_chunk is not None
+        data_line = next(line for line in start_chunk.split("\n") if line.startswith("data: "))
+        payload = json.loads(data_line[len("data: ") :])
+        assert payload["step_index"] == -1
+
+    @pytest.mark.asyncio
+    async def test_execute_step_no_channel_returns_result(self) -> None:
+        """_execute_step sem channel SSE ainda retorna o resultado corretamente."""
+        mock_result = StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="structural_geologist",
+            summary=".",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=50,
+        )
+
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+        # Sem set_channel
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=mock_result),
+        ):
+            result = await runner._execute_step(AnalysisStep.TECTONIC_HISTORY, {}, [])
+
+        assert result is mock_result

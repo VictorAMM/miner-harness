@@ -179,3 +179,39 @@ class TestDashboardServerRoutes:
                 assert resp.status == 409
         finally:
             server_instance._semaphore.release()
+
+    @pytest.mark.asyncio
+    async def test_get_stream_sem_analise_retorna_erro_sse(
+        self, server_instance: DashboardServer
+    ) -> None:
+        """GET /api/analyze/stream sem análise em curso retorna evento de erro SSE."""
+        server_instance._current_channel = None
+        async with (
+            TestClient(TestServer(server_instance._app)) as client,
+            client.session.get(client.make_url("/api/analyze/stream")) as resp,
+        ):
+            assert resp.status == 200
+            assert "text/event-stream" in resp.headers.get("Content-Type", "")
+            body = await resp.read()
+
+        assert b"event: error" in body
+
+    @pytest.mark.asyncio
+    async def test_get_stream_entrega_chunks_do_canal(
+        self, server_instance: DashboardServer
+    ) -> None:
+        """GET /api/analyze/stream itera sobre o SseChannel atual."""
+        from miner_harness.server.sse import SseChannel
+
+        channel = SseChannel()
+        channel.send("step_start", {"step": "tectonic_history"})
+        channel.close()
+        server_instance._current_channel = channel
+
+        async with (
+            TestClient(TestServer(server_instance._app)) as client,
+            client.session.get(client.make_url("/api/analyze/stream")) as resp,
+        ):
+            body = await resp.read()
+
+        assert b"event: step_start" in body
