@@ -22,7 +22,7 @@ class SseChannel:
         self._queue: asyncio.Queue[str | None] = asyncio.Queue()
         self._counter = 0
 
-    def send(self, event: str, data: dict) -> None:
+    def send(self, event: str, data: dict[str, object]) -> None:
         """Enfileira uma mensagem SSE formatada."""
         self._counter += 1
         payload = (
