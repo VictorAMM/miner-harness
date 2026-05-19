@@ -154,6 +154,14 @@ class TestParseFeature:
         assert result is not None
         assert result.uf == "PA"
 
+    def test_unsupported_geometry_type_returns_none(self) -> None:
+        """Tipo de geometria desconhecido lança ValueError em _centroid (linhas 93-94)."""
+        feat = {
+            "geometry": {"type": "GeometryCollection", "coordinates": [[-50.0, -6.0]]},
+            "properties": {},
+        }
+        assert _parse_feature(0, feat) is None
+
     def test_alternate_field_names(self) -> None:
         feat = {
             "geometry": {"type": "Point", "coordinates": [-50.0, -6.0]},
