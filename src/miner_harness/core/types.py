@@ -13,6 +13,7 @@ import hashlib
 import sys
 from datetime import datetime  # noqa: TCH003
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -269,3 +270,7 @@ class ProspectionReport(BaseModel):
     data_quality_score: float = Field(ge=0, le=1)
     total_duration_ms: int
     model_used: str
+    geological_data: dict[str, list[dict[str, Any]]] | None = Field(
+        default=None,
+        description="Dados brutos usados na análise (opcional, para visualização no dashboard)",
+    )
