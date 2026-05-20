@@ -5,12 +5,9 @@ Ref: RFC-003 §3.4
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path  # noqa: TC003
 
 import pytest
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 from miner_harness.cache.manager import CacheManager
 from miner_harness.core.config import StorageConfig
@@ -162,3 +159,24 @@ class TestCacheManagerExtraAPIs:
             mock_evict.assert_called_once()
         finally:
             cache.close()
+
+    def test_startup_eviction_runs_when_auto_evict_enabled(self, config: StorageConfig) -> None:
+        """CacheManager evicts expired entries on init when auto_evict=True."""
+        from unittest.mock import MagicMock, patch
+
+        with patch("miner_harness.cache.manager.SQLiteStore", autospec=True) as mock_sqlite_cls:
+            mock_store = mock_sqlite_cls.return_value
+            mock_store.evict_expired = MagicMock(return_value=3)
+            CacheManager(config)
+            assert mock_store.evict_expired.call_count >= 1
+
+    def test_startup_eviction_skipped_when_auto_evict_disabled(self, tmp_path: Path) -> None:
+        """CacheManager skips startup eviction when auto_evict=False."""
+        from unittest.mock import MagicMock, patch
+
+        no_evict_config = StorageConfig(miner_home=tmp_path / ".miner-harness", auto_evict=False)
+        with patch("miner_harness.cache.manager.SQLiteStore", autospec=True) as mock_sqlite_cls:
+            mock_store = mock_sqlite_cls.return_value
+            mock_store.evict_expired = MagicMock(return_value=0)
+            CacheManager(no_evict_config)
+            mock_store.evict_expired.assert_not_called()
