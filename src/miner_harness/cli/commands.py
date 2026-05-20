@@ -75,6 +75,7 @@ async def cmd_analyze(
             return 1
 
         # Run analysis
+        orch: Orchestrator
         if profile:
             from miner_harness.observability.profiler import ProfilingRunner  # noqa: PLC0415
 
