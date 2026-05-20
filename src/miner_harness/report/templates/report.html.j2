@@ -613,6 +613,9 @@ aside {
         <button class="ctrl-btn" id="btn-centralizar">🎯 Centralizar região</button>
         <button class="ctrl-btn" id="btn-bbox">□ Mostrar/ocultar polígono</button>
         <button class="ctrl-btn" id="btn-all-targets">👁 Enquadrar todos os alvos</button>
+        <button class="ctrl-btn" id="btn-anm" title="Concessões ANM/SIGMINE">🏗️ ANM</button>
+        <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
+        <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
       </div>
     </div>
 
@@ -713,6 +716,30 @@ const CONF_COLORS = {high:'#22c55e', medium:'#eab308', low:'#f97316', insufficie
 const CONF_LABELS = {high:'ALTA', medium:'MÉDIA', low:'BAIXA', insufficient:'INSUF.'};
 const CONF_SCORES = {high:3, medium:2, low:1, insufficient:0};
 const PRIORITY_COLORS = ['','#ef4444','#f97316','#eab308','#3b82f6','#6b7280'];
+
+// Paleta de cores para substâncias minerais nas ocorrências GeoSGB
+const SUBSTANCIA_COLORS = {
+  'Ouro':          '#f59e0b',
+  'Estanho':       '#6b7280',
+  'Cobre':         '#b45309',
+  'Ferro':         '#dc2626',
+  'Manganês':      '#7c3aed',
+  'Alumínio':      '#0ea5e9',
+  'Diamante':      '#06b6d4',
+  'Chumbo':        '#475569',
+  'Zinco':         '#16a34a',
+  'Níquel':        '#65a30d',
+  'Cromo':         '#0d9488',
+  'Titânio':       '#8b5cf6',
+  'Urânio':        '#84cc16',
+};
+function substanciaColor(sub) {
+  if (!sub) return '#94a3b8';
+  const key = Object.keys(SUBSTANCIA_COLORS).find(function(k) {
+    return sub.toLowerCase().includes(k.toLowerCase());
+  });
+  return key ? SUBSTANCIA_COLORS[key] : '#94a3b8';
+}
 const STEP_NAMES = {
   tectonic_history: 'Hist. Tectônica',
   structural_architecture: 'Arq. Estrutural',
@@ -827,7 +854,12 @@ let bboxLayer = null;
 let bboxVisible = true;
 let targetLayers = [];
 let anmLayers = [];
+let anmVisible = true;
 let usgsLayers = [];
+let usgsVisible = true;
+let ocorrLayers = [];
+let ocorrVisible = true;
+let ocorrLegend = null;
 
 function createPriorityIcon(priority) {
   const color = PRIORITY_COLORS[priority] || '#6b7280';
@@ -871,12 +903,24 @@ function renderMapForReport(r) {
   anmLayers = [];
   usgsLayers.forEach(function(l) { map.removeLayer(l); });
   usgsLayers = [];
+  ocorrLayers.forEach(function(l) { map.removeLayer(l); });
+  ocorrLayers = [];
+  if (ocorrLegend) { map.removeControl(ocorrLegend); ocorrLegend = null; }
 
   // Adicionar novo bbox
   const bbox = r.bbox;
   const bboxBounds = [[bbox.lat_min, bbox.lon_min], [bbox.lat_max, bbox.lon_max]];
   bboxVisible = true;
+  anmVisible = true;
+  usgsVisible = true;
+  ocorrVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
+  var btnAnm = document.getElementById('btn-anm');
+  var btnUsgs = document.getElementById('btn-usgs');
+  var btnOcorr = document.getElementById('btn-ocorr');
+  if (btnAnm) btnAnm.classList.remove('inactive');
+  if (btnUsgs) btnUsgs.classList.remove('inactive');
+  if (btnOcorr) btnOcorr.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -936,6 +980,46 @@ function renderMapForReport(r) {
     usgsLayers.push(marker);
   });
 
+  // Adicionar camadas de ocorrências — pontos GeoSGB (coloridos por substância)
+  var ocorrRecords = geo['ocorrencias'] || [];
+  var usedSubstancias = {};
+  ocorrRecords.forEach(function(o) {
+    var coord = o.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var sub = o.substancias || '';
+    var color = substanciaColor(sub);
+    usedSubstancias[sub || 'Desconhecida'] = color;
+    var popupSub = sub ? '<br>Substância: <b>' + sub + '</b>' : '';
+    var popupMun = o.municipio ? '<br>Município: ' + o.municipio + (o.uf ? '/' + o.uf : '') : '';
+    var popupStat = o.status_economico ? '<br>Status: ' + o.status_economico : '';
+    var popupRocha = o.rochas_hospedeiras ? '<br>Rocha hospedeira: ' + o.rochas_hospedeiras : '';
+    var popupMorf = o.morfologia ? '<br>Morfologia: ' + o.morfologia : '';
+    var popup = '<b style="color:' + color + '">⬟ Ocorrência GeoSGB</b>' +
+      popupSub + popupMun + popupStat + popupRocha + popupMorf +
+      '<br><span style="color:#94a3b8;font-size:0.82em">ID: ' + o.objectid + '</span>';
+    var marker = L.circleMarker([coord.latitude, coord.longitude], {
+      radius: 6, color: color, fillColor: color, fillOpacity: 0.7, weight: 1.5,
+    }).bindPopup(popup).addTo(map);
+    ocorrLayers.push(marker);
+  });
+
+  // Legenda de substâncias (somente se houver ocorrências)
+  if (ocorrLayers.length > 0) {
+    ocorrLegend = L.control({ position: 'bottomright' });
+    ocorrLegend.onAdd = function() {
+      var div = L.DomUtil.create('div', '');
+      div.style.cssText = 'background:#fff;padding:8px 10px;border-radius:6px;box-shadow:0 1px 5px rgba(0,0,0,.2);font-size:0.78rem;max-width:160px;line-height:1.6';
+      var inner = '<b style="font-size:0.8rem">Ocorrências GeoSGB</b><br>';
+      Object.keys(usedSubstancias).sort().forEach(function(sub) {
+        inner += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' +
+          usedSubstancias[sub] + ';margin-right:5px;vertical-align:middle"></span>' + sub + '<br>';
+      });
+      div.innerHTML = inner;
+      return div;
+    };
+    ocorrLegend.addTo(map);
+  }
+
   setupMapControls(bboxBounds);
 }
 
@@ -955,6 +1039,40 @@ function setupMapControls(bboxBounds) {
     const group = L.featureGroup(targetLayers.map(function(l) { return l.marker; }));
     map.fitBounds(group.getBounds().pad(0.3), {animate:true});
   };
+
+  var btnAnm = document.getElementById('btn-anm');
+  if (btnAnm) {
+    btnAnm.onclick = function() {
+      if (anmVisible) { anmLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { anmLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      anmVisible = !anmVisible;
+    };
+  }
+
+  var btnUsgs = document.getElementById('btn-usgs');
+  if (btnUsgs) {
+    btnUsgs.onclick = function() {
+      if (usgsVisible) { usgsLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { usgsLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      usgsVisible = !usgsVisible;
+    };
+  }
+
+  var btnOcorr = document.getElementById('btn-ocorr');
+  if (btnOcorr) {
+    btnOcorr.onclick = function() {
+      if (ocorrVisible) {
+        ocorrLayers.forEach(function(l) { map.removeLayer(l); });
+        if (ocorrLegend) { map.removeControl(ocorrLegend); }
+        this.classList.add('inactive');
+      } else {
+        ocorrLayers.forEach(function(l) { l.addTo(map); });
+        if (ocorrLegend) { ocorrLegend.addTo(map); }
+        this.classList.remove('inactive');
+      }
+      ocorrVisible = !ocorrVisible;
+    };
+  }
 }
 
 // flyTo reutiliza targetLayers, que é reconstruído por renderMapForReport
@@ -1340,6 +1458,41 @@ function renderDadosTab(r) {
       html += '</tr>';
     });
     if (anm.length > 50) html += '<tr><td colspan="7" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (anm.length - 50) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- Ocorrências GeoSGB ---
+  var ocorr = geo['ocorrencias'] || [];
+  html += '<h3 style="margin:0 0 .5rem;color:#15803d">⬟ GeoSGB — Ocorrências Minerais</h3>';
+  if (!ocorr.length) {
+    html += '<p style="color:#6b7280">Sem ocorrências minerais GeoSGB para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + ocorr.length + ' ocorrência(s) encontrada(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#f0fdf4">';
+    ['Substância','Município/UF','Status Econômico','Rocha Hospedeira','Morfologia','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #15803d22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    ocorr.slice(0, 100).forEach(function(o, i) {
+      var bg = i % 2 ? '#f0fdf4' : '#fff';
+      var coord = o.coordenada || {};
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      var color = substanciaColor(o.substancias);
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:700"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' +
+        color + ';margin-right:5px;vertical-align:middle"></span>' + (o.substancias || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (o.municipio || '—') + (o.uf ? '/' + o.uf : '') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (o.status_economico || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (o.rochas_hospedeiras || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (o.morfologia || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (ocorr.length > 100) html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (ocorr.length - 100) + ' registros</td></tr>';
     html += '</tbody></table></div>';
   }
 
