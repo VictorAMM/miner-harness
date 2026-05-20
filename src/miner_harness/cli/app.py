@@ -24,6 +24,7 @@ import structlog
 from miner_harness.cli.commands import (
     cmd_analyze,
     cmd_cache_clear,
+    cmd_cache_evict,
     cmd_cache_stats,
     cmd_health,
     cmd_index_stats,
@@ -155,6 +156,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cache_sub = cache_parser.add_subparsers(dest="cache_command")
     cache_sub.add_parser("stats", help="Show cache statistics")
     cache_sub.add_parser("clear", help="Clear all cache entries")
+    cache_sub.add_parser("evict", help="Remove expired entries (keeps fresh data)")
 
     # --- index ---
     index_parser = subparsers.add_parser(
@@ -230,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
                 return cmd_cache_stats()
             if args.cache_command == "clear":
                 return cmd_cache_clear()
+            if args.cache_command == "evict":
+                return cmd_cache_evict()
             parser.parse_args(["cache", "--help"])
             return 1  # pragma: no cover
         if args.command == "index":

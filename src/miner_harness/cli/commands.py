@@ -236,6 +236,21 @@ def cmd_cache_clear() -> int:
         cache.close()
 
 
+def cmd_cache_evict() -> int:
+    """Remove only expired cache entries, leaving fresh data intact."""
+    config = StorageConfig()
+    cache = CacheManager(config)
+    try:
+        removed = cache.evict_expired()
+        if removed:
+            print(f"Evicted {removed} expired cache entries.")
+        else:
+            print("No expired entries found.")
+        return 0
+    finally:
+        cache.close()
+
+
 def cmd_index_stats() -> int:
     """Show index statistics."""
     config = StorageConfig()
