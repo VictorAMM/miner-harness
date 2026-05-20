@@ -57,9 +57,9 @@ class EvaluatorAgent(BaseAgent):
                 try:
                     targets.append(MineralTarget(**raw))
                 except Exception as exc:  # noqa: BLE001
-                    logger.debug("target_parse_skip", reason=str(exc))
+                    logger.warning("target_parse_skip", reason=str(exc), raw=str(raw)[:200])
         except Exception as exc:  # noqa: BLE001
-            logger.debug("targets_block_parse_skip", reason=str(exc))
+            logger.warning("targets_block_parse_skip", reason=str(exc))
 
         if targets:
             return result.model_copy(update={"targets": targets})

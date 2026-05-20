@@ -373,7 +373,7 @@ class Orchestrator:
                     longitude=-50.0,
                     latitude=-6.0,
                     radius_km=5.0,
-                    commodities=["Indeterminado"],
+                    commodities=Orchestrator._extract_commodities(finding),
                     mineral_system="Indeterminado",
                     confidence=evaluator_result.confidence,
                     priority=i,
@@ -382,6 +382,74 @@ class Orchestrator:
                 )
             )
         return targets
+
+    # Vocabulário de commodities minerais em PT-BR e EN (lowercase → nome canônico)
+    _COMMODITY_KEYWORDS: dict[str, str] = {
+        "ouro": "Ouro",
+        "gold": "Ouro",
+        "cobre": "Cobre",
+        "copper": "Cobre",
+        "ferro": "Ferro",
+        "iron": "Ferro",
+        "níquel": "Níquel",
+        "niquel": "Níquel",
+        "nickel": "Níquel",
+        "zinco": "Zinco",
+        "zinc": "Zinco",
+        "chumbo": "Chumbo",
+        "lead": "Chumbo",
+        "prata": "Prata",
+        "silver": "Prata",
+        "titânio": "Titânio",
+        "titanio": "Titânio",
+        "titanium": "Titânio",
+        "manganês": "Manganês",
+        "manganes": "Manganês",
+        "manganese": "Manganês",
+        "bauxita": "Bauxita",
+        "bauxite": "Bauxita",
+        "cromo": "Cromo",
+        "chromium": "Cromo",
+        "cobalto": "Cobalto",
+        "cobalt": "Cobalto",
+        "platina": "Platina",
+        "platinum": "Platina",
+        "diamante": "Diamante",
+        "diamond": "Diamante",
+        "estanho": "Estanho",
+        "tin": "Estanho",
+        "tungstênio": "Tungstênio",
+        "tungstenio": "Tungstênio",
+        "tungsten": "Tungstênio",
+        "molibdênio": "Molibdênio",
+        "molibdenio": "Molibdênio",
+        "molybdenum": "Molibdênio",
+        "urânio": "Urânio",
+        "uranio": "Urânio",
+        "uranium": "Urânio",
+        "fosfato": "Fosfato",
+        "phosphate": "Fosfato",
+        "terras raras": "Terras Raras",
+        "rare earth": "Terras Raras",
+        "lítio": "Lítio",
+        "litio": "Lítio",
+        "lithium": "Lítio",
+        "iocg": "IOCG",
+        "epitermal": "Ouro",
+        "epithermal": "Ouro",
+    }
+
+    @staticmethod
+    def _extract_commodities(text: str) -> list[str]:
+        """Extrai nomes de commodities do texto livre usando vocabulário controlado."""
+        lower = text.lower()
+        found: list[str] = []
+        seen: set[str] = set()
+        for keyword, canonical in Orchestrator._COMMODITY_KEYWORDS.items():
+            if keyword in lower and canonical not in seen:
+                found.append(canonical)
+                seen.add(canonical)
+        return found if found else ["Indeterminado"]
 
     @staticmethod
     def _build_summary(step_results: list[StepResult]) -> str:

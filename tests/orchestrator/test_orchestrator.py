@@ -325,6 +325,40 @@ class TestOrchestratorHelpers:
         assert targets[0].priority == 1
         assert targets[1].priority == 2
         assert "Cu anomaly" in targets[0].rationale
+        # "Au pathfinder" doesn't match any keyword → fallback to Indeterminado
+        assert targets[1].commodities == ["Indeterminado"]
+
+
+class TestExtractCommodities:
+    """Testes de _extract_commodities."""
+
+    def test_portuguese_keyword(self) -> None:
+        assert Orchestrator._extract_commodities("Anomalia de ouro no setor NW") == ["Ouro"]
+
+    def test_english_keyword(self) -> None:
+        assert Orchestrator._extract_commodities("Gold and copper deposit") == ["Ouro", "Cobre"]
+
+    def test_multiple_keywords(self) -> None:
+        result = Orchestrator._extract_commodities("Prospecção de ouro, cobre e ferro")
+        assert "Ouro" in result
+        assert "Cobre" in result
+        assert "Ferro" in result
+
+    def test_no_keyword_returns_indeterminado(self) -> None:
+        assert Orchestrator._extract_commodities("Anomalia estrutural generalizada") == [
+            "Indeterminado"
+        ]
+
+    def test_case_insensitive(self) -> None:
+        assert Orchestrator._extract_commodities("OURO e COBRE") == ["Ouro", "Cobre"]
+
+    def test_deduplication(self) -> None:
+        result = Orchestrator._extract_commodities("ouro gold ouro")
+        assert result.count("Ouro") == 1
+
+    def test_iocg_keyword(self) -> None:
+        result = Orchestrator._extract_commodities("Sistema IOCG tipo Carajás")
+        assert "IOCG" in result
 
 
 class TestOrchestratorRag:
