@@ -243,6 +243,18 @@ aside {
 }
 .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
 .ctrl-btn.inactive { opacity: 0.5; }
+.sub-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.sub-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 12px; font-size: 0.72rem;
+  font-weight: 600; white-space: nowrap;
+}
+.sub-pill-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.ocorr-total {
+  font-size: 0.78rem; color: var(--fg2); margin-bottom: 6px;
+}
 
 /* ================================================================
    MAP
@@ -604,6 +616,12 @@ aside {
     <div class="sidebar-section" id="caveats-section" style="display:none">
       <div class="section-title">⚠ Ressalvas</div>
       <div class="caveat-list" id="caveats-list"></div>
+    </div>
+
+    <!-- Ocorrências GeoSGB — resumo de substâncias -->
+    <div class="sidebar-section" id="ocorr-stats-section" style="display:none">
+      <div class="section-title">⬟ Ocorrências Minerais</div>
+      <div id="ocorr-stats-content"></div>
     </div>
 
     <!-- Controles do mapa -->
@@ -1142,6 +1160,45 @@ function renderCaveats(r) {
 }
 
 // ============================================================
+// SIDEBAR — OCORRÊNCIAS STATS
+// ============================================================
+function renderOcorrenciasStats(r) {
+  var section = document.getElementById('ocorr-stats-section');
+  var content = document.getElementById('ocorr-stats-content');
+  if (!section || !content) return;
+
+  var geo = r.geological_data || {};
+  var ocorr = geo['ocorrencias'] || [];
+  if (ocorr.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  // Agrupar por substância e contar
+  var counts = {};
+  ocorr.forEach(function(o) {
+    var sub = (o.substancias || 'Desconhecida').trim();
+    counts[sub] = (counts[sub] || 0) + 1;
+  });
+
+  // Ordenar por contagem decrescente
+  var entries = Object.entries(counts).sort(function(a, b) { return b[1] - a[1]; });
+
+  var html = '<div class="ocorr-total">' + ocorr.length + ' ocorrência(s) na região</div>';
+  html += '<div class="sub-pills">';
+  entries.forEach(function(entry) {
+    var sub = entry[0];
+    var cnt = entry[1];
+    var color = substanciaColor(sub);
+    // Label compacto: remover vírgulas redundantes, limitar a 14 chars
+    var label = sub.length > 16 ? sub.slice(0, 15) + '…' : sub;
+    html += '<span class="sub-pill" style="background:' + color + '22;color:' + color + '" title="' + sub + '">' +
+      '<span class="sub-pill-dot" style="background:' + color + '"></span>' +
+      label + ' <b>×' + cnt + '</b></span>';
+  });
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+// ============================================================
 // TAB: ANÁLISE
 // ============================================================
 function renderAnaliseTab(r) {
@@ -1535,6 +1592,7 @@ function renderDashboard(r) {
   renderQualityDonut(r);
   renderTargetsList(r);
   renderCaveats(r);
+  renderOcorrenciasStats(r);
   renderAnaliseTab(r);
   renderAlvosTab(r);
   renderDadosTab(r);

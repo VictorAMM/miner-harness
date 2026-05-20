@@ -416,6 +416,144 @@ class TestDadosTabAndMapLayers:
         assert "tab-dados" in html
 
 
+class TestOcorrenciasStatsWidget:
+    """Testes do widget de estatísticas de ocorrências na sidebar."""
+
+    def _make_report_with_ocorr(self) -> ProspectionReport:
+        from datetime import datetime, timezone  # noqa: UP017
+
+        from miner_harness.core.types import BoundingBox, Confidence, ProspectionReport, StepResult
+
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        return ProspectionReport(
+            region_name="Stats Test",
+            bbox=BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 20, tzinfo=timezone.utc),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.5,
+            total_duration_ms=1000,
+            model_used="qwen3:8b",
+            geological_data={
+                "ocorrencias": [
+                    {
+                        "objectid": 1,
+                        "substancias": "Ouro",
+                        "municipio": "Marabá",
+                        "uf": "PA",
+                        "status_economico": "Garimpado",
+                        "rochas_hospedeiras": "Cascalho",
+                        "morfologia": "Nodular",
+                        "coordenada": {"longitude": -50.8, "latitude": -5.7},
+                    },
+                    {
+                        "objectid": 2,
+                        "substancias": "Ouro",
+                        "municipio": "Parauapebas",
+                        "uf": "PA",
+                        "status_economico": "Indeterminado",
+                        "rochas_hospedeiras": "Granito",
+                        "morfologia": "Disseminado",
+                        "coordenada": {"longitude": -49.9, "latitude": -6.1},
+                    },
+                    {
+                        "objectid": 3,
+                        "substancias": "Ferro",
+                        "municipio": "Canaã dos Carajás",
+                        "uf": "PA",
+                        "status_economico": "Lavrado",
+                        "rochas_hospedeiras": "Itabirito",
+                        "morfologia": "Lenticular",
+                        "coordenada": {"longitude": -50.2, "latitude": -6.5},
+                    },
+                    {
+                        "objectid": 4,
+                        "substancias": "Cobre, Ouro",
+                        "municipio": "Ourilândia",
+                        "uf": "PA",
+                        "status_economico": "Indeterminado",
+                        "rochas_hospedeiras": "Ultramáfica",
+                        "morfologia": "Maciço",
+                        "coordenada": {"longitude": -51.0, "latitude": -6.7},
+                    },
+                ],
+            },
+        )
+
+    def test_stats_widget_section_present_in_html(self) -> None:
+        """HTML deve conter o elemento da seção de estatísticas de ocorrências."""
+        report = self._make_report_with_ocorr()
+        html = HtmlReportRenderer().render(report)
+        assert "ocorr-stats-section" in html
+        assert "ocorr-stats-content" in html
+
+    def test_stats_widget_js_function_defined(self) -> None:
+        """Função renderOcorrenciasStats deve estar definida no JS."""
+        report = self._make_report_with_ocorr()
+        html = HtmlReportRenderer().render(report)
+        assert "renderOcorrenciasStats" in html
+
+    def test_stats_widget_called_in_render_dashboard(self) -> None:
+        """renderDashboard deve invocar renderOcorrenciasStats."""
+        report = self._make_report_with_ocorr()
+        html = HtmlReportRenderer().render(report)
+        # renderDashboard invoca renderOcorrenciasStats(r)
+        assert "renderOcorrenciasStats(r)" in html
+
+    def test_sub_pill_css_class_defined(self) -> None:
+        """CSS .sub-pill deve estar definido no template."""
+        report = self._make_report_with_ocorr()
+        html = HtmlReportRenderer().render(report)
+        assert "sub-pill" in html
+
+    def test_no_stats_section_when_no_occurrences(self) -> None:
+        """Com geological_data=None, seção de stats não deve exibir conteúdo (display:none)."""
+        from datetime import datetime, timezone  # noqa: UP017
+
+        from miner_harness.core.types import BoundingBox, Confidence, ProspectionReport, StepResult
+
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        report = ProspectionReport(
+            region_name="Vazio",
+            bbox=BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 20, tzinfo=timezone.utc),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.0,
+            total_duration_ms=1000,
+            model_used="qwen3:8b",
+            geological_data=None,
+        )
+        html = HtmlReportRenderer().render(report)
+        # A seção existe no HTML mas começa oculta (display:none)
+        assert 'id="ocorr-stats-section"' in html
+        assert "display:none" in html
+
+
 class TestLowConfidenceBadge:
     """Testes do badge visual para steps com confiança baixa.
 
