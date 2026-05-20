@@ -171,6 +171,7 @@ class ContextBuilder:
             return cached
 
         # 2. Fetch from connector
+        print(f"  → {service}: buscando...", flush=True)
         try:
             connector_method = getattr(connector, method_name)
             typed_features = await connector_method(bbox)
@@ -181,6 +182,7 @@ class ContextBuilder:
             method = "query" if service == "gravimetria" else "identify"
             self._cache.put(service, bbox, features, method)
 
+            print(f"  ✓ {service}: {len(features)} registros", flush=True)
             logger.info(
                 "context_fetched",
                 service=service,
@@ -189,6 +191,7 @@ class ContextBuilder:
             return features
 
         except Exception:
+            print(f"  ✗ {service}: falhou (sem dados)", flush=True)
             logger.warning(
                 "context_fetch_failed",
                 service=service,

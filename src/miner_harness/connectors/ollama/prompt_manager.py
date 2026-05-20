@@ -8,11 +8,14 @@ Ref: RFC-002 §5.3, §7 (ContextBuilder)
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from miner_harness.connectors.geosgb.sanitizer import sanitize_for_llm
 from miner_harness.connectors.ollama.client import ChatMessage
 from miner_harness.core.types import AnalysisStep
+
+if TYPE_CHECKING:
+    from miner_harness.core.types import BoundingBox
 
 # ---------------------------------------------------------------------------
 # System prompts por agente
@@ -215,6 +218,7 @@ class PromptManager:
         step: AnalysisStep,
         geological_data: str,
         previous_results: str = "",
+        bbox: BoundingBox | None = None,
     ) -> list[ChatMessage]:
         """Constrói lista de mensagens para uma chamada de chat.
 
@@ -223,12 +227,23 @@ class PromptManager:
             step: Passo do framework.
             geological_data: Dados geológicos formatados (XML-tagged).
             previous_results: Resultados de passos anteriores (resumidos).
+            bbox: Bounding box da análise; injeta restrição geográfica no passo 5.
 
         Returns:
             Lista de ChatMessage pronta para envio ao LLM.
         """
         system = self.system_prompt(agent_name)
         instruction = _STEP_INSTRUCTIONS.get(step, "Analise os dados fornecidos.")
+
+        if step == AnalysisStep.TOTAL_INTEGRATION and bbox is not None:
+            instruction = (
+                instruction + f"\n\nRESTRIÇÃO GEOGRÁFICA OBRIGATÓRIA:\n"
+                f"Todos os alvos DEVEM ter coordenadas DENTRO do bbox da análise:\n"
+                f"  lon_min={bbox.lon_min}, lon_max={bbox.lon_max}\n"
+                f"  lat_min={bbox.lat_min}, lat_max={bbox.lat_max}\n"
+                f"Coordenadas fora deste bbox são INVÁLIDAS e serão descartadas."
+            )
+
         response_fmt = (
             _RESPONSE_FORMAT_EVALUATOR
             if step == AnalysisStep.TOTAL_INTEGRATION

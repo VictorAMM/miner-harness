@@ -21,6 +21,7 @@ from miner_harness.core.types import AnalysisStep, Confidence, StepResult
 
 if TYPE_CHECKING:
     from miner_harness.connectors.ollama.client import ChatMessage, ChatResponse, OllamaClient
+    from miner_harness.core.types import BoundingBox
 
 logger = structlog.get_logger(__name__)
 
@@ -72,6 +73,7 @@ class BaseAgent(ABC):
         step: AnalysisStep,
         geological_data: dict[str, list[dict[str, Any]]],
         previous_results: list[StepResult] | None = None,
+        bbox: BoundingBox | None = None,
     ) -> StepResult:
         """Executa analise especializada."""
         if step not in self.supported_steps:
@@ -80,7 +82,7 @@ class BaseAgent(ABC):
 
         start = time.monotonic()
 
-        messages = self.build_prompt(step, geological_data, previous_results)
+        messages = self.build_prompt(step, geological_data, previous_results, bbox)
         response = await self._llm.chat(self._model, messages)
         result = self.parse_response(response, step)
 
@@ -105,6 +107,7 @@ class BaseAgent(ABC):
         step: AnalysisStep,
         geological_data: dict[str, list[dict[str, Any]]],
         previous_results: list[StepResult] | None = None,
+        bbox: BoundingBox | None = None,
     ) -> list[ChatMessage]:
         """Constroi mensagens para o LLM."""
         relevant_keys = self._get_relevant_data_keys(step)
@@ -135,6 +138,7 @@ class BaseAgent(ABC):
             step=step,
             geological_data=geo_data_str,
             previous_results=prev_str,
+            bbox=bbox,
         )
 
     def parse_response(

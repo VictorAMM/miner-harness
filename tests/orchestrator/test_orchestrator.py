@@ -197,10 +197,11 @@ class TestOrchestrator:
             step: AnalysisStep,
             data: dict,
             prev: list | None = None,
+            bbox=None,  # noqa: ANN001
         ) -> StepResult:
             nonlocal call_count
             call_count += 1
-            return await original_analyze(step, data, prev)
+            return await original_analyze(step, data, prev, bbox)
 
         orch._agents["structural_geologist"].analyze = tracking_analyze
 
@@ -397,9 +398,11 @@ class TestOrchestratorRag:
         captured_data: dict = {}
         original_analyze = orch._agents["structural_geologist"].analyze
 
-        async def capture_analyze(step: AnalysisStep, data: dict, prev=None) -> StepResult:
+        async def capture_analyze(  # noqa: ANN001
+            step: AnalysisStep, data: dict, prev=None, bbox=None
+        ) -> StepResult:
             captured_data.update(data)
-            return await original_analyze(step, data, prev)
+            return await original_analyze(step, data, prev, bbox)
 
         orch._agents["structural_geologist"].analyze = capture_analyze
 
@@ -747,7 +750,7 @@ class TestParallelAgentExecution:
 
         called_agents: list[str] = []
 
-        async def tracking_analyze(self_agent, step, data, prev):  # noqa: ANN001
+        async def tracking_analyze(self_agent, step, data, prev, bbox=None):  # noqa: ANN001
             called_agents.append(self_agent.name)
             return _make_step_result(step, self_agent.name, Confidence.MEDIUM)
 
@@ -789,7 +792,7 @@ class TestParallelAgentExecution:
 
         called_agents: list[str] = []
 
-        async def tracking_analyze(self_agent, step, data, prev):  # noqa: ANN001
+        async def tracking_analyze(self_agent, step, data, prev, bbox=None):  # noqa: ANN001
             called_agents.append(self_agent.name)
             return _make_step_result(step, self_agent.name, Confidence.LOW)
 
@@ -830,7 +833,7 @@ class TestParallelAgentExecution:
 
         called_agents: list[str] = []
 
-        async def tracking_analyze(self_agent, step, data, prev):  # noqa: ANN001
+        async def tracking_analyze(self_agent, step, data, prev, bbox=None):  # noqa: ANN001
             called_agents.append(self_agent.name)
             return _make_step_result(step, self_agent.name, Confidence.MEDIUM)
 
