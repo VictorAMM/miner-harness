@@ -33,6 +33,7 @@ async def cmd_analyze(
     no_html: bool = False,
     serve: bool = False,
     port: int = 8765,
+    profile: bool = False,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -74,7 +75,13 @@ async def cmd_analyze(
             return 1
 
         # Run analysis
-        orch = Orchestrator(connector, cache, llm, config)
+        orch: Orchestrator
+        if profile:
+            from miner_harness.observability.profiler import ProfilingRunner  # noqa: PLC0415
+
+            orch = ProfilingRunner(connector, cache, llm, config)
+        else:
+            orch = Orchestrator(connector, cache, llm, config)
         print("Running analysis pipeline...")
         report = await orch.analyze_region(bb, region)
 

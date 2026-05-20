@@ -703,3 +703,56 @@ class TestCmdHealth:
             mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
             result = await cmd_health()
         assert result == 1
+
+
+class TestProfileFlag:
+    """Testes da flag --profile no CLI."""
+
+    def test_profile_flag_in_argparse(self) -> None:
+        """Flag --profile deve ser reconhecida pelo parser."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(
+            ["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5", "--profile"]
+        )
+        assert args.profile is True
+
+    def test_profile_default_is_false(self) -> None:
+        """--profile deve ser False por padrão."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5"])
+        assert args.profile is False
+
+    @pytest.mark.asyncio
+    async def test_analyze_profile_uses_profiling_runner(self, tmp_path: Path) -> None:
+        """cmd_analyze com profile=True usa ProfilingRunner em vez de Orchestrator."""
+        from miner_harness.cli.commands import cmd_analyze
+
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        mock_runner = MagicMock()
+        mock_runner.analyze_region = AsyncMock(return_value=_make_report(bbox))
+
+        with (
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cache.manager.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch(
+                "miner_harness.observability.profiler.ProfilingRunner",
+                return_value=mock_runner,
+            ) as mock_profiler_cls,
+            patch("miner_harness.orchestrator.report_validator.ReportValidator"),
+        ):
+            mock_llm_cls.return_value.health = AsyncMock(return_value=True)
+
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+                profile=True,
+            )
+
+        assert result == 0
+        mock_profiler_cls.assert_called_once()
