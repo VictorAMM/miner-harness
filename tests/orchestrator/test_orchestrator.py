@@ -515,6 +515,89 @@ class TestOrchestratorEdgeCases:
         assert extracted[0].name == "Alvo Teste"
 
 
+class TestMinDataSources:
+    """Testes do limiar configurável min_data_sources."""
+
+    @pytest.mark.asyncio
+    async def test_default_threshold_is_3(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        """Com 2 fontes e limiar padrão (3), deve levantar InsufficientDataError."""
+        cache.put("ocorrencias", bbox, [{"objectid": 1}])
+        cache.put("gravimetria", bbox, [{"objectid": 2}])
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        with pytest.raises(InsufficientDataError) as exc_info:
+            await orch.analyze_region(bbox, "Test")
+        assert "2/3" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_lowered_threshold_allows_2_sources(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        """Com min_data_sources=2 e 2 fontes, a análise deve prosseguir."""
+        cache.put("ocorrencias", bbox, [{"objectid": 1}])
+        cache.put("gravimetria", bbox, [{"objectid": 2}])
+        config.orchestrator.min_data_sources = 2
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        report = await orch.analyze_region(
+            bbox,
+            "Test",
+            steps=[AnalysisStep.TECTONIC_HISTORY],
+        )
+        assert report.region_name == "Test"
+
+    @pytest.mark.asyncio
+    async def test_threshold_1_allows_single_source(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        """Com min_data_sources=1 mesmo 1 fonte é suficiente."""
+        cache.put("ocorrencias", bbox, [{"objectid": 1}])
+        config.orchestrator.min_data_sources = 1
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        report = await orch.analyze_region(
+            bbox,
+            "Single Source",
+            steps=[AnalysisStep.TECTONIC_HISTORY],
+        )
+        assert len(report.steps) == 1
+
+    def test_insufficient_error_includes_hint(self) -> None:
+        """InsufficientDataError deve sugerir --min-sources com valor reduzido."""
+        err = InsufficientDataError(
+            agent="orchestrator",
+            missing=["gravimetria", "geocronologia", "litoestratigrafia", "aerogeofisica"],
+            min_sources=3,
+        )
+        msg = str(err)
+        assert "--min-sources" in msg
+        assert "2" in msg  # limiar - 1
+
+    def test_insufficient_error_message_shows_counts(self) -> None:
+        """Mensagem deve mostrar N/M fontes disponíveis."""
+        err = InsufficientDataError(
+            agent="orchestrator",
+            missing=["gravimetria", "geocronologia"],
+            min_sources=3,
+            active_count=1,
+        )
+        assert "1/3" in str(err)
+
+
 class TestBuildExtraSources:
     """Testes para os exception handlers de _build_extra_sources."""
 

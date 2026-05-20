@@ -96,6 +96,12 @@ class OrchestratorConfig(BaseModel):
         default_factory=lambda: list(AnalysisStep),
     )
     use_rag: bool = True
+    min_data_sources: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Mínimo de fontes de dados ativas para prosseguir com a análise (RFC-002 §6)",
+    )
 
 
 # ---------------------------------------------------------------------------

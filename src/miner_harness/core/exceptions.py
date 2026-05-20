@@ -86,10 +86,23 @@ class AgentError(MinerHarnessError):
 class InsufficientDataError(AgentError):
     """Dados insuficientes para o agente realizar análise."""
 
-    def __init__(self, agent: str, missing: list[str]) -> None:
+    def __init__(
+        self,
+        agent: str,
+        missing: list[str],
+        min_sources: int = 3,
+        active_count: int = 0,
+    ) -> None:
         self.agent = agent
         self.missing = missing
-        super().__init__(f"Agent '{agent}' has insufficient data. Missing: {', '.join(missing)}")
+        self.min_sources = min_sources
+        self.active_count = active_count
+        lower = max(1, min_sources - 1)
+        hint = f" Use --min-sources {lower} para reduzir o limiar." if missing else ""
+        super().__init__(
+            f"Dados insuficientes: apenas {active_count}/{min_sources} fontes "
+            f"disponíveis. Serviços sem dados: {', '.join(missing)}.{hint}"
+        )
 
 
 class EvaluationFailedError(AgentError):
