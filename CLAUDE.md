@@ -64,9 +64,10 @@ Parallelização — Agentes dos passos 3 e 4 executados em asyncio.gather() + m
 Benchmarks — Suite de latência (pipeline, cache, SSE) + ProfilingRunner + --profile CLI ✅ CONCLUÍDA (2026-05-20) [v0.5.1]
 Report Quality — bbox no Evaluator (P0), progresso de fetch (P1), logs debug (P2) ✅ CONCLUÍDA (2026-05-19) [v0.5.2]
 Resilient Fetch — --min-sources configurável + InsufficientDataError com hint acionável ✅ CONCLUÍDA (2026-05-20) [v0.5.3]
+Concurrent Fetch — ContextBuilder.build() via asyncio.gather() (6 serviços em paralelo) ✅ CONCLUÍDA (2026-05-20) [v0.5.4]
 ```
 
-**Status**: v0.5.3 em produção. Próximo entregável: a definir.
+**Status**: v0.5.4 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
