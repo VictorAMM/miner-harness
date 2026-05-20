@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone  # noqa: UP017
 from typing import TYPE_CHECKING
 
 import pytest
@@ -62,7 +62,7 @@ def sample_report(sample_target: MineralTarget, sample_step: StepResult) -> Pros
     return ProspectionReport(
         region_name="Carajás",
         bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-        analysis_date=datetime(2026, 5, 18, 10, 0, 0, tzinfo=UTC),
+        analysis_date=datetime(2026, 5, 18, 10, 0, 0, tzinfo=timezone.utc),
         steps=[sample_step],
         targets=[sample_target],
         integrated_summary="Região com alto potencial para IOCG.",
@@ -137,7 +137,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Vazio",
             bbox=BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
             steps=[],
             targets=[],
             integrated_summary="Sem dados.",
@@ -172,7 +172,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Multi",
             bbox=BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
             steps=[sample_step],
             targets=targets,
             integrated_summary="Três alvos.",
@@ -190,7 +190,7 @@ class TestHtmlReportRenderer:
         report = ProspectionReport(
             region_name="Test <script>alert(1)</script>",
             bbox=BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 18, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 18, tzinfo=timezone.utc),
             steps=[],
             targets=[],
             integrated_summary="",
@@ -236,7 +236,7 @@ class TestDadosTabAndMapLayers:
     """Testes para a aba Dados e camadas ANM/USGS no mapa."""
 
     def _make_report_with_geo(self) -> ProspectionReport:
-        from datetime import UTC, datetime
+        from datetime import datetime, timezone  # noqa: UP017
 
         from miner_harness.core.types import BoundingBox, Confidence, StepResult
 
@@ -254,7 +254,7 @@ class TestDadosTabAndMapLayers:
         return ProspectionReport(
             region_name="Região Teste",
             bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 19, 10, 0, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 19, 10, 0, tzinfo=timezone.utc),
             steps=[step],
             targets=[],
             integrated_summary="ok",
@@ -322,7 +322,7 @@ class TestDadosTabAndMapLayers:
         assert "Altamira" in html  # USGS lugar embedded in JSON
 
     def test_report_without_geological_data_still_renders(self) -> None:
-        from datetime import UTC, datetime
+        from datetime import datetime, timezone  # noqa: UP017
 
         from miner_harness.core.types import BoundingBox, Confidence, StepResult
 
@@ -340,7 +340,7 @@ class TestDadosTabAndMapLayers:
         report = ProspectionReport(
             region_name="Sem Dados",
             bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-            analysis_date=datetime(2026, 5, 19, 10, 0, tzinfo=UTC),
+            analysis_date=datetime(2026, 5, 19, 10, 0, tzinfo=timezone.utc),
             steps=[step],
             targets=[],
             integrated_summary="ok",
