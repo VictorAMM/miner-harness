@@ -245,13 +245,19 @@ class SQLiteStore:
         Returns:
             Número de entradas removidas.
         """
-        conn = self._get_conn()
-        rows = conn.execute("SELECT * FROM cache_entries").fetchall()
+        from datetime import datetime, timedelta
 
+        conn = self._get_conn()
+        # Only fetch columns needed for TTL check — avoids reading large data blobs.
+        rows = conn.execute("SELECT id, fetched_at, ttl_days FROM cache_entries").fetchall()
+
+        now = datetime.now(tz=timezone.utc)  # noqa: UP017
         expired_ids: list[int] = []
         for row in rows:
-            entry = self._row_to_entry(row)
-            if self._ttl.is_expired(entry):
+            fetched = datetime.fromisoformat(row["fetched_at"])
+            if fetched.tzinfo is None:
+                fetched = fetched.replace(tzinfo=timezone.utc)  # noqa: UP017
+            if now > fetched + timedelta(days=row["ttl_days"]):
                 expired_ids.append(row["id"])
 
         if expired_ids:
