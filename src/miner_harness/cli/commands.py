@@ -50,12 +50,29 @@ async def cmd_analyze(
     storage = config.storage
     storage.ensure_dirs()
 
+    lon_min, lat_min, lon_max, lat_max = bbox
+    if lon_min >= lon_max:
+        print(
+            f"Error: lon_min ({lon_min}) must be less than lon_max ({lon_max})",
+            file=sys.stderr,
+        )
+        return 1
+    if lat_min >= lat_max:
+        print(
+            f"Error: lat_min ({lat_min}) must be less than lat_max ({lat_max})",
+            file=sys.stderr,
+        )
+        return 1
+
     bb = BoundingBox(
-        lon_min=bbox[0],
-        lat_min=bbox[1],
-        lon_max=bbox[2],
-        lat_max=bbox[3],
+        lon_min=lon_min,
+        lat_min=lat_min,
+        lon_max=lon_max,
+        lat_max=lat_max,
     )
+
+    if port != 8765 and not serve:
+        print("Warning: --port is ignored without --serve", file=sys.stderr)
 
     print(f"Analyzing region: {region}")
     print(f"BBox: {bb.as_tuple()}")
@@ -179,7 +196,7 @@ def cmd_validate(report_file: str) -> int:
         return 1
 
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         report = ProspectionReport.model_validate(data)
     except Exception as exc:  # noqa: BLE001
         print(f"Error parsing report: {exc}", file=sys.stderr)
@@ -216,9 +233,9 @@ def cmd_cache_stats() -> int:
             for svc, count in sorted(stats.services.items()):
                 print(f"    {svc}: {count} entries")
         if stats.oldest_entry:
-            print(f"  Oldest entry:   {stats.oldest_entry}")
+            print(f"  Oldest entry:   {stats.oldest_entry.strftime('%Y-%m-%d %H:%M UTC')}")
         if stats.newest_entry:
-            print(f"  Newest entry:   {stats.newest_entry}")
+            print(f"  Newest entry:   {stats.newest_entry.strftime('%Y-%m-%d %H:%M UTC')}")
         return 0
     finally:
         cache.close()

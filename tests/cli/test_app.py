@@ -97,3 +97,34 @@ class TestMainCLI:
         # Called twice — once for stdout, once for stderr
         assert mock_wrap.call_count == 2
         mock_wrap.assert_called_with(fake_buffer, encoding="utf-8", errors="replace")
+
+    def test_fix_windows_event_loop_win32(self) -> None:
+        """_fix_windows_event_loop define WindowsSelectorEventLoopPolicy no win32."""
+        import asyncio
+        import sys
+        from unittest.mock import patch
+
+        from miner_harness.cli.app import _fix_windows_event_loop
+
+        with (
+            patch.object(sys, "platform", "win32"),
+            patch.object(asyncio, "set_event_loop_policy") as mock_policy,
+        ):
+            _fix_windows_event_loop()
+        mock_policy.assert_called_once()
+        assert isinstance(mock_policy.call_args[0][0], asyncio.WindowsSelectorEventLoopPolicy)
+
+    def test_fix_windows_event_loop_non_win32(self) -> None:
+        """_fix_windows_event_loop não faz nada em plataformas não-Windows."""
+        import asyncio
+        import sys
+        from unittest.mock import patch
+
+        from miner_harness.cli.app import _fix_windows_event_loop
+
+        with (
+            patch.object(sys, "platform", "linux"),
+            patch.object(asyncio, "set_event_loop_policy") as mock_policy,
+        ):
+            _fix_windows_event_loop()
+        mock_policy.assert_not_called()

@@ -183,9 +183,21 @@ def _ensure_utf8_streams() -> None:
             setattr(sys, attr, io.TextIOWrapper(stream.buffer, encoding="utf-8", errors="replace"))
 
 
+def _fix_windows_event_loop() -> None:
+    """Use SelectorEventLoop on Windows to avoid ProactorBasePipeTransport RuntimeError on shutdown.
+
+    Ref: https://bugs.python.org/issue39010 — fixed in Python 3.12.
+    """
+    import asyncio  # noqa: PLC0415
+
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entry point."""
     _ensure_utf8_streams()
+    _fix_windows_event_loop()
     parser = _build_parser()
     args = parser.parse_args(argv)
 
