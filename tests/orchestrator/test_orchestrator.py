@@ -976,3 +976,48 @@ class TestParallelAgentExecution:
 
         assert called_agents == ["structural_geologist"]
         assert result.agent == "structural_geologist"
+
+
+class TestSourcesSummaryPrint:
+    """Testes do resumo de fontes exibido antes do pipeline LLM."""
+
+    @pytest.mark.asyncio
+    async def test_active_sources_printed_before_llm(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Deve imprimir fontes ativas e indisponíveis antes do primeiro step."""
+        _populate_cache(cache, bbox)
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        await orch.analyze_region(bbox, "Test")
+
+        captured = capsys.readouterr()
+        assert "Fontes ativas" in captured.out
+        assert "Iniciando pipeline LLM" in captured.out
+
+    @pytest.mark.asyncio
+    async def test_unavailable_sources_listed(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Fontes sem dados devem aparecer na linha 'Fontes indisponíveis'."""
+        # Popula apenas 3 fontes (mínimo), deixando as outras vazias
+        cache.put("ocorrencias", bbox, [{"id": 1}])
+        cache.put("geoquimica", bbox, [{"id": 2}])
+        cache.put("litoestratigrafia", bbox, [{"id": 3}])
+        # gravimetria, geocronologia, aerogeofisica ficam vazias (mock_connector retorna [])
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        await orch.analyze_region(bbox, "Test")
+
+        captured = capsys.readouterr()
+        assert "Fontes indisponíveis" in captured.out

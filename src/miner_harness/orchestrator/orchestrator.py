@@ -168,13 +168,21 @@ class Orchestrator:
         # 2. Validar dados mínimos
         min_sources = self._config.orchestrator.min_data_sources
         active_sources = [k for k, v in geological_data.items() if v]
+        unavailable = [k for k, v in geological_data.items() if not v]
         if len(active_sources) < min_sources:
             raise InsufficientDataError(
                 agent="orchestrator",
-                missing=[k for k, v in geological_data.items() if not v],
+                missing=unavailable,
                 min_sources=min_sources,
                 active_count=len(active_sources),
             )
+
+        # Resumo de fontes antes do pipeline LLM
+        avail_str = ", ".join(f"{k}({len(geological_data[k])})" for k in active_sources)
+        print(f"\nFontes ativas ({len(active_sources)}): {avail_str}", flush=True)
+        if unavailable:
+            print(f"Fontes indisponíveis: {', '.join(unavailable)}", flush=True)
+        print(f"Iniciando pipeline LLM — {len(steps)} passos...\n", flush=True)
 
         # 3. Executar passos sequencialmente
         step_results: list[StepResult] = []
