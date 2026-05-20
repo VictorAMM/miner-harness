@@ -185,16 +185,12 @@ class ContextBuilder:
             return features
 
         except Exception:
-            print(f"  ✗ {service}: falhou (sem dados)", flush=True)
+            print(f"  ✗ {service}: falhou (tentará novamente na próxima execução)", flush=True)
             logger.warning(
                 "context_fetch_failed",
                 service=service,
                 exc_info=True,
             )
-            # Cache the empty result so we don't retry a broken service every run.
-            try:
-                method = "query" if service == "gravimetria" else "identify"
-                self._cache.put(service, bbox, [], method)
-            except Exception:
-                pass
+            # Não cacheamos falhas — um erro transitório não deve bloquear análises
+            # futuras; o serviço será retentado na próxima execução.
             return []

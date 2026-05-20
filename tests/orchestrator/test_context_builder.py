@@ -110,6 +110,17 @@ class TestContextBuilder:
         assert context["ocorrencias"] == []
 
     @pytest.mark.asyncio
+    async def test_fetch_error_does_not_cache_empty_result(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """Falhas de fetch NÃO devem ser cacheadas — erro transitório não bloqueia próximas execuções."""
+        mock_connector.ocorrencias = AsyncMock(side_effect=RuntimeError("API down"))
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+        # Cache deve estar vazio — próxima execução tentará de novo
+        assert not cache.contains("ocorrencias", bbox)
+
+    @pytest.mark.asyncio
     async def test_index_features_skips_when_no_documents(
         self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
     ) -> None:
@@ -133,19 +144,6 @@ class TestContextBuilder:
         builder = ContextBuilder(mock_connector, cache, search_engine=mock_engine)
         await builder.build(bbox)
         mock_engine.index_batch.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_fetch_error_cache_put_fails_silently(
-        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
-    ) -> None:
-        """Quando fetch falha e cache.put também falha, retorna [] sem crash (linhas 184-185)."""
-        from unittest.mock import patch
-
-        mock_connector.ocorrencias = AsyncMock(side_effect=RuntimeError("API down"))
-        builder = ContextBuilder(mock_connector, cache)
-        with patch.object(cache, "put", side_effect=RuntimeError("cache broken")):
-            context = await builder.build(bbox)
-        assert context["ocorrencias"] == []
 
     @pytest.mark.asyncio
     async def test_extra_sources_fetched_and_included(
