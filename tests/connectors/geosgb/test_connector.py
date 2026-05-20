@@ -174,6 +174,18 @@ class TestParseModels:
         assert result.ano == 2015
         assert result.area_km2 == 15000.0
 
+    def test_parse_aerogeofisica_null_coordinates(self) -> None:
+        """GeoSGB retorna longitude/latitude null em alguns registros (encontrado em produção)."""
+        data = {
+            "objectid": 62784,
+            "id_projeto": "1019",
+            "longitude": None,
+            "latitude": None,
+        }
+        result = GeoSGBConnector._parse_aerogeofisica(data)
+        assert result.coordenada.longitude == -50.0
+        assert result.coordenada.latitude == -6.0
+
 
 class TestConnectorExtraction:
     """Testes de extração end-to-end com mocks."""
