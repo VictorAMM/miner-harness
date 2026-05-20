@@ -257,6 +257,94 @@ class TestOrchestratorHelpers:
     def test_build_summary_empty(self) -> None:
         assert Orchestrator._build_summary([]) == "Análise não executada."
 
+    def test_build_summary_uses_evaluator_when_present(self) -> None:
+        """Quando há um step total_integration, seu summary é usado diretamente."""
+        results = [
+            StepResult(
+                step=AnalysisStep.TECTONIC_HISTORY,
+                agent="structural_geologist",
+                summary="Craton stability confirmed",
+                findings=[],
+                confidence=Confidence.HIGH,
+                data_sources_used=[],
+                data_gaps=[],
+                raw_reasoning="",
+                duration_ms=100,
+            ),
+            StepResult(
+                step=AnalysisStep.TOTAL_INTEGRATION,
+                agent="evaluator",
+                summary="Alta fertilidade IOCG em Carajás Sul com 3 alvos prioritários.",
+                findings=[],
+                confidence=Confidence.HIGH,
+                data_sources_used=[],
+                data_gaps=[],
+                raw_reasoning="",
+                duration_ms=100,
+            ),
+        ]
+        summary = Orchestrator._build_summary(results)
+        # Deve usar o summary do evaluator, não a concatenação
+        assert "IOCG" in summary
+        assert "[tectonic_history]" not in summary
+        assert "[total_integration]" not in summary
+
+    def test_build_summary_strips_total_integration_prefix(self) -> None:
+        """Prefixo [total_integration] adicionado por _merge_step_results é removido."""
+        results = [
+            StepResult(
+                step=AnalysisStep.TOTAL_INTEGRATION,
+                agent="evaluator",
+                summary="[total_integration] Síntese final com potencial IOCG.",
+                findings=[],
+                confidence=Confidence.MEDIUM,
+                data_sources_used=[],
+                data_gaps=[],
+                raw_reasoning="",
+                duration_ms=0,
+            ),
+        ]
+        summary = Orchestrator._build_summary(results)
+        assert not summary.startswith("[total_integration]")
+        assert "IOCG" in summary
+
+    def test_dedup_gaps_semantic_removes_near_duplicates(self) -> None:
+        """Gaps semanticamente similares (≥60% palavras em comum) são deduplicados."""
+        gaps = [
+            "Ausência de dados geocronológicos críticos",
+            "Ausência de dados sísmicos USGS e geocronológicos críticos",
+            "Falta de registros sísmicos USGS",
+            "Dados de geocronologia ausentes",
+        ]
+        result = Orchestrator._dedup_gaps_semantic(gaps, max_gaps=5)
+        # "Ausência de dados geocronológicos críticos" e "Dados de geocronologia ausentes"
+        # compartilham ≥60% das palavras significativas — um deve ser removido
+        assert len(result) < len(gaps)
+
+    def test_dedup_gaps_semantic_respects_max_gaps(self) -> None:
+        """max_gaps limita o número de gaps retornados."""
+        gaps = [
+            "Ausência de gravimetria na região",
+            "Falta de análise geoquímica detalhada de elementos traço",
+            "Nenhum dado de sensoriamento remoto disponível para lineamentos",
+            "Ausência de datação U-Pb em minerais ígneos",
+            "Dados aerogeofísicos com resolução insuficiente",
+            "Falta de levantamento sísmico de reflexão crustal",
+            "Nenhum registro de geocronologia Ar-Ar para eventos hidrotermais",
+        ]
+        result = Orchestrator._dedup_gaps_semantic(gaps, max_gaps=3)
+        assert len(result) == 3
+
+    def test_dedup_gaps_semantic_preserves_most_informative(self) -> None:
+        """O gap mais longo (mais informativo) é preservado sobre o mais curto."""
+        gaps = [
+            "Falta de dados",
+            "Falta de dados geocronológicos U-Pb para datar eventos magmáticos e tectônicos",
+        ]
+        result = Orchestrator._dedup_gaps_semantic(gaps, max_gaps=5)
+        # Ambos são similares; o mais longo (mais informativo) deve ser mantido
+        assert any("U-Pb" in g for g in result)
+
     def test_collect_caveats(self) -> None:
         results = [
             StepResult(
