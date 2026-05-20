@@ -81,9 +81,10 @@ Security — remover dependência ollama SDK (não usada, 6 CVEs eliminadas) ✅
 Mineral System — tabela de referência obrigatória no prompt total_integration ✅ CONCLUÍDA (2026-05-20) [v0.5.10]
 Low Conf Badge — borda laranja + ícone ⚠ em steps com confidence=low/insufficient ✅ CONCLUÍDA (2026-05-20) [v0.5.10]
 Occurrences Map — pontos GeoSGB coloridos por substância no Leaflet + legenda + toggle + tabela na aba Dados ✅ CONCLUÍDA (2026-05-20) [v0.5.11]
+Occurrences Stats — widget sidebar com pills coloridas por substância (×N) + toggles ANM/USGS wired ✅ CONCLUÍDA (2026-05-20) [v0.5.12]
 ```
 
-**Status**: v0.5.11 em produção. Próximo entregável: a definir.
+**Status**: v0.5.12 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
