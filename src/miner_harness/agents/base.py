@@ -126,7 +126,14 @@ class BaseAgent(ABC):
         if rag_records:
             rag_text = rag_records[0].get("text", "")
             if rag_text:
-                geo_data_str = geo_data_str + f"\n\n{rag_text}"
+                _rag_note = (
+                    "Documentos recuperados por similaridade semântica"
+                    " — interprete através da sua especialidade geológica"
+                )
+                geo_data_str = (
+                    geo_data_str
+                    + f"\n\n<rag_context note='{_rag_note}'>\n{rag_text}\n</rag_context>"
+                )
 
         prev_str = ""
         if previous_results:
