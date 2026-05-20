@@ -26,8 +26,8 @@ class TestCheckStatus:
 
 class TestCheckResult:
     def test_passed_ok(self) -> None:
-        r = check_python_version()
-        # Current Python is 3.11+ so should pass
+        with patch.object(sys, "version_info", (3, 11, 0)):
+            r = check_python_version()
         assert r.passed is True
 
     def test_to_dict_keys(self) -> None:
@@ -62,9 +62,9 @@ class TestSystemReport:
 
 class TestCheckPythonVersion:
     def test_current_version_passes(self) -> None:
-        result = check_python_version()
+        with patch.object(sys, "version_info", (3, 11, 0)):
+            result = check_python_version()
         assert result.name == "python_version"
-        # Running on 3.11+ so should be OK
         assert result.status == CheckStatus.OK
         assert result.passed is True
 
