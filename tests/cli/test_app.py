@@ -102,17 +102,19 @@ class TestMainCLI:
         """_fix_windows_event_loop define WindowsSelectorEventLoopPolicy no win32."""
         import asyncio
         import sys
-        from unittest.mock import patch
+        from unittest.mock import MagicMock, patch
 
         from miner_harness.cli.app import _fix_windows_event_loop
 
+        mock_policy_cls = MagicMock(name="WindowsSelectorEventLoopPolicy")
         with (
             patch.object(sys, "platform", "win32"),
-            patch.object(asyncio, "set_event_loop_policy") as mock_policy,
+            patch.object(asyncio, "set_event_loop_policy") as mock_set_policy,
+            patch.object(asyncio, "WindowsSelectorEventLoopPolicy", mock_policy_cls, create=True),
         ):
             _fix_windows_event_loop()
-        mock_policy.assert_called_once()
-        assert mock_policy.call_args[0][0].__class__.__name__ == "WindowsSelectorEventLoopPolicy"
+        mock_set_policy.assert_called_once()
+        mock_policy_cls.assert_called_once()
 
     def test_fix_windows_event_loop_non_win32(self) -> None:
         """_fix_windows_event_loop não faz nada em plataformas não-Windows."""
