@@ -95,3 +95,11 @@ class TestTTLPolicy:
     def test_all_policies_are_positive(self, ttl: TTLPolicy) -> None:
         for service, days in TTLPolicy.POLICIES.items():
             assert days > 0, f"Policy for {service} must be positive"
+
+    def test_anm_ttl(self, ttl: TTLPolicy) -> None:
+        assert ttl.get_ttl("anm") == 30
+
+    def test_usgs_ttl_shorter_than_anm(self, ttl: TTLPolicy) -> None:
+        """USGS seismic data is more volatile — TTL must be shorter than ANM."""
+        assert ttl.get_ttl("usgs") < ttl.get_ttl("anm")
+        assert ttl.get_ttl("usgs") == 7
