@@ -359,6 +359,21 @@ aside {
 /* ================================================================
    TAB: ANÁLISE — Accordion
 ================================================================ */
+.integrated-summary-box {
+  background: linear-gradient(135deg, #1e293b 60%, #0f2027);
+  border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.integrated-summary-box .is-label {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+}
+.integrated-summary-box .is-text {
+  font-size: 0.85rem; line-height: 1.65; color: var(--fg1);
+}
 .step-accordion { margin-bottom: 6px; }
 .step-accordion--warn .step-header {
   border-left: 3px solid var(--low);
@@ -1209,6 +1224,16 @@ function renderAnaliseTab(r) {
     return;
   }
 
+  // Síntese integrada do Evaluator — exibida no topo da aba, antes dos steps
+  if (r.integrated_summary) {
+    const box = document.createElement('div');
+    box.className = 'integrated-summary-box';
+    box.innerHTML =
+      '<div class="is-label">🔬 Síntese Integrada — Dr. Augusto Valen</div>' +
+      '<div class="is-text">' + esc(r.integrated_summary) + '</div>';
+    pane.appendChild(box);
+  }
+
   r.steps.forEach(function(step, si) {
     const conf = step.confidence || 'insufficient';
     const cColor = CONF_COLORS[conf] || '#6b7280';
@@ -1297,6 +1322,17 @@ function renderAlvosTab(r) {
   if (r.targets.length === 0) {
     pane.innerHTML = '<div class="empty-state">Sem alvos identificados no relatório.</div>';
     return;
+  }
+
+  // Contexto executivo acima dos cards de alvos
+  if (r.integrated_summary) {
+    const box = document.createElement('div');
+    box.className = 'integrated-summary-box';
+    box.style.marginBottom = '20px';
+    box.innerHTML =
+      '<div class="is-label">📋 Contexto da análise</div>' +
+      '<div class="is-text">' + esc(r.integrated_summary) + '</div>';
+    pane.appendChild(box);
   }
 
   const grid = document.createElement('div');

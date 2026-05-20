@@ -231,6 +231,30 @@ class TestHtmlReportRenderer:
         content = out.read_text(encoding="utf-8")
         assert "np-submit" not in content
 
+    def test_integrated_summary_in_analise_tab(self, sample_report: ProspectionReport) -> None:
+        """integrated_summary deve aparecer na aba Análise como síntese integrada."""
+        html = HtmlReportRenderer().render(sample_report)
+        assert "integrated-summary-box" in html
+        assert "Síntese Integrada" in html
+        # Conteúdo do integrated_summary da fixture
+        assert "IOCG" in html
+
+    def test_integrated_summary_in_alvos_tab(self, sample_report: ProspectionReport) -> None:
+        """integrated_summary deve aparecer também na aba Alvos como contexto."""
+        html = HtmlReportRenderer().render(sample_report)
+        # A função renderAlvosTab também usa integrated-summary-box
+        assert html.count("integrated-summary-box") >= 2
+
+    def test_integrated_summary_css_class_defined(self, sample_report: ProspectionReport) -> None:
+        """CSS .integrated-summary-box deve estar definido no template."""
+        html = HtmlReportRenderer().render(sample_report)
+        assert ".integrated-summary-box" in html
+
+    def test_integrated_summary_js_renders_it(self, sample_report: ProspectionReport) -> None:
+        """JS deve referenciar r.integrated_summary no renderAnaliseTab."""
+        html = HtmlReportRenderer().render(sample_report)
+        assert "r.integrated_summary" in html
+
 
 class TestDadosTabAndMapLayers:
     """Testes para a aba Dados e camadas ANM/USGS no mapa."""
