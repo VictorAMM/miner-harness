@@ -58,6 +58,7 @@ class AnalysisRunner(Orchestrator):
         step: AnalysisStep,
         geological_data: dict[str, list[dict[str, Any]]],
         previous_results: list[StepResult],
+        bbox: BoundingBox | None = None,
     ) -> StepResult:
         ch = getattr(self, "_sse_channel", None)
         step_index = _STEP_ORDER.index(step) if step in _STEP_ORDER else -1
@@ -74,7 +75,7 @@ class AnalysisRunner(Orchestrator):
                 },
             )
 
-        result = await super()._execute_step(step, geological_data, previous_results)
+        result = await super()._execute_step(step, geological_data, previous_results, bbox)
 
         if ch is not None:
             ch.send(

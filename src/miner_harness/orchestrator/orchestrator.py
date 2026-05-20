@@ -179,7 +179,7 @@ class Orchestrator:
         # 3. Executar passos sequencialmente
         step_results: list[StepResult] = []
         for step in steps:
-            result = await self._execute_step(step, geological_data, step_results)
+            result = await self._execute_step(step, geological_data, step_results, bbox)
             step_results.append(result)
 
         # 4. Extrair targets do resultado do Evaluator
@@ -217,6 +217,7 @@ class Orchestrator:
         step: AnalysisStep,
         geological_data: dict[str, list[dict[str, Any]]],
         previous_results: list[StepResult],
+        bbox: BoundingBox | None = None,
     ) -> StepResult:
         """Executa um passo individual da análise.
 
@@ -246,12 +247,12 @@ class Orchestrator:
 
         if len(agent_names) == 1:
             result = await self._agents[agent_names[0]].analyze(
-                step, effective_data, previous_results or None
+                step, effective_data, previous_results or None, bbox
             )
         else:
             results = await asyncio.gather(
                 *(
-                    self._agents[name].analyze(step, effective_data, previous_results or None)
+                    self._agents[name].analyze(step, effective_data, previous_results or None, bbox)
                     for name in agent_names
                 )
             )

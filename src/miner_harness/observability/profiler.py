@@ -83,9 +83,10 @@ class ProfilingRunner(AnalysisRunner):
         step: AnalysisStep,
         geological_data: dict[str, list[dict[str, Any]]],
         previous_results: list[StepResult],
+        bbox: BoundingBox | None = None,
     ) -> StepResult:
         t0 = time.perf_counter()
-        result = await super()._execute_step(step, geological_data, previous_results)
+        result = await super()._execute_step(step, geological_data, previous_results, bbox)
         wall_ms = (time.perf_counter() - t0) * 1000
         if self._profile is not None:
             from miner_harness.orchestrator.orchestrator import _STEP_AGENTS
