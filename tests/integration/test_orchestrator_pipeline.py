@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from miner_harness.cache.manager import CacheManager
-from miner_harness.core.config import MinerHarnessConfig, StorageConfig
+from miner_harness.core.config import ANMConfig, MinerHarnessConfig, StorageConfig, USGSConfig
 from miner_harness.core.types import (
     AnalysisStep,
     BoundingBox,
@@ -88,7 +88,10 @@ def mock_llm() -> MagicMock:
 
 @pytest.fixture
 def config() -> MinerHarnessConfig:
-    return MinerHarnessConfig()
+    return MinerHarnessConfig(
+        anm=ANMConfig(enabled=False),
+        usgs=USGSConfig(enabled=False),
+    )
 
 
 def _populate_cache_full(cache: CacheManager, bbox: BoundingBox) -> None:

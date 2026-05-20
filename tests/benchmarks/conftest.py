@@ -8,7 +8,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from miner_harness.cache.manager import CacheManager
-from miner_harness.core.config import MinerHarnessConfig, OrchestratorConfig, StorageConfig
+from miner_harness.core.config import (
+    ANMConfig,
+    MinerHarnessConfig,
+    OrchestratorConfig,
+    StorageConfig,
+    USGSConfig,
+)
 from miner_harness.core.types import BoundingBox
 
 _LLM_RESPONSE = (
@@ -62,7 +68,12 @@ def bench_cache(tmp_path: Path) -> CacheManager:
 
 @pytest.fixture
 def bench_config() -> MinerHarnessConfig:
-    return MinerHarnessConfig(orchestrator=OrchestratorConfig(use_rag=False))
+    return MinerHarnessConfig(
+        orchestrator=OrchestratorConfig(use_rag=False),
+        # Disable extra connectors to prevent real HTTP requests in benchmarks
+        anm=ANMConfig(enabled=False),
+        usgs=USGSConfig(enabled=False),
+    )
 
 
 @pytest.fixture

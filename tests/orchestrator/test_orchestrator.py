@@ -18,7 +18,13 @@ if TYPE_CHECKING:
 from unittest.mock import patch
 
 from miner_harness.cache.manager import CacheManager
-from miner_harness.core.config import MinerHarnessConfig, OrchestratorConfig, StorageConfig
+from miner_harness.core.config import (
+    ANMConfig,
+    MinerHarnessConfig,
+    OrchestratorConfig,
+    StorageConfig,
+    USGSConfig,
+)
 from miner_harness.core.exceptions import InsufficientDataError
 from miner_harness.core.types import (
     AnalysisStep,
@@ -74,7 +80,10 @@ def mock_llm() -> MagicMock:
 
 @pytest.fixture
 def config() -> MinerHarnessConfig:
-    return MinerHarnessConfig()
+    return MinerHarnessConfig(
+        anm=ANMConfig(enabled=False),
+        usgs=USGSConfig(enabled=False),
+    )
 
 
 def _populate_cache(cache: CacheManager, bbox: BoundingBox) -> None:
@@ -325,6 +334,8 @@ class TestOrchestratorRag:
     def no_rag_config(self) -> MinerHarnessConfig:
         return MinerHarnessConfig(
             orchestrator=OrchestratorConfig(use_rag=False),
+            anm=ANMConfig(enabled=False),
+            usgs=USGSConfig(enabled=False),
         )
 
     def test_rag_disabled_search_engine_is_none(
