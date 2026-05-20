@@ -551,7 +551,7 @@ class TestOcorrenciasStatsWidget:
         html = HtmlReportRenderer().render(report)
         # A seção existe no HTML mas começa oculta (display:none)
         assert 'id="ocorr-stats-section"' in html
-        assert 'display:none' in html
+        assert "display:none" in html
 
 
 class TestLowConfidenceBadge:
