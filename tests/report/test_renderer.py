@@ -353,3 +353,36 @@ class TestDadosTabAndMapLayers:
         html = HtmlReportRenderer().render(report)
         assert "<!DOCTYPE html>" in html.lower() or "<!doctype html>" in html.lower()
         assert "tab-dados" in html
+
+
+class TestLowConfidenceBadge:
+    """Testes do badge visual para steps com confiança baixa.
+
+    Os badges são renderizados via JavaScript no browser; verificamos
+    o código JS e o CSS presentes no HTML estático, não o DOM renderizado.
+    """
+
+    def test_warn_css_class_defined_in_template(self, sample_report: ProspectionReport) -> None:
+        """CSS .step-accordion--warn deve estar definido no HTML."""
+        html = HtmlReportRenderer().render(sample_report)
+        assert "step-accordion--warn" in html
+
+    def test_warn_icon_js_logic_present(self, sample_report: ProspectionReport) -> None:
+        """JS deve conter lógica condicional para exibir ícone de aviso."""
+        html = HtmlReportRenderer().render(sample_report)
+        assert "step-warn-icon" in html
+        assert "isWarn" in html
+
+    def test_warn_triggered_for_low_and_insufficient(
+        self, sample_report: ProspectionReport
+    ) -> None:
+        """JS deve verificar 'low' e 'insufficient' para ativar aviso."""
+        html = HtmlReportRenderer().render(sample_report)
+        # O condicional deve cobrir ambas as confidências problemáticas
+        assert "'low'" in html or "=== 'low'" in html
+        assert "'insufficient'" in html or "=== 'insufficient'" in html
+
+    def test_tooltip_explains_low_confidence(self, sample_report: ProspectionReport) -> None:
+        """Tooltip do ícone de aviso deve explicar o motivo ao usuário."""
+        html = HtmlReportRenderer().render(sample_report)
+        assert "Confiança baixa" in html or "dados insuficientes" in html
