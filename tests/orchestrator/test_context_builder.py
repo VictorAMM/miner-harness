@@ -113,7 +113,10 @@ class TestContextBuilder:
     async def test_fetch_error_does_not_cache_empty_result(
         self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
     ) -> None:
-        """Falhas de fetch NÃO devem ser cacheadas — erro transitório não bloqueia próximas execuções."""
+        """Falhas de fetch NÃO devem ser cacheadas.
+
+        Erro transitório não deve bloquear próximas execuções.
+        """
         mock_connector.ocorrencias = AsyncMock(side_effect=RuntimeError("API down"))
         builder = ContextBuilder(mock_connector, cache)
         await builder.build(bbox)
