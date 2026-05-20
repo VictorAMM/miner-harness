@@ -313,9 +313,7 @@ class Orchestrator:
             targets=all_targets,
         )
 
-    async def _on_data_fetched(
-        self, geological_data: dict[str, list[dict[str, Any]]]
-    ) -> None:
+    async def _on_data_fetched(self, geological_data: dict[str, list[dict[str, Any]]]) -> None:
         """Hook chamado após coleta de dados; sobrescrito por subclasses."""
 
     def _build_extra_sources(self) -> ExtraSourcesMap:
