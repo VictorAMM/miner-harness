@@ -461,13 +461,29 @@ class Orchestrator:
 
     @staticmethod
     def _build_summary(step_results: list[StepResult]) -> str:
-        """Monta resumo integrado a partir dos resultados dos passos."""
+        """Monta resumo integrado a partir dos resultados dos passos.
+
+        Prioriza o resumo do Evaluator (total_integration), que é a síntese
+        final produzida pelo agente avaliador. Recorre à concatenação dos
+        passos individuais apenas se o Evaluator não produziu resumo.
+        """
         if not step_results:
             return "Análise não executada."
 
+        # Usar resumo do Evaluator como integrated_summary (síntese final)
+        for result in step_results:
+            if result.step == AnalysisStep.TOTAL_INTEGRATION and result.summary:
+                # Remover prefixo [total_integration] se o _merge_step_results o adicionou
+                summary = result.summary
+                prefix = "[total_integration] "
+                if summary.startswith(prefix):
+                    summary = summary[len(prefix) :]
+                return summary
+
+        # Fallback: concatenar resumos dos passos individuais (sem total_integration)
         parts: list[str] = []
         for result in step_results:
-            if result.summary:
+            if result.step != AnalysisStep.TOTAL_INTEGRATION and result.summary:
                 parts.append(f"[{result.step.value}] {result.summary}")
 
         return " | ".join(parts) if parts else "Sem resumo disponível."
@@ -493,15 +509,93 @@ class Orchestrator:
             steps_str = ", ".join(r.step.value for r in low_confidence)
             caveats.append(f"Baixa confiança em: {steps_str}")
 
-        # Data gaps reportados pelos agentes
+        # Data gaps reportados pelos agentes — deduplicação semântica por palavras-chave
         all_gaps: list[str] = []
         for r in step_results:
             all_gaps.extend(r.data_gaps)
         if all_gaps:
-            unique_gaps = list(dict.fromkeys(all_gaps))[:5]
+            unique_gaps = Orchestrator._dedup_gaps_semantic(all_gaps, max_gaps=5)
             caveats.append(f"Lacunas de dados: {'; '.join(unique_gaps)}")
 
         return caveats
+
+    # Stopwords PT-BR para dedup semântico de data_gaps
+    _GAP_STOPWORDS: frozenset[str] = frozenset(
+        [
+            "de",
+            "para",
+            "e",
+            "a",
+            "o",
+            "os",
+            "as",
+            "um",
+            "uma",
+            "com",
+            "sem",
+            "na",
+            "no",
+            "nas",
+            "nos",
+            "que",
+            "ao",
+            "da",
+            "do",
+            "das",
+            "dos",
+            "por",
+            "em",
+            "são",
+            "é",
+            "pela",
+            "pelo",
+            "pelas",
+            "pelos",
+        ]
+    )
+
+    @staticmethod
+    def _dedup_gaps_semantic(gaps: list[str], max_gaps: int = 5) -> list[str]:
+        """Remove gaps semanticamente similares preservando os mais informativos.
+
+        Dois gaps são considerados duplicatas se compartilham ≥ 60% das
+        palavras significativas (excluindo stopwords). Mantém o gap mais longo
+        (mais informativo) e descarta os menores que sejam subconjunto dele.
+        """
+        import re
+
+        def significant_words(text: str) -> frozenset[str]:
+            words = re.findall(r"[a-záéíóúâêîôûãõàüç]+", text.lower())
+            return frozenset(
+                w for w in words if w not in Orchestrator._GAP_STOPWORDS and len(w) > 2
+            )
+
+        # Dedup exato primeiro
+        seen: list[str] = list(dict.fromkeys(gaps))
+
+        # Dedup semântico — O(n²) mas n é pequeno (≤20 gaps tipicamente)
+        result: list[str] = []
+        for gap in seen:
+            gap_words = significant_words(gap)
+            if not gap_words:
+                result.append(gap)
+                continue
+            is_dup = False
+            for kept in result:
+                kept_words = significant_words(kept)
+                if not kept_words:
+                    continue
+                intersection = gap_words & kept_words
+                overlap = len(intersection) / max(len(gap_words), len(kept_words))
+                if overlap >= 0.60:
+                    is_dup = True
+                    break
+            if not is_dup:
+                result.append(gap)
+
+        # Ordenar por comprimento decrescente (mais informativos primeiro) e limitar
+        result.sort(key=len, reverse=True)
+        return result[:max_gaps]
 
     @staticmethod
     def _compute_quality(
