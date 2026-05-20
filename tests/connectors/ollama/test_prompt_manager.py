@@ -243,3 +243,68 @@ class TestANMUSGSPromptGuidance:
         assert "ANM" in user_content
         assert "USGS" in user_content
         assert "regulatório" in user_content
+
+
+class TestBboxConstraintInjection:
+    """Testes da injeção de restrição geográfica no prompt do Evaluator (P0 fix)."""
+
+    def setup_method(self) -> None:
+        from miner_harness.core.types import BoundingBox
+
+        self.pm = PromptManager()
+        self.bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+
+    def test_total_integration_with_bbox_contains_constraint(self) -> None:
+        msgs = self.pm.build_messages(
+            "evaluator",
+            AnalysisStep.TOTAL_INTEGRATION,
+            geological_data="<test/>",
+            bbox=self.bbox,
+        )
+        content = msgs[1].content
+        assert "RESTRIÇÃO GEOGRÁFICA OBRIGATÓRIA" in content
+        assert "lon_min=-51.5" in content
+        assert "lon_max=-49.5" in content
+        assert "lat_min=-7.0" in content
+        assert "lat_max=-5.0" in content
+
+    def test_total_integration_without_bbox_no_constraint(self) -> None:
+        msgs = self.pm.build_messages(
+            "evaluator",
+            AnalysisStep.TOTAL_INTEGRATION,
+            geological_data="<test/>",
+        )
+        assert "RESTRIÇÃO GEOGRÁFICA" not in msgs[1].content
+
+    def test_non_evaluator_step_with_bbox_no_constraint(self) -> None:
+        for step in [
+            AnalysisStep.TECTONIC_HISTORY,
+            AnalysisStep.STRUCTURAL_ARCHITECTURE,
+            AnalysisStep.MAGMATIC_FERTILITY,
+            AnalysisStep.INDIRECT_EVIDENCE,
+        ]:
+            msgs = self.pm.build_messages(
+                "structural_geologist",
+                step,
+                geological_data="<test/>",
+                bbox=self.bbox,
+            )
+            assert "RESTRIÇÃO GEOGRÁFICA" not in msgs[1].content, (
+                f"Step {step.value} should not have geographic constraint"
+            )
+
+    def test_bbox_values_are_exact_floats(self) -> None:
+        from miner_harness.core.types import BoundingBox
+
+        bbox = BoundingBox(lon_min=-52.123, lat_min=-8.456, lon_max=-48.789, lat_max=-4.012)
+        msgs = self.pm.build_messages(
+            "evaluator",
+            AnalysisStep.TOTAL_INTEGRATION,
+            geological_data="<test/>",
+            bbox=bbox,
+        )
+        content = msgs[1].content
+        assert "lon_min=-52.123" in content
+        assert "lon_max=-48.789" in content
+        assert "lat_min=-8.456" in content
+        assert "lat_max=-4.012" in content

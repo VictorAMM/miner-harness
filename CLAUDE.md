@@ -62,9 +62,10 @@ Nova Pesquisa — Servidor HTTP + SSE + Dashboard Interativo ✅ CONCLUÍDA (202
 ANM/USGS — Integração com fontes de dados adicionais + agentes cientes ✅ CONCLUÍDA (2026-05-19) [v0.4.0]
 Parallelização — Agentes dos passos 3 e 4 executados em asyncio.gather() + merge de resultados ✅ CONCLUÍDA (2026-05-19) [v0.5.0]
 Benchmarks — Suite de latência (pipeline, cache, SSE) + ProfilingRunner + --profile CLI ✅ CONCLUÍDA (2026-05-20) [v0.5.1]
+Report Quality — bbox no Evaluator (P0), progresso de fetch (P1), logs debug (P2) ✅ CONCLUÍDA (2026-05-19) [v0.5.2]
 ```
 
-**Status**: v0.5.1 em produção. Próximo entregável: a definir.
+**Status**: v0.5.2 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
