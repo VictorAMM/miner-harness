@@ -237,8 +237,7 @@ class PromptManager:
 
         if step == AnalysisStep.TOTAL_INTEGRATION and bbox is not None:
             instruction = (
-                instruction
-                + f"\n\nRESTRIÇÃO GEOGRÁFICA OBRIGATÓRIA:\n"
+                instruction + f"\n\nRESTRIÇÃO GEOGRÁFICA OBRIGATÓRIA:\n"
                 f"Todos os alvos DEVEM ter coordenadas DENTRO do bbox da análise:\n"
                 f"  lon_min={bbox.lon_min}, lon_max={bbox.lon_max}\n"
                 f"  lat_min={bbox.lat_min}, lat_max={bbox.lat_max}\n"
