@@ -373,7 +373,9 @@ class TestLowConfidenceBadge:
         assert "step-warn-icon" in html
         assert "isWarn" in html
 
-    def test_warn_triggered_for_low_and_insufficient(self, sample_report: ProspectionReport) -> None:
+    def test_warn_triggered_for_low_and_insufficient(
+        self, sample_report: ProspectionReport
+    ) -> None:
         """JS deve verificar 'low' e 'insufficient' para ativar aviso."""
         html = HtmlReportRenderer().render(sample_report)
         # O condicional deve cobrir ambas as confidências problemáticas
