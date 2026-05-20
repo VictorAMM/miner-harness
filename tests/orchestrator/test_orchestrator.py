@@ -398,7 +398,9 @@ class TestOrchestratorRag:
         captured_data: dict = {}
         original_analyze = orch._agents["structural_geologist"].analyze
 
-        async def capture_analyze(step: AnalysisStep, data: dict, prev=None, bbox=None) -> StepResult:  # noqa: ANN001
+        async def capture_analyze(  # noqa: ANN001
+            step: AnalysisStep, data: dict, prev=None, bbox=None
+        ) -> StepResult:
             captured_data.update(data)
             return await original_analyze(step, data, prev, bbox)
 
