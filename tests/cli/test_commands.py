@@ -877,3 +877,123 @@ class TestMinSourcesFlag:
 
         assert result == 0
         assert captured_config[0].orchestrator.min_data_sources == 2
+
+
+class TestBboxValidation:
+    """Testes da validação de bbox no cmd_analyze."""
+
+    @pytest.mark.asyncio
+    async def test_inverted_lon_returns_1(self, tmp_path: Path) -> None:
+        """bbox com lon_min >= lon_max deve retornar 1 sem chamar Ollama."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        with patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg:
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_cfg.return_value.orchestrator.min_data_sources = 3
+            result = await cmd_analyze(region="test", bbox=(-49.5, -7.0, -51.5, -5.0))
+        assert result == 1
+
+    @pytest.mark.asyncio
+    async def test_inverted_lat_returns_1(self, tmp_path: Path) -> None:
+        """bbox com lat_min >= lat_max deve retornar 1."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        with patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg:
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_cfg.return_value.orchestrator.min_data_sources = 3
+            result = await cmd_analyze(region="test", bbox=(-51.5, -5.0, -49.5, -7.0))
+        assert result == 1
+
+    @pytest.mark.asyncio
+    async def test_equal_lon_returns_1(self, tmp_path: Path) -> None:
+        """bbox com lon_min == lon_max deve retornar 1."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        with patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg:
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_cfg.return_value.orchestrator.min_data_sources = 3
+            result = await cmd_analyze(region="test", bbox=(-51.5, -7.0, -51.5, -5.0))
+        assert result == 1
+
+
+class TestValidateEncoding:
+    """Testes de encoding no cmd_validate."""
+
+    def test_validate_utf8_report_with_accents(self, tmp_path: Path) -> None:
+        """Relatório com acentos (não-ASCII) deve ser lido corretamente."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        report.region_name = "Carajás — Pará"  # non-ASCII
+        f = tmp_path / "report_utf8.json"
+        f.write_bytes(
+            json.dumps(report.model_dump(mode="json"), ensure_ascii=False).encode("utf-8")
+        )
+        result = cmd_validate(str(f))
+        assert result == 0
+
+
+class TestPortWithoutServeWarning:
+    """Teste do aviso quando --port é passado sem --serve."""
+
+    @pytest.mark.asyncio
+    async def test_port_without_serve_warns(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """--port sem --serve emite aviso no stderr."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+        ):
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_cfg.return_value.orchestrator.min_data_sources = 3
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=report)
+            mock_orch_cls.return_value = mock_orch
+
+            await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                port=9999,
+                serve=False,
+                no_html=True,
+            )
+
+        captured = capsys.readouterr()
+        assert "--port" in captured.err
+        assert "--serve" in captured.err
+
+
+class TestCacheStatsDates:
+    """Teste do formato de datas no cmd_cache_stats."""
+
+    def test_cache_stats_date_format(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Datas exibidas em formato legível (não ISO com microsegundos)."""
+        config = StorageConfig(miner_home=tmp_path / ".miner")
+        from miner_harness.cache.manager import CacheManager
+
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        cache = CacheManager(config)
+        cache.put("ocorrencias", bbox, [{"id": 1}])
+        cache.close()
+
+        with patch("miner_harness.cli.commands.StorageConfig") as mock_cfg:
+            mock_cfg.return_value = config
+            cmd_cache_stats()
+
+        captured = capsys.readouterr()
+        assert "UTC" in captured.out
+        assert "." not in captured.out.split("Oldest")[1].split("\n")[0]  # no microseconds
