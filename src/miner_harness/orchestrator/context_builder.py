@@ -8,6 +8,7 @@ Ref: RFC-002 §6, §7.3
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -67,13 +68,12 @@ class ContextBuilder:
         *,
         max_records_per_service: int = MAX_RECORDS_PER_SERVICE,
     ) -> dict[str, list[dict[str, Any]]]:
-        """Coleta dados de todos os serviços para a região.
+        """Coleta dados de todos os serviços para a região em paralelo.
 
-        Para cada serviço:
-        1. Verifica cache
-        2. Se miss, busca via GeoSGBConnector
-        3. Salva no cache
-        4. Trunca a max_records_per_service
+        GeoSGB e fontes extras são buscadas via asyncio.gather() para
+        aproveitar o semáforo de concorrência do ThrottledClient
+        (max_concurrent=3 por padrão). Cache hits são resolvidos sem
+        I/O e não consomem slots do semáforo.
 
         Args:
             bbox: Bounding box da região.
@@ -82,30 +82,24 @@ class ContextBuilder:
         Returns:
             Dict serviço → lista de features (dicts).
         """
+        all_services: list[tuple[str, str, Any]] = [
+            (svc, method, self._connector) for svc, method in _SERVICE_METHODS.items()
+        ] + [(svc, method, connector) for svc, (connector, method) in self._extra_sources.items()]
+
+        results: list[list[dict[str, Any]]] = await asyncio.gather(
+            *(self._get_service_data(svc, method, bbox, conn) for svc, method, conn in all_services)
+        )
+
         context: dict[str, list[dict[str, Any]]] = {}
-
-        for service, method_name in _SERVICE_METHODS.items():
-            features = await self._get_service_data(service, method_name, bbox, self._connector)
+        for (service, _, _), features in zip(all_services, results, strict=True):
             if len(features) > max_records_per_service:
-                features = features[:max_records_per_service]
                 logger.info(
                     "context_truncated",
                     service=service,
                     original=len(features),
                     truncated_to=max_records_per_service,
                 )
-            context[service] = features
-
-        for service, (connector, method_name) in self._extra_sources.items():
-            features = await self._get_service_data(service, method_name, bbox, connector)
-            if len(features) > max_records_per_service:
                 features = features[:max_records_per_service]
-                logger.info(
-                    "context_truncated",
-                    service=service,
-                    original=len(features),
-                    truncated_to=max_records_per_service,
-                )
             context[service] = features
 
         total = sum(len(v) for v in context.values())

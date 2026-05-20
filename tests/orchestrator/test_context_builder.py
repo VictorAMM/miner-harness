@@ -168,6 +168,48 @@ class TestContextBuilder:
         extra_connector.sismos.assert_awaited_once_with(bbox)
 
     @pytest.mark.asyncio
+    async def test_build_fetches_services_concurrently(
+        self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
+    ) -> None:
+        """Todos os serviços devem ser buscados em paralelo.
+
+        Verifica que build() usa asyncio.gather() medindo que serviços
+        com delay artificial completam em tempo próximo ao maior delay,
+        não à soma de todos os delays.
+        """
+        import asyncio as _asyncio
+        import time
+
+        call_times: list[float] = []
+
+        async def delayed_fetch(bbox_arg: object) -> list:
+            call_times.append(time.perf_counter())
+            await _asyncio.sleep(0.05)  # 50 ms por serviço
+            return []
+
+        for method in [
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
+        ]:
+            setattr(mock_connector, method, delayed_fetch)
+
+        builder = ContextBuilder(mock_connector, cache)
+        t0 = time.perf_counter()
+        await builder.build(bbox)
+        elapsed = time.perf_counter() - t0
+
+        # 6 serviços × 50ms sequencial = 300ms; paralelo ≈ 50ms
+        assert elapsed < 0.2, f"build() levou {elapsed:.3f}s — esperado < 0.2s (paralelo)"
+        assert len(call_times) == 6
+        # Todos iniciaram quase ao mesmo tempo (< 20ms de diferença)
+        spread = max(call_times) - min(call_times)
+        assert spread < 0.02, f"Serviços não iniciaram em paralelo (spread={spread:.3f}s)"
+
+    @pytest.mark.asyncio
     async def test_extra_sources_truncated(
         self, mock_connector: MagicMock, cache: CacheManager, bbox: BoundingBox
     ) -> None:
