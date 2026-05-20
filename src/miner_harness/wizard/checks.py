@@ -23,6 +23,7 @@ else:  # pragma: no cover
     class StrEnum(str, Enum):  # noqa: UP042
         """Compatibility shim — project requires 3.11+ but dev env may differ."""
 
+
 import structlog
 
 logger = structlog.get_logger(__name__)
