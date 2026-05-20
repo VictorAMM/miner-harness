@@ -236,7 +236,10 @@ class OllamaClient:
             ) from exc
 
         except httpx.TimeoutException as exc:
-            raise InferenceError(f"Ollama timeout on {path} after {self._timeout}s") from exc
+            raise InferenceError(
+                f"Ollama timeout on {path} after {self._timeout}s. "
+                f"Use --llm-timeout to increase (e.g. --llm-timeout {self._timeout * 2})."
+            ) from exc
 
     async def close(self) -> None:
         """Fecha o cliente HTTP."""
