@@ -54,6 +54,11 @@ class CacheManager:
         self._config.ensure_dirs()
         self._sqlite = SQLiteStore(self._config.cache_dir / "geosgb.db")
         self._ttl = TTLPolicy()
+        # Evict expired entries on startup so stale data never blocks fresh fetches.
+        if self._config.auto_evict:
+            evicted = self._sqlite.evict_expired()
+            if evicted:
+                logger.info("cache_startup_evict", evicted=evicted)
 
     @property
     def sqlite_store(self) -> SQLiteStore:

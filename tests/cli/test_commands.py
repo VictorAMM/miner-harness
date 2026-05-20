@@ -24,6 +24,7 @@ from miner_harness.cli.commands import (
     _serve_dashboard,
     cmd_analyze,
     cmd_cache_clear,
+    cmd_cache_evict,
     cmd_cache_stats,
     cmd_health,
     cmd_index_stats,
@@ -173,6 +174,69 @@ class TestCmdCacheClear:
             mock_cfg.return_value = config
             result = cmd_cache_clear()
             assert result == 0
+
+
+class TestCmdCacheEvict:
+    """Testes do cmd_cache_evict."""
+
+    def test_evict_no_expired(self, tmp_path: Path) -> None:
+        with patch("miner_harness.cli.commands.StorageConfig") as mock_cfg:
+            mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
+            result = cmd_cache_evict()
+            assert result == 0
+
+    def test_evict_with_expired_entries(self, tmp_path: Path) -> None:
+        config = StorageConfig(miner_home=tmp_path / ".miner")
+        with patch("miner_harness.cli.commands.StorageConfig") as mock_cfg:
+            mock_cfg.return_value = config
+            with patch("miner_harness.cli.commands.CacheManager") as mock_cache_cls:
+                mock_cache_cls.return_value.evict_expired = lambda: 5
+                mock_cache_cls.return_value.close = lambda: None
+                result = cmd_cache_evict()
+        assert result == 0
+
+
+class TestCmdCacheEvictIntegration:
+    """Teste de integração do cmd_cache_evict com cache real."""
+
+    def test_evict_expired_removes_stale_entries(self, tmp_path: Path) -> None:
+        from datetime import datetime, timedelta, timezone  # noqa: UP017
+
+        from miner_harness.cache.manager import CacheManager
+
+        config = StorageConfig(miner_home=tmp_path / ".miner")
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+
+        # Put a fresh and an artificially expired entry
+        cache = CacheManager(config)
+        cache.put("ocorrencias", bbox, [{"id": 1}])
+        # Manually insert an expired entry bypassing TTL
+        expired_time = datetime.now(tz=timezone.utc) - timedelta(days=400)  # noqa: UP017
+        old_bbox = BoundingBox(lon_min=-50.0, lat_min=-6.0, lon_max=-48.0, lat_max=-4.0)
+        cols = (
+            "service, bbox_hash, bbox_json, fetched_at,"
+            " ttl_days, record_count, extraction_method, data"
+        )
+        cache._sqlite._get_conn().execute(
+            f"INSERT INTO cache_entries ({cols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",  # noqa: S608
+            (
+                "geoquimica",
+                old_bbox.hash() + "_expired",
+                old_bbox.model_dump_json(),
+                expired_time.isoformat(),
+                30,
+                0,
+                "identify",
+                "[]",
+            ),
+        )
+        cache._sqlite._get_conn().commit()
+        cache.close()
+
+        with patch("miner_harness.cli.commands.StorageConfig") as mock_cfg:
+            mock_cfg.return_value = config
+            result = cmd_cache_evict()
+        assert result == 0
 
 
 class TestCmdIndexStats:
