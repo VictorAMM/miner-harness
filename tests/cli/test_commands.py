@@ -997,3 +997,60 @@ class TestCacheStatsDates:
         captured = capsys.readouterr()
         assert "UTC" in captured.out
         assert "." not in captured.out.split("Oldest")[1].split("\n")[0]  # no microseconds
+
+
+class TestLlmTimeoutFlag:
+    """Testes da flag --llm-timeout no CLI."""
+
+    def test_llm_timeout_flag_in_argparse(self) -> None:
+        """Flag --llm-timeout deve ser reconhecida pelo parser."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(
+            ["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5", "--llm-timeout", "300"]
+        )
+        assert args.llm_timeout == 300
+
+    def test_llm_timeout_default_is_none(self) -> None:
+        """--llm-timeout deve ser None por padrão (usa valor da config)."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5"])
+        assert args.llm_timeout is None
+
+    @pytest.mark.asyncio
+    async def test_llm_timeout_overrides_config(self, tmp_path: Path) -> None:
+        """cmd_analyze com llm_timeout=300 deve setar config.orchestrator.ollama_timeout_s=300."""
+        from miner_harness.cli.commands import cmd_analyze
+        from miner_harness.core.config import MinerHarnessConfig
+
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        mock_orch = MagicMock()
+        mock_orch.analyze_region = AsyncMock(return_value=_make_report(bbox))
+
+        captured_config: list[MinerHarnessConfig] = []
+
+        def capture_orch(*args: object, **kwargs: object) -> MagicMock:
+            if args:
+                captured_config.append(args[3])  # 4th positional = config
+            return mock_orch
+
+        with (
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cache.manager.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator", side_effect=capture_orch),
+            patch("miner_harness.orchestrator.report_validator.ReportValidator"),
+        ):
+            mock_llm_cls.return_value.health = AsyncMock(return_value=True)
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+                llm_timeout=300,
+            )
+
+        assert result == 0
+        assert captured_config[0].orchestrator.ollama_timeout_s == 300
