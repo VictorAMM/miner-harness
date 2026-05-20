@@ -137,6 +137,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "Use --min-sources 2 quando serviços GeoSGB estiverem com timeout."
         ),
     )
+    analyze_parser.add_argument(
+        "--llm-timeout",
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "Timeout para chamadas ao Ollama em segundos (padrão: 120). "
+            "Aumente para modelos grandes ou máquinas lentas."
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -235,6 +245,7 @@ def main(argv: list[str] | None = None) -> int:
                     port=args.port,
                     profile=args.profile,
                     min_sources=args.min_sources,
+                    llm_timeout=args.llm_timeout,
                 )
             )
         if args.command == "validate":
