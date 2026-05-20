@@ -112,7 +112,7 @@ class TestMainCLI:
         ):
             _fix_windows_event_loop()
         mock_policy.assert_called_once()
-        assert isinstance(mock_policy.call_args[0][0], asyncio.WindowsSelectorEventLoopPolicy)
+        assert mock_policy.call_args[0][0].__class__.__name__ == "WindowsSelectorEventLoopPolicy"
 
     def test_fix_windows_event_loop_non_win32(self) -> None:
         """_fix_windows_event_loop não faz nada em plataformas não-Windows."""
