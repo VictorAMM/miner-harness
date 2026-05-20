@@ -488,8 +488,8 @@ class GeoSGBConnector:
             morfologia=data.get("morfologia"),
             texturas=data.get("texturas"),
             coordenada=Coordenada(
-                longitude=float(data.get("longitude", -50.0)),
-                latitude=float(data.get("latitude", -6.0)),
+                longitude=float(data.get("longitude") or -50.0),
+                latitude=float(data.get("latitude") or -6.0),
             ),
         )
 
@@ -499,8 +499,8 @@ class GeoSGBConnector:
         return DadoGravimetrico(
             objectid=int(data.get("objectid", 0)),
             coordenada=Coordenada(
-                longitude=float(data.get("longitude", -50.0)),
-                latitude=float(data.get("latitude", -6.0)),
+                longitude=float(data.get("longitude") or -50.0),
+                latitude=float(data.get("latitude") or -6.0),
             ),
             altitude_ortometrica=float(data.get("altitude_ortometrica", 0.0)),
             gravidade=float(data.get("gravidade", 0.0)),
@@ -531,8 +531,8 @@ class GeoSGBConnector:
             material_coletado=data.get("material_coletado"),
             rocha_matriz=data.get("rocha_matriz"),
             coordenada=Coordenada(
-                longitude=float(data.get("longitude", -50.0)),
-                latitude=float(data.get("latitude", -6.0)),
+                longitude=float(data.get("longitude") or -50.0),
+                latitude=float(data.get("latitude") or -6.0),
             ),
             analises=analises,
         )
@@ -550,8 +550,8 @@ class GeoSGBConnector:
             material=data.get("material"),
             unidade_geologica=data.get("unidade_geologica"),
             coordenada=Coordenada(
-                longitude=float(data.get("longitude", -50.0)),
-                latitude=float(data.get("latitude", -6.0)),
+                longitude=float(data.get("longitude") or -50.0),
+                latitude=float(data.get("latitude") or -6.0),
             ),
         )
 
@@ -579,7 +579,7 @@ class GeoSGBConnector:
             tipo_levantamento=data.get("tipo_levantamento"),
             area_km2=float(area_raw) if area_raw is not None else None,
             coordenada=Coordenada(
-                longitude=float(data.get("longitude", -50.0)),
-                latitude=float(data.get("latitude", -6.0)),
+                longitude=float(data.get("longitude") or -50.0),
+                latitude=float(data.get("latitude") or -6.0),
             ),
         )
