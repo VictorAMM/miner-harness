@@ -66,9 +66,10 @@ Report Quality — bbox no Evaluator (P0), progresso de fetch (P1), logs debug (
 Resilient Fetch — --min-sources configurável + InsufficientDataError com hint acionável ✅ CONCLUÍDA (2026-05-20) [v0.5.3]
 Concurrent Fetch — ContextBuilder.build() via asyncio.gather() (6 serviços em paralelo) ✅ CONCLUÍDA (2026-05-20) [v0.5.4]
 Prompt Quality — guia de interpretação geológica por passo + rótulo RAG (evita pH/turbidez em achados tectônicos) ✅ CONCLUÍDA (2026-05-20) [v0.5.5]
+Cache Fix — não cachear resultados de fetch com falha (erro transitório não bloqueia próximas execuções) ✅ CONCLUÍDA (2026-05-20) [v0.5.6]
 ```
 
-**Status**: v0.5.5 em produção. Próximo entregável: a definir.
+**Status**: v0.5.6 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
