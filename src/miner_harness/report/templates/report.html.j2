@@ -348,6 +348,12 @@ aside {
    TAB: ANÁLISE — Accordion
 ================================================================ */
 .step-accordion { margin-bottom: 6px; }
+.step-accordion--warn .step-header {
+  border-left: 3px solid var(--low);
+  padding-left: 7px;
+}
+.step-accordion--warn .step-header.open { border-left-color: var(--low); }
+.step-warn-icon { font-size: 11px; margin-right: 2px; }
 .step-header {
   display: flex;
   align-items: center;
@@ -1045,12 +1051,15 @@ function renderAnaliseTab(r) {
       ? findings.map(function(f) { return `<div class="finding-item">${esc(f)}</div>`; }).join('')
       : '<div style="color:var(--text-muted);font-size:11px">Sem achados.</div>';
 
+    const isWarn = conf === 'low' || conf === 'insufficient';
+    const warnIcon = isWarn ? '<span class="step-warn-icon" title="Confiança baixa — dados insuficientes neste passo">⚠</span>' : '';
+
     const acc = document.createElement('div');
-    acc.className = 'step-accordion';
+    acc.className = 'step-accordion' + (isWarn ? ' step-accordion--warn' : '');
     acc.innerHTML = `
       <div class="step-header" data-si="${si}">
         <span class="step-chevron">▶</span>
-        <span class="step-name">${sName}</span>
+        ${warnIcon}<span class="step-name">${sName}</span>
         <span class="step-agent">${agent}</span>
         <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span>
         <span style="font-size:10px;color:var(--text-muted);margin-left:4px">${dur}</span>
