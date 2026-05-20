@@ -294,6 +294,38 @@ class TestDadosTabAndMapLayers:
                         },
                     }
                 ],
+                "ocorrencias": [
+                    {
+                        "objectid": 95303,
+                        "substancias": "Ouro",
+                        "municipio": "Marabá",
+                        "uf": "PA",
+                        "status_economico": "Indeterminado",
+                        "importancia": "Indeterminado",
+                        "rochas_hospedeiras": "Cascalho",
+                        "morfologia": "Nodular",
+                        "coordenada": {
+                            "longitude": -50.87,
+                            "latitude": -5.78,
+                            "datum": "WGS84",
+                        },
+                    },
+                    {
+                        "objectid": 95304,
+                        "substancias": "Cobre",
+                        "municipio": "Parauapebas",
+                        "uf": "PA",
+                        "status_economico": "Garimpado",
+                        "importancia": "Médio",
+                        "rochas_hospedeiras": "Granito",
+                        "morfologia": "Disseminado",
+                        "coordenada": {
+                            "longitude": -49.9,
+                            "latitude": -6.1,
+                            "datum": "WGS84",
+                        },
+                    },
+                ],
             },
         )
 
@@ -320,6 +352,35 @@ class TestDadosTabAndMapLayers:
         html = HtmlReportRenderer().render(report)
         assert "860384/2007" in html  # ANM processo embedded in JSON
         assert "Altamira" in html  # USGS lugar embedded in JSON
+        assert "Marabá" in html  # Ocorrência municipio embedded in JSON
+
+    def test_html_contains_occurrences_map_layer_code(self) -> None:
+        """JS deve conter código de renderização das camadas de ocorrências."""
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "ocorrLayers" in html
+        assert "substanciaColor" in html
+        assert "SUBSTANCIA_COLORS" in html
+
+    def test_html_contains_occurrences_toggle_button(self) -> None:
+        """Botão de toggle das ocorrências deve estar presente nos controles do mapa."""
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "btn-ocorr" in html
+        assert "Ocorrências" in html
+
+    def test_html_contains_occurrences_legend_code(self) -> None:
+        """JS deve conter código de legenda de substâncias para o mapa."""
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "ocorrLegend" in html
+
+    def test_dados_tab_contains_occurrences_table(self) -> None:
+        """Aba Dados deve conter tabela de ocorrências GeoSGB."""
+        report = self._make_report_with_geo()
+        html = HtmlReportRenderer().render(report)
+        assert "GeoSGB" in html
+        assert "Ocorrências Minerais" in html or "ocorrência" in html.lower()
 
     def test_report_without_geological_data_still_renders(self) -> None:
         from datetime import datetime, timezone  # noqa: UP017
