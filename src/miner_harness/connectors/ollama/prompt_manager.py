@@ -35,7 +35,12 @@ _AGENT_PROMPTS: dict[str, str] = {
         "identificando províncias metalogenéticas, zonas de cisalhamento, "
         "falhas maiores e corredores estruturais favoráveis à mineralização. "
         "Quando houver dados sísmicos (USGS), use-os para mapear falhas ativas "
-        "e regimes de deformação atual que condicionam sistemas minerais."
+        "e regimes de deformação atual que condicionam sistemas minerais.\n\n"
+        "REGRA FUNDAMENTAL: Seus achados DEVEM ser interpretações "
+        "tectônicas/estruturais. Nunca reporte valores brutos de campo "
+        "(pH, condutividade, turbidez, temperatura) como achados — esses são "
+        "dados geoquímicos de outras especialidades. Se aparecerem no contexto RAG, "
+        "use-os APENAS para inferir controles estruturais sobre fluidos mineralizantes."
     ),
     "geophysicist": (
         f"{_PERSONA_BASE}\n\n"
@@ -43,7 +48,10 @@ _AGENT_PROMPTS: dict[str, str] = {
         "Analise anomalias gravimétricas, padrões magnéticos e dados "
         "aerogeofísicos, correlacionando com estruturas e potencial mineral. "
         "Quando houver dados sísmicos (USGS), correlacione a distribuição "
-        "de sismos com anomalias geofísicas e zonas de fraqueza crustal."
+        "de sismos com anomalias geofísicas e zonas de fraqueza crustal.\n\n"
+        "REGRA FUNDAMENTAL: Seus achados DEVEM ser interpretações geofísicas "
+        "(anomalias, gradientes, padrões magnéticos, profundidade de fontes). "
+        "Nunca reporte valores brutos geoquímicos como achados geofísicos."
     ),
     "geochemist": (
         f"{_PERSONA_BASE}\n\n"
@@ -52,7 +60,10 @@ _AGENT_PROMPTS: dict[str, str] = {
         "de alteração hidrotermal e fertilidade magmática a partir dos dados. "
         "Quando houver dados de concessões ANM/SIGMINE, correlacione a fase "
         "minerária (pesquisa vs. lavra) e as substâncias com as anomalias "
-        "geoquímicas — concessões de lavra confirmam mineralização econômica."
+        "geoquímicas — concessões de lavra confirmam mineralização econômica.\n\n"
+        "REGRA FUNDAMENTAL: Interprete medições analíticas (elementos, óxidos, "
+        "razões isotópicas) em termos de processos geoquímicos e implicações "
+        "para mineralização — não apenas liste valores numéricos como achados."
     ),
     "remote_sensing": (
         f"{_PERSONA_BASE}\n\n"
@@ -61,7 +72,11 @@ _AGENT_PROMPTS: dict[str, str] = {
         "vegetação que possam indicar mineralização subsuperficial. "
         "Quando houver dados de concessões ANM/SIGMINE, use-os como "
         "âncoras espaciais — concessões ativas indicam alvo de exploração "
-        "já validado por operadores do mercado."
+        "já validado por operadores do mercado.\n\n"
+        "REGRA FUNDAMENTAL: Seus achados DEVEM ser interpretações de "
+        "sensoriamento remoto (lineamentos estruturais, assinaturas espectrais, "
+        "anomalias de reflectância). Dados geoquímicos brutos são contexto, "
+        "não achados diretos da sua análise."
     ),
     "evaluator": (
         f"{_PERSONA_BASE}\n\n"
@@ -70,7 +85,10 @@ _AGENT_PROMPTS: dict[str, str] = {
         "Identifique contradições, valide hipóteses e ranqueie alvos de "
         "prospecção por prioridade. Seja crítico e honesto sobre limitações. "
         "Incorpore concessões ANM (contexto regulatório e econômico) e "
-        "sismicidade USGS (atividade tectônica recente) na síntese final."
+        "sismicidade USGS (atividade tectônica recente) na síntese final.\n\n"
+        "REGRA FUNDAMENTAL: Os alvos gerados DEVEM ter coordenadas WGS84 "
+        "extraídas dos dados reais fornecidos, dentro do bbox da análise. "
+        "Coordenadas inventadas ou fora da região são INVÁLIDAS."
     ),
 }
 
@@ -81,7 +99,14 @@ _AGENT_PROMPTS: dict[str, str] = {
 _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
     AnalysisStep.TECTONIC_HISTORY: (
         "PASSO 1 — HISTÓRIA TECTÔNICA\n"
-        "Analise os dados de litoestratigrafia e geocronologia fornecidos.\n"
+        "Analise os dados de litoestratigrafia e geocronologia fornecidos.\n\n"
+        "INTERPRETAÇÃO DAS FONTES:\n"
+        "- litoestratigrafia → unidades litológicas e formações: inferir domínios tectônicos\n"
+        "- geocronologia → idades U-Pb/Ar-Ar: cronologia de eventos tectono-magmáticos\n"
+        "- ocorrencias minerais → tipo de substância + localização: províncias metalogenéticas\n"
+        "  (NÃO reporte valores de medição como pH, condutividade — são de outras especialidades)\n"
+        "- usgs (sismicidade) → localização + profundidade: falhas ativas e regimes de deformação\n"
+        "- rag_context → interprete SOMENTE o que for relevante para tectônica; ignore o resto\n\n"
         "Identifique:\n"
         "- Principais unidades geológicas e suas idades\n"
         "- Eventos tectônicos que moldaram a região\n"
@@ -93,7 +118,14 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
     ),
     AnalysisStep.STRUCTURAL_ARCHITECTURE: (
         "PASSO 2 — ARQUITETURA ESTRUTURAL\n"
-        "Analise as estruturas geológicas da região.\n"
+        "Analise as estruturas geológicas da região.\n\n"
+        "INTERPRETAÇÃO DAS FONTES:\n"
+        "- litoestratigrafia → contatos litológicos e discordâncias: controles estruturais\n"
+        "- ocorrencias minerais → padrão espacial das ocorrências: trend estrutural dominante\n"
+        "  (NÃO reporte valores de campo brutos — extraia a implicação estrutural)\n"
+        "- aerogeofisica → lineamentos magnéticos/gravimétricos: estruturas subsuperficiais\n"
+        "- usgs (sismicidade) → distribuição de sismos como proxy de falhas ativas\n"
+        "- rag_context → interprete SOMENTE o que for relevante para estruturas; ignore o resto\n\n"
         "Identifique:\n"
         "- Zonas de cisalhamento e falhas maiores\n"
         "- Corredores estruturais favoráveis\n"
@@ -105,7 +137,14 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
     ),
     AnalysisStep.MAGMATIC_FERTILITY: (
         "PASSO 3 — FERTILIDADE MAGMÁTICA\n"
-        "Analise dados geoquímicos e geofísicos para fertilidade magmática.\n"
+        "Analise dados geoquímicos e geofísicos para fertilidade magmática.\n\n"
+        "INTERPRETAÇÃO DAS FONTES:\n"
+        "- geoquimica → elementos (Cu, Au, Mo, As, Pb, Zn, etc.) e razões isotópicas:\n"
+        "  interprete como indicadores de processos magmáticos/hidrotermais, não valores brutos\n"
+        "- gravimetria → anomalias Bouguer: inferir corpos densos (intrusivos, mineralização)\n"
+        "- ocorrencias → tipo e localização das ocorrências: validar assinatura magmática\n"
+        "- anm/concessões → fase e substâncias: confirmar mineralização econômica existente\n"
+        "- usgs (sismicidade) → cluster sísmico raso próximo a intrusões: magmatismo recente\n\n"
         "Identifique:\n"
         "- Intrusões com assinatura fértil (anomalias de Cu, Au, Mo, etc.)\n"
         "- Anomalias gravimétricas associadas a corpos intrusivos\n"
@@ -115,11 +154,19 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Concessões de Lavra confirmam mineralização econômica — use como validação\n"
         "- As substâncias declaradas indicam o tipo de sistema mineral ativo\n"
         "Se houver dados sísmicos USGS no contexto:\n"
-        "- Sismicidade associada a intrusões rasa pode indicar magmatismo recente"
+        "- Sismicidade associada a intrusões rasas pode indicar magmatismo recente"
     ),
     AnalysisStep.INDIRECT_EVIDENCE: (
         "PASSO 4 — EVIDÊNCIAS INDIRETAS\n"
-        "Busque evidências indiretas de mineralização.\n"
+        "Busque evidências indiretas de mineralização.\n\n"
+        "INTERPRETAÇÃO DAS FONTES:\n"
+        "- geoquimica → pathfinder elements (As, Sb, Bi, Te para ouro; Mo, Re para pórfiro):\n"
+        "  identifique halos de alteração e zonas de dispersão geoquímica\n"
+        "- gravimetria + aerogeofisica → anomalias sutis não explicadas por geologia:\n"
+        "  inferir corpos mineralizados ou zonas de alteração em profundidade\n"
+        "- ocorrencias → distribuição espacial: vetorizar trend de mineralização\n"
+        "- anm/concessões → sobreposição espacial com anomalias: validação de mercado\n"
+        "- usgs (sismicidade rasa) → possível sistema hidrotermal ativo\n\n"
         "Identifique:\n"
         "- Anomalias de pathfinder elements\n"
         "- Padrões de alteração hidrotermal\n"

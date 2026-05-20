@@ -65,9 +65,10 @@ Benchmarks — Suite de latência (pipeline, cache, SSE) + ProfilingRunner + --p
 Report Quality — bbox no Evaluator (P0), progresso de fetch (P1), logs debug (P2) ✅ CONCLUÍDA (2026-05-19) [v0.5.2]
 Resilient Fetch — --min-sources configurável + InsufficientDataError com hint acionável ✅ CONCLUÍDA (2026-05-20) [v0.5.3]
 Concurrent Fetch — ContextBuilder.build() via asyncio.gather() (6 serviços em paralelo) ✅ CONCLUÍDA (2026-05-20) [v0.5.4]
+Prompt Quality — guia de interpretação geológica por passo + rótulo RAG (evita pH/turbidez em achados tectônicos) ✅ CONCLUÍDA (2026-05-20) [v0.5.5]
 ```
 
-**Status**: v0.5.4 em produção. Próximo entregável: a definir.
+**Status**: v0.5.5 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 

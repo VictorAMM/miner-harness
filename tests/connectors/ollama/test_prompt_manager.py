@@ -308,3 +308,105 @@ class TestBboxConstraintInjection:
         assert "lon_max=-48.789" in content
         assert "lat_min=-8.456" in content
         assert "lat_max=-4.012" in content
+
+
+class TestPromptQualityInterpretationGuidance:
+    """Testes das diretrizes de interpretação geológica (fix: pH/turbidez em achados tectônicos)."""
+
+    def setup_method(self) -> None:
+        self.pm = PromptManager()
+
+    def test_structural_geologist_system_prompt_forbids_raw_measurements(self) -> None:
+        prompt = self.pm.system_prompt("structural_geologist")
+        assert "pH" in prompt
+        assert "REGRA FUNDAMENTAL" in prompt
+        assert "tectônicas/estruturais" in prompt
+
+    def test_geophysicist_system_prompt_has_interpretation_rule(self) -> None:
+        prompt = self.pm.system_prompt("geophysicist")
+        assert "REGRA FUNDAMENTAL" in prompt
+        assert "geofísicas" in prompt
+
+    def test_geochemist_system_prompt_has_interpretation_rule(self) -> None:
+        prompt = self.pm.system_prompt("geochemist")
+        assert "REGRA FUNDAMENTAL" in prompt
+        assert "processos geoquímicos" in prompt
+
+    def test_remote_sensing_system_prompt_has_interpretation_rule(self) -> None:
+        prompt = self.pm.system_prompt("remote_sensing")
+        assert "REGRA FUNDAMENTAL" in prompt
+        assert "sensoriamento remoto" in prompt
+
+    def test_evaluator_system_prompt_enforces_bbox_for_targets(self) -> None:
+        prompt = self.pm.system_prompt("evaluator")
+        assert "REGRA FUNDAMENTAL" in prompt
+        assert "bbox" in prompt
+
+    def test_tectonic_history_instruction_has_source_interpretation_guide(self) -> None:
+        msgs = self.pm.build_messages(
+            "structural_geologist",
+            AnalysisStep.TECTONIC_HISTORY,
+            geological_data="<test/>",
+        )
+        content = msgs[1].content
+        assert "INTERPRETAÇÃO DAS FONTES" in content
+        assert "NÃO reporte" in content
+        assert "pH" in content
+
+    def test_structural_architecture_instruction_has_source_interpretation_guide(self) -> None:
+        msgs = self.pm.build_messages(
+            "structural_geologist",
+            AnalysisStep.STRUCTURAL_ARCHITECTURE,
+            geological_data="<test/>",
+        )
+        content = msgs[1].content
+        assert "INTERPRETAÇÃO DAS FONTES" in content
+        assert "NÃO reporte" in content
+
+    def test_magmatic_fertility_instruction_has_source_interpretation_guide(self) -> None:
+        msgs = self.pm.build_messages(
+            "geochemist",
+            AnalysisStep.MAGMATIC_FERTILITY,
+            geological_data="<test/>",
+        )
+        content = msgs[1].content
+        assert "INTERPRETAÇÃO DAS FONTES" in content
+        assert "Bouguer" in content or "intrusivos" in content
+
+    def test_indirect_evidence_instruction_guides_pathfinder_interpretation(self) -> None:
+        msgs = self.pm.build_messages(
+            "geochemist",
+            AnalysisStep.INDIRECT_EVIDENCE,
+            geological_data="<test/>",
+        )
+        content = msgs[1].content
+        assert "INTERPRETAÇÃO DAS FONTES" in content
+        assert "pathfinder" in content.lower()
+
+
+class TestRagContextLabeling:
+    """Testa que o contexto RAG é injetado com rótulo que guia interpretação."""
+
+    def test_rag_context_labeled_in_base_agent(self) -> None:
+        from unittest.mock import MagicMock
+
+        from miner_harness.agents.structural_geo import StructuralGeoAgent
+        from miner_harness.core.types import AnalysisStep
+
+        mock_llm = MagicMock()
+        agent = StructuralGeoAgent(mock_llm, "test-model")
+
+        geological_data = {
+            "litoestratigrafia": [],
+            "geocronologia": [],
+            "ocorrencias": [],
+            "usgs": [],
+            "rag_context": [{"text": "ph: 7.2, turbidez: alta, condutividade: 120"}],
+        }
+        messages = agent.build_prompt(AnalysisStep.TECTONIC_HISTORY, geological_data)
+        user_content = messages[1].content
+
+        assert "<rag_context" in user_content
+        assert "interprete" in user_content
+        assert "especialidade" in user_content
+        assert "ph: 7.2" in user_content
