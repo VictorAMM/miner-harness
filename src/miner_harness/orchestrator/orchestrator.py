@@ -166,6 +166,7 @@ class Orchestrator:
 
         # 1. Coletar dados geológicos
         geological_data = await self._context_builder.build(bbox)
+        await self._on_data_fetched(geological_data)
 
         # 2. Validar dados mínimos
         active_sources = [k for k, v in geological_data.items() if v]
@@ -311,6 +312,9 @@ class Orchestrator:
             duration_ms=max(r.duration_ms for r in results),
             targets=all_targets,
         )
+
+    async def _on_data_fetched(self, geological_data: dict[str, list[dict[str, Any]]]) -> None:
+        """Hook chamado após coleta de dados; sobrescrito por subclasses."""
 
     def _build_extra_sources(self) -> ExtraSourcesMap:
         """Instancia conectores adicionais (ANM, USGS) quando habilitados."""

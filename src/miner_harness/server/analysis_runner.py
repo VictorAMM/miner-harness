@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from miner_harness.core.types import AnalysisStep, ProspectionReport, StepResult
-from miner_harness.orchestrator.orchestrator import Orchestrator
+from miner_harness.orchestrator.orchestrator import (
+    _STEP_AGENTS,
+    Orchestrator,
+)
 
 if TYPE_CHECKING:
     from miner_harness.core.types import BoundingBox
@@ -44,6 +47,12 @@ class AnalysisRunner(Orchestrator):
 
         return report
 
+    async def _on_data_fetched(self, geological_data: dict[str, list[dict[str, Any]]]) -> None:
+        ch = getattr(self, "_sse_channel", None)
+        if ch is not None:
+            sources_found = sum(1 for v in geological_data.values() if v)
+            ch.send("data_fetch_done", {"sources_found": sources_found})
+
     async def _execute_step(
         self,
         step: AnalysisStep,
@@ -52,11 +61,17 @@ class AnalysisRunner(Orchestrator):
     ) -> StepResult:
         ch = getattr(self, "_sse_channel", None)
         step_index = _STEP_ORDER.index(step) if step in _STEP_ORDER else -1
+        agents = _STEP_AGENTS.get(step, [])
 
         if ch is not None:
             ch.send(
                 "step_start",
-                {"step": step.value, "step_index": step_index, "total_steps": len(_STEP_ORDER)},
+                {
+                    "step": step.value,
+                    "step_index": step_index,
+                    "total_steps": len(_STEP_ORDER),
+                    "agents": agents,
+                },
             )
 
         result = await super()._execute_step(step, geological_data, previous_results)

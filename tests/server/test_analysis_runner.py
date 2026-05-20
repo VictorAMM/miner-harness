@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone  # noqa: UP017
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -52,7 +52,7 @@ def _make_report() -> ProspectionReport:
     return ProspectionReport(
         region_name="Teste",
         bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-        analysis_date=datetime(2026, 5, 19, 10, 0, 0, tzinfo=UTC),
+        analysis_date=datetime(2026, 5, 19, 10, 0, 0, tzinfo=timezone.utc),  # noqa: UP017
         steps=[step],
         targets=[target],
         integrated_summary="Resumo integrado.",
@@ -314,6 +314,87 @@ class TestAnalysisRunner:
         data_line = next(line for line in start_chunk.split("\n") if line.startswith("data: "))
         payload = json.loads(data_line[len("data: ") :])
         assert payload["step_index"] == -1
+
+    @pytest.mark.asyncio
+    async def test_on_data_fetched_emits_data_fetch_done(self) -> None:
+        """_on_data_fetched emite data_fetch_done com sources_found."""
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        geo_data: dict = {
+            "ocorrencias": [{"objectid": 1}],
+            "gravimetria": [],
+            "geoquimica": [{"objectid": 2}, {"objectid": 3}],
+            "geocronologia": [],
+            "litoestratigrafia": [{"objectid": 4}],
+            "aerogeofisica": [],
+        }
+        await runner._on_data_fetched(geo_data)
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        types = _event_types(chunks)
+        assert "data_fetch_done" in types
+
+        done_chunk = next((c for c in chunks if "event: data_fetch_done" in c), None)
+        assert done_chunk is not None
+        data_line = next(line for line in done_chunk.split("\n") if line.startswith("data: "))
+        payload = json.loads(data_line[len("data: ") :])
+        assert payload["sources_found"] == 3  # ocorrencias, geoquimica, litoestratigrafia
+
+    @pytest.mark.asyncio
+    async def test_on_data_fetched_no_channel_is_noop(self) -> None:
+        """_on_data_fetched sem canal SSE nao levanta excecao."""
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+        await runner._on_data_fetched({"ocorrencias": [{"objectid": 1}]})
+
+    @pytest.mark.asyncio
+    async def test_step_start_includes_agents(self) -> None:
+        """step_start payload inclui a lista de agentes para o passo."""
+        mock_result = StepResult(
+            step=AnalysisStep.MAGMATIC_FERTILITY,
+            agent="geochemist + geophysicist",
+            summary=".",
+            findings=[],
+            confidence=Confidence.MEDIUM,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=100,
+        )
+
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=mock_result),
+        ):
+            await runner._execute_step(AnalysisStep.MAGMATIC_FERTILITY, {}, [])
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        start_chunk = next((c for c in chunks if "event: step_start" in c), None)
+        assert start_chunk is not None
+        data_line = next(line for line in start_chunk.split("\n") if line.startswith("data: "))
+        payload = json.loads(data_line[len("data: ") :])
+        assert "agents" in payload
+        assert "geochemist" in payload["agents"]
+        assert "geophysicist" in payload["agents"]
 
     @pytest.mark.asyncio
     async def test_execute_step_no_channel_returns_result(self) -> None:
