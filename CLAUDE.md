@@ -85,9 +85,10 @@ Occurrences Stats — widget sidebar com pills coloridas por substância (×N) +
 Target Alias Fix — model_validator normaliza mineralization_system→mineral_system evitando perda de alvos ✅ CONCLUÍDA (2026-05-20) [v0.5.13]
 Summary Quality — integrated_summary usa evaluator; _dedup_gaps_semantic remove lacunas semânticas duplicadas ✅ CONCLUÍDA (2026-05-20) [v0.5.14]
 Summary Display — integrated_summary exibido em caixa destacada nas abas Análise e Alvos do dashboard ✅ CONCLUÍDA (2026-05-20) [v0.5.15]
+Target Dedup — _dedup_targets() mescla alvos sobrepostos (<10 km) via Haversine; re-numera prioridades ✅ CONCLUÍDA (2026-05-20) [v0.5.16]
 ```
 
-**Status**: v0.5.15 em produção. Próximo entregável: a definir.
+**Status**: v0.5.16 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 

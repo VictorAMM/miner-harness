@@ -362,13 +362,79 @@ class Orchestrator:
 
         Usa os targets estruturados que o EvaluatorAgent extraiu do JSON do LLM.
         Cai para _findings_to_targets() apenas se o LLM não retornou targets válidos.
+        Aplica deduplicação geoespacial para remover alvos sobrepostos.
         """
         for result in step_results:
             if result.step == AnalysisStep.TOTAL_INTEGRATION:
                 if result.targets:
-                    return result.targets
+                    return Orchestrator._dedup_targets(result.targets)
                 return Orchestrator._findings_to_targets(result)
         return []
+
+    @staticmethod
+    def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+        """Distância haversine em km entre dois pontos geográficos."""
+        import math
+
+        r = 6371.0
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlam = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+        return 2 * r * math.asin(math.sqrt(a))
+
+    @staticmethod
+    def _dedup_targets(
+        targets: list[MineralTarget], min_distance_km: float = 10.0
+    ) -> list[MineralTarget]:
+        """Remove/mescla alvos sobrepostos geograficamente.
+
+        Dois alvos são considerados duplicatas se a distância entre seus centros
+        for menor que ``min_distance_km`` (padrão: 10 km). Ao mesclar, mantém o
+        alvo de maior prioridade (menor número) e une suas commodities.
+
+        Args:
+            targets: Lista de alvos (ordem priority asc preferível).
+            min_distance_km: Raio mínimo de separação em km.
+
+        Returns:
+            Lista deduplicada, re-numerada por prioridade.
+        """
+        if len(targets) <= 1:
+            return list(targets)
+
+        # Ordenar por prioridade (menor = mais importante)
+        ordered = sorted(targets, key=lambda t: t.priority)
+        kept: list[MineralTarget] = []
+
+        for candidate in ordered:
+            merged = False
+            for i, ref in enumerate(kept):
+                dist = Orchestrator._haversine_km(
+                    candidate.longitude,
+                    candidate.latitude,
+                    ref.longitude,
+                    ref.latitude,
+                )
+                if dist < min_distance_km:
+                    # Mesclar commodities no alvo de maior prioridade (ref)
+                    extra = [c for c in candidate.commodities if c not in ref.commodities]
+                    if extra:
+                        merged_commodities = list(ref.commodities) + extra
+                        kept[i] = ref.model_copy(update={"commodities": merged_commodities})
+                    merged = True
+                    logger.info(
+                        "target_dedup_merged",
+                        kept=ref.name,
+                        dropped=candidate.name,
+                        distance_km=round(dist, 2),
+                    )
+                    break
+            if not merged:
+                kept.append(candidate)
+
+        # Re-numerar prioridades
+        return [t.model_copy(update={"priority": i + 1}) for i, t in enumerate(kept)]
 
     @staticmethod
     def _findings_to_targets(evaluator_result: StepResult) -> list[MineralTarget]:

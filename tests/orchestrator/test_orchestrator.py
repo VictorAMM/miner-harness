@@ -30,6 +30,7 @@ from miner_harness.core.types import (
     AnalysisStep,
     BoundingBox,
     Confidence,
+    MineralTarget,
     StepResult,
 )
 from miner_harness.orchestrator.orchestrator import Orchestrator
@@ -1109,3 +1110,133 @@ class TestSourcesSummaryPrint:
 
         captured = capsys.readouterr()
         assert "Fontes indisponíveis" in captured.out
+
+
+class TestDedupTargets:
+    """Testes de _dedup_targets e _haversine_km."""
+
+    def _make_target(
+        self,
+        name: str,
+        lon: float,
+        lat: float,
+        priority: int = 1,
+        commodities: list[str] | None = None,
+        mineral_system: str = "Ouro Orogênico",
+    ) -> MineralTarget:
+        return MineralTarget(
+            name=name,
+            longitude=lon,
+            latitude=lat,
+            radius_km=5.0,
+            commodities=commodities or ["Au"],
+            mineral_system=mineral_system,
+            confidence=Confidence.MEDIUM,
+            priority=priority,
+            rationale="Test rationale",
+            recommended_followup=["Field validation"],
+        )
+
+    def test_haversine_same_point_is_zero(self) -> None:
+        dist = Orchestrator._haversine_km(-50.0, -6.0, -50.0, -6.0)
+        assert dist == pytest.approx(0.0, abs=1e-6)
+
+    def test_haversine_known_distance(self) -> None:
+        # Itaituba → Belém: ~960 km (rough check via haversine)
+        dist = Orchestrator._haversine_km(-56.68, -4.28, -48.50, -1.46)
+        assert 850 < dist < 1100
+
+    def test_dedup_single_target_unchanged(self) -> None:
+        t = self._make_target("A", -50.0, -6.0, priority=1)
+        result = Orchestrator._dedup_targets([t])
+        assert len(result) == 1
+        assert result[0].name == "A"
+
+    def test_dedup_empty_list(self) -> None:
+        assert Orchestrator._dedup_targets([]) == []
+
+    def test_dedup_identical_coords_merges(self) -> None:
+        """Dois targets no mesmo ponto devem ser fundidos em um."""
+        t1 = self._make_target("A", -56.68055, -5.164818, priority=1, commodities=["Au"])
+        t2 = self._make_target("B", -56.68055, -5.164818, priority=2, commodities=["Cu"])
+        result = Orchestrator._dedup_targets([t1, t2])
+        assert len(result) == 1
+        # Mantém o de maior prioridade (menor número)
+        assert result[0].name == "A"
+        # Mescla commodities
+        assert "Au" in result[0].commodities
+        assert "Cu" in result[0].commodities
+
+    def test_dedup_nearby_targets_merges(self) -> None:
+        """Targets dentro de 10 km devem ser fundidos."""
+        # 5 km de distância ≈ 0.045° de latitude
+        t1 = self._make_target("A", -56.68055, -5.164818, priority=1)
+        t2 = self._make_target("B", -56.68055, -5.209000, priority=2)  # ~5 km ao sul
+        result = Orchestrator._dedup_targets([t1, t2], min_distance_km=10.0)
+        assert len(result) == 1
+
+    def test_dedup_distant_targets_kept_separate(self) -> None:
+        """Targets separados por >10 km devem ser mantidos separados."""
+        t1 = self._make_target("A", -56.68055, -5.164818, priority=1)
+        t2 = self._make_target("B", -56.68055, -5.400000, priority=2)  # ~26 km ao sul
+        result = Orchestrator._dedup_targets([t1, t2], min_distance_km=10.0)
+        assert len(result) == 2
+
+    def test_dedup_renumbers_priority(self) -> None:
+        """Após dedup, prioridades devem ser re-numeradas de 1 a N."""
+        t1 = self._make_target("A", -56.0, -5.0, priority=1)
+        t2 = self._make_target("B", -50.0, -4.0, priority=2)
+        t3 = self._make_target("C", -44.0, -3.0, priority=3)
+        result = Orchestrator._dedup_targets([t1, t2, t3])
+        assert [r.priority for r in result] == [1, 2, 3]
+
+    def test_dedup_duplicate_commodities_not_added_twice(self) -> None:
+        """Commodities que já existem no alvo de referência não são duplicadas."""
+        t1 = self._make_target("A", -56.0, -5.0, priority=1, commodities=["Au", "Cu"])
+        t2 = self._make_target("B", -56.0, -5.0, priority=2, commodities=["Cu", "Fe"])
+        result = Orchestrator._dedup_targets([t1, t2])
+        assert result[0].commodities.count("Cu") == 1
+        assert "Fe" in result[0].commodities
+
+    def test_extract_targets_applies_dedup(self) -> None:
+        """_extract_targets deve aplicar _dedup_targets automaticamente."""
+        t1 = MineralTarget(
+            name="Alpha",
+            longitude=-56.0,
+            latitude=-5.0,
+            radius_km=5.0,
+            commodities=["Au"],
+            mineral_system="IOCG",
+            confidence=Confidence.MEDIUM,
+            priority=1,
+            rationale="r1",
+            recommended_followup=[],
+        )
+        t2 = MineralTarget(
+            name="Beta",
+            longitude=-56.0,
+            latitude=-5.0,
+            radius_km=5.0,
+            commodities=["Cu"],
+            mineral_system="Ouro Orogênico",
+            confidence=Confidence.MEDIUM,
+            priority=2,
+            rationale="r2",
+            recommended_followup=[],
+        )
+        step = StepResult(
+            step=AnalysisStep.TOTAL_INTEGRATION,
+            agent="evaluator",
+            summary="Test",
+            findings=[],
+            confidence=Confidence.MEDIUM,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+            targets=[t1, t2],
+        )
+        result = Orchestrator._extract_targets([step])
+        # Dois targets no mesmo ponto → deve virar 1
+        assert len(result) == 1
+        assert result[0].name == "Alpha"
