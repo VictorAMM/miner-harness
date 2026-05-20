@@ -15,7 +15,7 @@ from datetime import datetime  # noqa: TCH003
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # StrEnum: use stdlib on 3.11+, fallback for older runtimes (dev/CI only)
 if sys.version_info >= (3, 11):  # noqa: UP036
@@ -255,6 +255,26 @@ class MineralTarget(BaseModel):
     priority: int = Field(ge=1, le=5, description="1=máxima, 5=mínima")
     rationale: str
     recommended_followup: list[str]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_field_aliases(cls, data: Any) -> Any:
+        """Normaliza variantes de nomes de campos retornadas pelo LLM.
+
+        O LLM às vezes retorna 'mineralization_system' ou 'system' em vez de
+        'mineral_system'. Este validator copia o valor para o nome canônico
+        antes da validação Pydantic, evitando descartar alvos válidos.
+        """
+        if not isinstance(data, dict):
+            return data
+        # Variantes conhecidas de mineral_system
+        if "mineral_system" not in data or not data["mineral_system"]:
+            for alias in ("mineralization_system", "mineralization_type", "system", "tipo_sistema"):
+                if alias in data and data[alias]:
+                    data = dict(data)
+                    data["mineral_system"] = data[alias]
+                    break
+        return data
 
 
 class ProspectionReport(BaseModel):

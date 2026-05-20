@@ -143,3 +143,48 @@ class TestMineralTarget:
         )
         assert target.priority == 1
         assert len(target.commodities) == 2
+
+
+class TestMineralTargetAliasValidator:
+    """Testes do model_validator que normaliza variantes de mineral_system."""
+
+    _BASE: dict = {
+        "name": "Alvo Tucumã",
+        "longitude": -51.19,
+        "latitude": -6.87,
+        "radius_km": 10.0,
+        "commodities": ["Sn", "W"],
+        "confidence": Confidence.MEDIUM,
+        "priority": 2,
+        "rationale": "Granito evoluído com casiterita.",
+        "recommended_followup": ["Sondagem"],
+    }
+
+    def test_mineralization_system_alias(self) -> None:
+        """LLM retorna 'mineralization_system' → deve mapear para mineral_system."""
+        data = {**self._BASE, "mineralization_system": "Granito Estanífero"}
+        t = MineralTarget(**data)
+        assert t.mineral_system == "Granito Estanífero"
+
+    def test_system_alias(self) -> None:
+        """LLM retorna 'system' → deve mapear para mineral_system."""
+        data = {**self._BASE, "system": "Pórfiro Cu-Au"}
+        t = MineralTarget(**data)
+        assert t.mineral_system == "Pórfiro Cu-Au"
+
+    def test_mineralization_type_alias(self) -> None:
+        """LLM retorna 'mineralization_type' → deve mapear para mineral_system."""
+        data = {**self._BASE, "mineralization_type": "VMS"}
+        t = MineralTarget(**data)
+        assert t.mineral_system == "VMS"
+
+    def test_canonical_field_takes_precedence(self) -> None:
+        """Se mineral_system está presente, aliases são ignorados."""
+        data = {**self._BASE, "mineral_system": "IOCG", "mineralization_system": "Outro"}
+        t = MineralTarget(**data)
+        assert t.mineral_system == "IOCG"
+
+    def test_no_alias_no_field_still_raises(self) -> None:
+        """Sem mineral_system nem alias, Pydantic deve rejeitar."""
+        with pytest.raises(ValueError):
+            MineralTarget(**self._BASE)
