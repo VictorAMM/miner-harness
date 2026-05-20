@@ -67,9 +67,14 @@ Resilient Fetch — --min-sources configurável + InsufficientDataError com hint
 Concurrent Fetch — ContextBuilder.build() via asyncio.gather() (6 serviços em paralelo) ✅ CONCLUÍDA (2026-05-20) [v0.5.4]
 Prompt Quality — guia de interpretação geológica por passo + rótulo RAG (evita pH/turbidez em achados tectônicos) ✅ CONCLUÍDA (2026-05-20) [v0.5.5]
 Cache Fix — não cachear resultados de fetch com falha (erro transitório não bloqueia próximas execuções) ✅ CONCLUÍDA (2026-05-20) [v0.5.6]
+TTL Explícito — TTL de 30d para ANM e 7d para USGS adicionados ao TTLPolicy ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
+Compat Py3.10 — timezone.utc nos testes, StrEnum shim no wizard, skip do bug Hypothesis 6.152.x ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
+Coverage 100% — exceptions, server body inválido, version_info gated branches ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
+Cache Evict — eviction automática no startup + comando `cache evict` no CLI ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
+Perf Evict — evict_expired() usa SELECT id,fetched_at,ttl_days (evita ler blobs JSON) ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
 ```
 
-**Status**: v0.5.6 em produção. Próximo entregável: a definir.
+**Status**: v0.5.7 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
