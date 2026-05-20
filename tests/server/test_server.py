@@ -230,3 +230,38 @@ class TestDashboardServerRoutes:
             body = await resp.read()
 
         assert b"event: step_start" in body
+
+    @pytest.mark.asyncio
+    async def test_post_analyze_background_exception_is_caught(
+        self, server_instance: DashboardServer
+    ) -> None:
+        """Exceção no background task é capturada — servidor não crasha."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        from miner_harness.server.analysis_runner import AnalysisRunner
+
+        with patch.object(
+            AnalysisRunner,
+            "analyze_region",
+            new=AsyncMock(side_effect=RuntimeError("analysis exploded")),
+        ):
+            async with TestClient(TestServer(server_instance._app)) as client:
+                resp = await client.post(
+                    "/api/analyze",
+                    json={
+                        "region": "Teste",
+                        "bbox": {
+                            "lon_min": -51.5,
+                            "lat_min": -7.0,
+                            "lon_max": -49.0,
+                            "lat_max": -5.0,
+                        },
+                    },
+                )
+                assert resp.status == 202
+                # Let the background task run to completion
+                await asyncio.sleep(0.05)
+                # Server should still respond normally
+                report_resp = await client.get("/api/report")
+                assert report_resp.status == 200
