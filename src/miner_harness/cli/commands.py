@@ -34,6 +34,7 @@ async def cmd_analyze(
     serve: bool = False,
     port: int = 8765,
     profile: bool = False,
+    min_sources: int | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -43,6 +44,8 @@ async def cmd_analyze(
     config = MinerHarnessConfig()
     if model:
         config.orchestrator.model = model
+    if min_sources is not None:
+        config.orchestrator.min_data_sources = min_sources
 
     storage = config.storage
     storage.ensure_dirs()
@@ -57,6 +60,7 @@ async def cmd_analyze(
     print(f"Analyzing region: {region}")
     print(f"BBox: {bb.as_tuple()}")
     print(f"Model: {config.orchestrator.model}")
+    print(f"Min sources: {config.orchestrator.min_data_sources}")
     print()
 
     # Initialize components

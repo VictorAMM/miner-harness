@@ -756,3 +756,60 @@ class TestProfileFlag:
 
         assert result == 0
         mock_profiler_cls.assert_called_once()
+
+
+class TestMinSourcesFlag:
+    """Testes da flag --min-sources no CLI."""
+
+    def test_min_sources_flag_in_argparse(self) -> None:
+        """Flag --min-sources deve ser reconhecida pelo parser."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(
+            ["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5", "--min-sources", "2"]
+        )
+        assert args.min_sources == 2
+
+    def test_min_sources_default_is_none(self) -> None:
+        """--min-sources deve ser None por padrão (usa valor da config)."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5"])
+        assert args.min_sources is None
+
+    @pytest.mark.asyncio
+    async def test_min_sources_overrides_config(self, tmp_path: Path) -> None:
+        """cmd_analyze com min_sources=2 deve setar config.orchestrator.min_data_sources=2."""
+        from miner_harness.cli.commands import cmd_analyze
+        from miner_harness.core.config import MinerHarnessConfig
+
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        mock_orch = MagicMock()
+        mock_orch.analyze_region = AsyncMock(return_value=_make_report(bbox))
+
+        captured_config: list[MinerHarnessConfig] = []
+
+        def capture_orch(*args: object, **kwargs: object) -> MagicMock:
+            if args:
+                captured_config.append(args[3])  # 4th positional = config
+            return mock_orch
+
+        with (
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cache.manager.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator", side_effect=capture_orch),
+            patch("miner_harness.orchestrator.report_validator.ReportValidator"),
+        ):
+            mock_llm_cls.return_value.health = AsyncMock(return_value=True)
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+                min_sources=2,
+            )
+
+        assert result == 0
+        assert captured_config[0].orchestrator.min_data_sources == 2

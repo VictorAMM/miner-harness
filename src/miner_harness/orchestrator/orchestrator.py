@@ -43,9 +43,6 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
-# Mínimo de fontes de dados para prosseguir (RFC-002 §6)
-MIN_DATA_SOURCES = 3
-
 # Queries RAG por passo — termos geológicos para busca semântica
 _STEP_RAG_QUERIES: dict[AnalysisStep, str] = {
     AnalysisStep.TECTONIC_HISTORY: (
@@ -169,11 +166,14 @@ class Orchestrator:
         await self._on_data_fetched(geological_data)
 
         # 2. Validar dados mínimos
+        min_sources = self._config.orchestrator.min_data_sources
         active_sources = [k for k, v in geological_data.items() if v]
-        if len(active_sources) < MIN_DATA_SOURCES:
+        if len(active_sources) < min_sources:
             raise InsufficientDataError(
                 agent="orchestrator",
                 missing=[k for k, v in geological_data.items() if not v],
+                min_sources=min_sources,
+                active_count=len(active_sources),
             )
 
         # 3. Executar passos sequencialmente

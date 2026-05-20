@@ -126,6 +126,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Imprimir perfil de latência por step ao final da análise.",
     )
+    analyze_parser.add_argument(
+        "--min-sources",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Mínimo de fontes de dados ativas para prosseguir (padrão: 3). "
+            "Use --min-sources 2 quando serviços GeoSGB estiverem com timeout."
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -210,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
                     serve=args.serve,
                     port=args.port,
                     profile=args.profile,
+                    min_sources=args.min_sources,
                 )
             )
         if args.command == "validate":
