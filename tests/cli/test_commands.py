@@ -723,9 +723,7 @@ class TestProfileFlag:
         from miner_harness.cli.app import _build_parser
 
         parser = _build_parser()
-        args = parser.parse_args(
-            ["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5"]
-        )
+        args = parser.parse_args(["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5"])
         assert args.profile is False
 
     @pytest.mark.asyncio
