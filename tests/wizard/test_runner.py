@@ -53,6 +53,7 @@ class TestWizardRunnerInteractive:
         runner = WizardRunner(console=_silent_console())
 
         with (
+            patch("sys.version_info", (3, 11, 0)),
             patch.object(runner, "_prompt_config") as mock_prompt,
             patch.object(runner, "_confirm_install", return_value=True),
         ):
@@ -69,6 +70,7 @@ class TestWizardRunnerInteractive:
         runner = WizardRunner(console=_silent_console())
 
         with (
+            patch("sys.version_info", (3, 11, 0)),
             patch.object(runner, "_prompt_config") as mock_prompt,
             patch.object(runner, "_confirm_install", return_value=False),
         ):
