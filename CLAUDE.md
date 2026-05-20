@@ -78,9 +78,11 @@ LLM Timeout CLI — --llm-timeout SECONDS para configurar timeout do Ollama via 
 UX Data Fetch — resumo de fontes ativas/indisponíveis antes do pipeline LLM ✅ CONCLUÍDA (2026-05-20) [v0.5.9]
 Dedup DataGaps — prompt do evaluator consolida data_gaps duplicados entre steps ✅ CONCLUÍDA (2026-05-20) [v0.5.9]
 Security — remover dependência ollama SDK (não usada, 6 CVEs eliminadas) ✅ CONCLUÍDA (2026-05-20) [v0.5.9]
+Mineral System — tabela de referência obrigatória no prompt total_integration ✅ CONCLUÍDA (2026-05-20) [v0.5.10]
+Low Conf Badge — borda laranja + ícone ⚠ em steps com confidence=low/insufficient ✅ CONCLUÍDA (2026-05-20) [v0.5.10]
 ```
 
-**Status**: v0.5.9 em produção. Próximo entregável: a definir.
+**Status**: v0.5.10 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
