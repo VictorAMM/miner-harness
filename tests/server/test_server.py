@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone  # noqa: UP017
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -50,7 +50,7 @@ def _make_report() -> ProspectionReport:
     return ProspectionReport(
         region_name="Teste",
         bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
-        analysis_date=datetime(2026, 5, 19, 10, 0, 0, tzinfo=UTC),
+        analysis_date=datetime(2026, 5, 19, 10, 0, 0, tzinfo=timezone.utc),
         steps=[step],
         targets=[target],
         integrated_summary="Resumo.",

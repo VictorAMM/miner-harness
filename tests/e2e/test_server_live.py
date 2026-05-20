@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone  # noqa: UP017
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
@@ -70,7 +70,7 @@ def _make_initial_report() -> ProspectionReport:
     return ProspectionReport(
         region_name="Carajás Inicial",
         bbox=BoundingBox(lon_min=-50.3, lat_min=-6.3, lon_max=-50.0, lat_max=-6.0),
-        analysis_date=datetime(2026, 5, 19, 12, 0, 0, tzinfo=UTC),
+        analysis_date=datetime(2026, 5, 19, 12, 0, 0, tzinfo=timezone.utc),
         steps=[step],
         targets=[target],
         integrated_summary="Relatório inicial sem análise real.",
