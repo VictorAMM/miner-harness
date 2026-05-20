@@ -131,6 +131,7 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
     "if __name__",
+    "if sys.version_info",
 ]
 
 [dependency-groups]

@@ -158,6 +158,21 @@ class TestDashboardServerRoutes:
             assert resp.status == 400
 
     @pytest.mark.asyncio
+    async def test_post_analyze_400_invalid_json_body(
+        self, server_instance: DashboardServer
+    ) -> None:
+        """Body não-JSON deve retornar 400."""
+        async with TestClient(TestServer(server_instance._app)) as client:
+            resp = await client.post(
+                "/api/analyze",
+                data=b"this is not json",
+                headers={"Content-Type": "application/json"},
+            )
+            assert resp.status == 400
+            data = await resp.json()
+            assert "inválido" in data["msg"]
+
+    @pytest.mark.asyncio
     async def test_post_analyze_409_when_busy(self, server_instance: DashboardServer) -> None:
         """Deve retornar 409 se já há uma análise em andamento."""
 
