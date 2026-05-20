@@ -75,9 +75,12 @@ Perf Evict — evict_expired() usa SELECT id,fetched_at,ttl_days (evita ler blob
 Real Test Fixes — asyncio policy cross-platform, null coords GeoSGB, OllamaClient config propagation ✅ CONCLUÍDA (2026-05-20) [v0.5.8]
 Commodities Extract — _findings_to_targets extrai commodities do texto com vocabulário PT-BR/EN ✅ CONCLUÍDA (2026-05-20) [v0.5.8]
 LLM Timeout CLI — --llm-timeout SECONDS para configurar timeout do Ollama via CLI ✅ CONCLUÍDA (2026-05-20) [v0.5.8]
+UX Data Fetch — resumo de fontes ativas/indisponíveis antes do pipeline LLM ✅ CONCLUÍDA (2026-05-20) [v0.5.9]
+Dedup DataGaps — prompt do evaluator consolida data_gaps duplicados entre steps ✅ CONCLUÍDA (2026-05-20) [v0.5.9]
+Security — remover dependência ollama SDK (não usada, 6 CVEs eliminadas) ✅ CONCLUÍDA (2026-05-20) [v0.5.9]
 ```
 
-**Status**: v0.5.8 em produção. Próximo entregável: a definir.
+**Status**: v0.5.9 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
