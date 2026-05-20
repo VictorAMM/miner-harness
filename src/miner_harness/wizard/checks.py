@@ -12,9 +12,17 @@ from __future__ import annotations
 import shutil
 import sys
 from dataclasses import dataclass, field
-from enum import StrEnum
 from pathlib import Path  # noqa: TCH003
 from typing import Any
+
+if sys.version_info >= (3, 11):  # noqa: UP036
+    from enum import StrEnum  # noqa: F811
+else:  # pragma: no cover
+    from enum import Enum
+
+    class StrEnum(str, Enum):  # noqa: UP042
+        """Compatibility shim — project requires 3.11+ but dev env may differ."""
+
 
 import structlog
 
