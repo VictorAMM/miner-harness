@@ -83,9 +83,10 @@ Low Conf Badge — borda laranja + ícone ⚠ em steps com confidence=low/insuff
 Occurrences Map — pontos GeoSGB coloridos por substância no Leaflet + legenda + toggle + tabela na aba Dados ✅ CONCLUÍDA (2026-05-20) [v0.5.11]
 Occurrences Stats — widget sidebar com pills coloridas por substância (×N) + toggles ANM/USGS wired ✅ CONCLUÍDA (2026-05-20) [v0.5.12]
 Target Alias Fix — model_validator normaliza mineralization_system→mineral_system evitando perda de alvos ✅ CONCLUÍDA (2026-05-20) [v0.5.13]
+Summary Quality — integrated_summary usa evaluator; _dedup_gaps_semantic remove lacunas semânticas duplicadas ✅ CONCLUÍDA (2026-05-20) [v0.5.14]
 ```
 
-**Status**: v0.5.13 em produção. Próximo entregável: a definir.
+**Status**: v0.5.14 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
