@@ -72,9 +72,12 @@ Compat Py3.10 — timezone.utc nos testes, StrEnum shim no wizard, skip do bug H
 Coverage 100% — exceptions, server body inválido, version_info gated branches ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
 Cache Evict — eviction automática no startup + comando `cache evict` no CLI ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
 Perf Evict — evict_expired() usa SELECT id,fetched_at,ttl_days (evita ler blobs JSON) ✅ CONCLUÍDA (2026-05-20) [v0.5.7]
+Real Test Fixes — asyncio policy cross-platform, null coords GeoSGB, OllamaClient config propagation ✅ CONCLUÍDA (2026-05-20) [v0.5.8]
+Commodities Extract — _findings_to_targets extrai commodities do texto com vocabulário PT-BR/EN ✅ CONCLUÍDA (2026-05-20) [v0.5.8]
+LLM Timeout CLI — --llm-timeout SECONDS para configurar timeout do Ollama via CLI ✅ CONCLUÍDA (2026-05-20) [v0.5.8]
 ```
 
-**Status**: v0.5.7 em produção. Próximo entregável: a definir.
+**Status**: v0.5.8 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
