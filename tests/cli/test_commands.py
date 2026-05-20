@@ -1054,3 +1054,10 @@ class TestLlmTimeoutFlag:
 
         assert result == 0
         assert captured_config[0].orchestrator.ollama_timeout_s == 300
+        # OllamaClient deve receber config.orchestrator para que o timeout seja aplicado
+        from miner_harness.core.config import OrchestratorConfig
+
+        call_args = mock_llm_cls.call_args
+        passed_config = call_args[0][0] if call_args[0] else call_args[1].get("config")
+        assert isinstance(passed_config, OrchestratorConfig)
+        assert passed_config.ollama_timeout_s == 300

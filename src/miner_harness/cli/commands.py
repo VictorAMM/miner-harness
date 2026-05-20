@@ -86,7 +86,7 @@ async def cmd_analyze(
     # Initialize components
     connector = GeoSGBConnector()
     cache = CacheManager(storage)
-    llm = OllamaClient()
+    llm = OllamaClient(config.orchestrator)
 
     try:
         # Check LLM connectivity
