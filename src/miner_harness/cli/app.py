@@ -120,6 +120,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=8765,
         help="Porta do servidor HTTP (padrão: 8765). Requer --serve.",
     )
+    analyze_parser.add_argument(
+        "--profile",
+        action="store_true",
+        default=False,
+        help="Imprimir perfil de latência por step ao final da análise.",
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -200,6 +206,7 @@ def main(argv: list[str] | None = None) -> int:
                     no_html=args.no_html,
                     serve=args.serve,
                     port=args.port,
+                    profile=args.profile,
                 )
             )
         if args.command == "validate":
