@@ -177,10 +177,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.verbose:
-        structlog.configure(
-            wrapper_class=structlog.make_filtering_bound_logger(0),
-        )
+    import logging  # noqa: PLC0415
+
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(
+            logging.DEBUG if args.verbose else logging.INFO
+        ),
+    )
 
     if args.command is None:
         parser.print_help()
