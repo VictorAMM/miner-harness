@@ -30,6 +30,9 @@ class TTLPolicy:
         "bacias_sedimentares": 365,
         "provincias": 365,
         "aerogeofisica": 90,
+        # Fontes externas adicionais
+        "anm": 30,   # Concessões ANM — atualização mensal
+        "usgs": 7,   # Eventos sísmicos USGS — mais voláteis (diário)
         # Metadados voláteis
         "count": 7,
         "service_info": 30,
