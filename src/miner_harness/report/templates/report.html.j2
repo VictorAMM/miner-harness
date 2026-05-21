@@ -295,8 +295,8 @@ aside {
   box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
 }
 .leaflet-popup-tip { background: var(--bg-card) !important; }
-.leaflet-popup-content { margin: 10px 14px !important; min-width: 200px; }
-.popup-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.leaflet-popup-content { margin: 10px 14px !important; min-width: 160px; max-width: 100%; word-break: break-word; overflow-wrap: break-word; }
+.popup-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; line-height: 1.3; }
 .popup-row { display: flex; gap: 6px; font-size: 12px; margin-bottom: 2px; }
 .popup-label { color: var(--text-muted); }
 .popup-val { color: var(--text); }
@@ -865,8 +865,7 @@ function renderHeader(r) {
   const missing = r.missing_sources || [];
   const banner = document.getElementById('coverage-banner');
   if (missing.length > 0) {
-    const knownSources = r.geological_data ? Object.keys(r.geological_data).length : 6;
-    const total = missing.length + knownSources;
+    const total = r.geological_data ? Object.keys(r.geological_data).length : 6;
     document.getElementById('coverage-banner-text').textContent =
       missing.length + ' de ' + total + ' fontes indisponíveis: ' + missing.join(', ') +
       '. Resultados baseados em dados parciais — interpretar com cautela.';
@@ -1103,7 +1102,7 @@ function renderMapForReport(r) {
       color: color, fillColor: color, fillOpacity: 0.12, weight: 2,
     }).addTo(map);
     const marker = L.marker([t.latitude, t.longitude], {icon: createPriorityIcon(t.priority)});
-    marker.bindPopup(buildPopup(t), { maxWidth: 280 });
+    marker.bindPopup(buildPopup(t), { maxWidth: 240, autoPanPadding: [20, 20] });
     marker.addTo(map);
     targetLayers.push({marker, circle, target: t, idx});
   });
@@ -1765,6 +1764,7 @@ function renderJsonTab(r) {
 function renderDadosTab(r) {
   var el = document.getElementById('tab-dados');
   var geo = r.geological_data || {};
+  var bboxFiltered = new Set(r.bbox_filtered_sources || []);
   var anm = geo['anm'] || [];
   var usgs = geo['usgs'] || [];
 
@@ -1839,7 +1839,11 @@ function renderDadosTab(r) {
   var aerogeo = geo['aerogeofisica'] || [];
   html += '<h3 style="margin:0 0 .5rem;color:#2563eb">✈️ GeoSGB — Projetos Aerogeofísicos</h3>';
   if (!aerogeo.length) {
-    html += '<p style="color:#6b7280">Sem projetos aerogeofísicos para esta região.</p>';
+    if (bboxFiltered.has('aerogeofisica')) {
+      html += '<p style="color:#d97706">⚠ Dados retornados pela API mas todos os projetos estão fora da área de interesse (coordenadas de sede/centróide em outra região). Consulte as ressalvas.</p>';
+    } else {
+      html += '<p style="color:#6b7280">Sem projetos aerogeofísicos para esta região.</p>';
+    }
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + aerogeo.length + ' projeto(s) encontrado(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
@@ -1972,7 +1976,11 @@ function renderDadosTab(r) {
   var lito = geo['litoestratigrafia'] || [];
   html += '<h3 style="margin:0 0 .5rem;color:#0ea5e9">🗺 GeoSGB — Litoestratigrafia</h3>';
   if (!lito.length) {
-    html += '<p style="color:#6b7280">Sem unidades litoestratigráficas para esta região.</p>';
+    if (bboxFiltered.has('litoestratigrafia')) {
+      html += '<p style="color:#d97706">⚠ Dados retornados pela API mas todas as unidades estão fora da área de interesse. Consulte as ressalvas.</p>';
+    } else {
+      html += '<p style="color:#6b7280">Sem unidades litoestratigráficas para esta região.</p>';
+    }
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + lito.length + ' unidade(s) litoestratigráfica(s) encontrada(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';

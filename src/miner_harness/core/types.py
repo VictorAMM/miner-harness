@@ -303,6 +303,10 @@ class ProspectionReport(BaseModel):
         default_factory=list,
         description="Fontes de dados que não retornaram registros para esta análise",
     )
+    bbox_filtered_sources: list[str] = Field(
+        default_factory=list,
+        description="Fontes que retornaram dados mas todos os registros estavam fora do bbox",
+    )
     geological_data: dict[str, list[dict[str, Any]]] | None = Field(
         default=None,
         description="Dados brutos usados na análise (opcional, para visualização no dashboard)",

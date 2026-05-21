@@ -226,6 +226,7 @@ class Orchestrator:
             total_duration_ms=total_ms,
             model_used=self._config.orchestrator.model,
             missing_sources=[k for k in unavailable if k not in bbox_filtered],
+            bbox_filtered_sources=list(bbox_filtered),
             geological_data=geological_data,
         )
 
