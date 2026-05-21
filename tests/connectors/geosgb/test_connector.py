@@ -159,6 +159,40 @@ class TestParseModels:
         result = GeoSGBConnector._parse_litoestratigrafia(data)
         assert result.sigla == "A4gs"
         assert result.hierarquia == "Grupo"
+        assert result.coordenada is None  # sem geometria → sem coord
+
+    def test_parse_litoestratigrafia_with_coord(self) -> None:
+        """_parse_litoestratigrafia popula coordenada quando lon/lat estão presentes."""
+        data = {
+            "objectid": 401,
+            "sigla": "A3f",
+            "hierarquia": "Formação",
+            "longitude": -50.0,
+            "latitude": -6.0,
+        }
+        result = GeoSGBConnector._parse_litoestratigrafia(data)
+        assert result.coordenada is not None
+        assert result.coordenada.longitude == pytest.approx(-50.0)
+        assert result.coordenada.latitude == pytest.approx(-6.0)
+
+    def test_geom_to_xy_point(self) -> None:
+        """_geom_to_xy extrai x/y de ponto GeoSGB."""
+        xy = GeoSGBConnector._geom_to_xy({"x": -50.0, "y": -6.0})
+        assert xy == pytest.approx((-50.0, -6.0))
+
+    def test_geom_to_xy_polygon_centroid(self) -> None:
+        """_geom_to_xy calcula centróide aritmético do anel exterior do polígono."""
+        # Quadrado 2×2 graus centrado em (-50, -6) — 4 vértices sem ponto de fechamento
+        ring = [[-51.0, -7.0], [-49.0, -7.0], [-49.0, -5.0], [-51.0, -5.0]]
+        xy = GeoSGBConnector._geom_to_xy({"rings": [ring]})
+        assert xy is not None
+        assert xy[0] == pytest.approx(-50.0, abs=0.001)
+        assert xy[1] == pytest.approx(-6.0, abs=0.001)
+
+    def test_geom_to_xy_empty(self) -> None:
+        """_geom_to_xy retorna None para geometria vazia."""
+        assert GeoSGBConnector._geom_to_xy({}) is None
+        assert GeoSGBConnector._geom_to_xy({"rings": []}) is None
 
     def test_parse_aerogeofisica(self) -> None:
         data = {

@@ -141,6 +141,8 @@ def _litoestratigrafia_to_text(f: UnidadeLitoestratigrafica) -> str:
         parts.append(f"Litologia: {f.litologia_principal}.")
     if f.idade:
         parts.append(f"Idade: {f.idade}.")
+    if f.coordenada is not None:
+        parts.append(f"Coord: {f.coordenada.latitude:.4f}, {f.coordenada.longitude:.4f}.")
     return " ".join(parts)
 
 
