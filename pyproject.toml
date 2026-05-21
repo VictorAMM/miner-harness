@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "miner-harness"
-version = "0.5.19"
+version = "0.5.21"
 description = "Sistema de prospeccao mineral inteligente com agentes de IA e LLMs locais"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -103,6 +103,7 @@ pythonpath = ["src"]
 asyncio_mode = "auto"
 markers = [
     "e2e: end-to-end tests requiring live GeoSGB API and/or Ollama (opt-in via MINER_E2E=1)",
+    "timeout: mark test with a wall-clock timeout (requires pytest-timeout)",
 ]
 
 [tool.mypy]

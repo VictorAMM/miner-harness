@@ -83,9 +83,11 @@ async def cmd_analyze(
     print(f"Analyzing region: {region}")
     print(f"BBox: {bb.as_tuple()}")
     print(f"Model: {config.orchestrator.model}")
-    print(f"Context: {config.orchestrator.num_ctx} tokens  "
-          f"(records/svc: {config.orchestrator.effective_max_records}, "
-          f"chars/dataset: {config.orchestrator.effective_max_chars})")
+    print(
+        f"Context: {config.orchestrator.num_ctx} tokens  "
+        f"(records/svc: {config.orchestrator.effective_max_records}, "
+        f"chars/dataset: {config.orchestrator.effective_max_chars})"
+    )
     print(f"Min sources: {config.orchestrator.min_data_sources}")
     print()
 
@@ -200,6 +202,9 @@ async def _serve_dashboard(
 def cmd_validate(report_file: str) -> int:
     """Validate an existing report JSON file."""
     path = Path(report_file)
+    if path.suffix.lower() != ".json":
+        print("Error: report file must have a .json extension", file=sys.stderr)
+        return 1
     if not path.exists():
         print(f"Error: file not found: {report_file}", file=sys.stderr)
         return 1
@@ -207,6 +212,9 @@ def cmd_validate(report_file: str) -> int:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         report = ProspectionReport.model_validate(data)
+    except json.JSONDecodeError as exc:
+        print(f"Error: invalid JSON in report file: {exc}", file=sys.stderr)
+        return 1
     except Exception as exc:  # noqa: BLE001
         print(f"Error parsing report: {exc}", file=sys.stderr)
         return 1

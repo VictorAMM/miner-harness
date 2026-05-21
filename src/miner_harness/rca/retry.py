@@ -44,7 +44,7 @@ class RetryPolicy:
         if self.jitter:
             import random  # noqa: S311
 
-            delay = delay * (0.5 + random.random() * 0.5)  # noqa: S311
+            delay = delay * (0.5 + random.random() * 0.5)  # noqa: S311  # nosec B311
         return delay
 
     def should_retry(self, classified: ClassifiedError, attempt: int) -> bool:

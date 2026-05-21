@@ -159,6 +159,40 @@ class TestParseModels:
         result = GeoSGBConnector._parse_litoestratigrafia(data)
         assert result.sigla == "A4gs"
         assert result.hierarquia == "Grupo"
+        assert result.coordenada is None  # sem geometria → sem coord
+
+    def test_parse_litoestratigrafia_with_coord(self) -> None:
+        """_parse_litoestratigrafia popula coordenada quando lon/lat estão presentes."""
+        data = {
+            "objectid": 401,
+            "sigla": "A3f",
+            "hierarquia": "Formação",
+            "longitude": -50.0,
+            "latitude": -6.0,
+        }
+        result = GeoSGBConnector._parse_litoestratigrafia(data)
+        assert result.coordenada is not None
+        assert result.coordenada.longitude == pytest.approx(-50.0)
+        assert result.coordenada.latitude == pytest.approx(-6.0)
+
+    def test_geom_to_xy_point(self) -> None:
+        """_geom_to_xy extrai x/y de ponto GeoSGB."""
+        xy = GeoSGBConnector._geom_to_xy({"x": -50.0, "y": -6.0})
+        assert xy == pytest.approx((-50.0, -6.0))
+
+    def test_geom_to_xy_polygon_centroid(self) -> None:
+        """_geom_to_xy calcula centróide aritmético do anel exterior do polígono."""
+        # Quadrado 2×2 graus centrado em (-50, -6) — 4 vértices sem ponto de fechamento
+        ring = [[-51.0, -7.0], [-49.0, -7.0], [-49.0, -5.0], [-51.0, -5.0]]
+        xy = GeoSGBConnector._geom_to_xy({"rings": [ring]})
+        assert xy is not None
+        assert xy[0] == pytest.approx(-50.0, abs=0.001)
+        assert xy[1] == pytest.approx(-6.0, abs=0.001)
+
+    def test_geom_to_xy_empty(self) -> None:
+        """_geom_to_xy retorna None para geometria vazia."""
+        assert GeoSGBConnector._geom_to_xy({}) is None
+        assert GeoSGBConnector._geom_to_xy({"rings": []}) is None
 
     def test_parse_aerogeofisica(self) -> None:
         data = {
@@ -175,7 +209,7 @@ class TestParseModels:
         assert result.area_km2 == 15000.0
 
     def test_parse_aerogeofisica_null_coordinates(self) -> None:
-        """GeoSGB retorna longitude/latitude null em alguns registros (encontrado em produção)."""
+        """GeoSGB retorna longitude/latitude null em alguns registros — deve ser descartado."""
         data = {
             "objectid": 62784,
             "id_projeto": "1019",
@@ -183,8 +217,54 @@ class TestParseModels:
             "latitude": None,
         }
         result = GeoSGBConnector._parse_aerogeofisica(data)
-        assert result.coordenada.longitude == -50.0
-        assert result.coordenada.latitude == -6.0
+        assert result is None
+
+    # ------------------------------------------------------------------
+    # _safe_int / _safe_int_or_none / _safe_float_or_none — exception paths
+    # ------------------------------------------------------------------
+
+    def test_safe_int_invalid_raises_default(self) -> None:
+        assert GeoSGBConnector._safe_int("abc") == 0
+        assert GeoSGBConnector._safe_int(None) == 0
+        assert GeoSGBConnector._safe_int("abc", default=99) == 99
+
+    def test_safe_int_or_none_none_input(self) -> None:
+        assert GeoSGBConnector._safe_int_or_none(None) is None
+
+    def test_safe_int_or_none_invalid(self) -> None:
+        assert GeoSGBConnector._safe_int_or_none("bad") is None
+
+    def test_safe_float_or_none_invalid(self) -> None:
+        assert GeoSGBConnector._safe_float_or_none("bad") is None
+
+    # ------------------------------------------------------------------
+    # _parse_coordenada — exception branch
+    # ------------------------------------------------------------------
+
+    def test_parse_coordenada_invalid_values(self) -> None:
+        """Valores não-numéricos disparam except e retornam None."""
+        result = GeoSGBConnector._parse_coordenada({"longitude": "bad", "latitude": "bad"})
+        assert result is None
+
+    # ------------------------------------------------------------------
+    # Parsers — None coord paths (sem coordenada → retorna None)
+    # ------------------------------------------------------------------
+
+    def test_parse_ocorrencia_no_coord_returns_none(self) -> None:
+        data = {"objectid": 1, "substancias": "Cobre", "municipio": "X", "uf": "PA"}
+        assert GeoSGBConnector._parse_ocorrencia(data) is None
+
+    def test_parse_gravimetria_no_coord_returns_none(self) -> None:
+        data = {"objectid": 2, "altitude_ortometrica": 100.0}
+        assert GeoSGBConnector._parse_gravimetria(data) is None
+
+    def test_parse_geoquimica_no_coord_returns_none(self) -> None:
+        data = {"objectid": 3, "projeto": "P", "classe": "Rocha"}
+        assert GeoSGBConnector._parse_geoquimica(data) is None
+
+    def test_parse_geocronologia_no_coord_returns_none(self) -> None:
+        data = {"objectid": 4, "metodo": "U-Pb"}
+        assert GeoSGBConnector._parse_geocronologia(data) is None
 
 
 class TestConnectorExtraction:

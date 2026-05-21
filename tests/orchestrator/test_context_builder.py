@@ -228,3 +228,43 @@ class TestContextBuilder:
         )
         context = await builder.build(bbox, max_records_per_service=10)
         assert len(context["usgs"]) == 10
+
+
+class TestSortByProximity:
+    """Testes de _sort_by_proximity."""
+
+    def test_sorts_closer_first(self) -> None:
+        features = [
+            {"coordenada": {"longitude": -40.0, "latitude": -6.0}},  # distante
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}},  # centro
+        ]
+        result = ContextBuilder._sort_by_proximity(features, cx=-50.0, cy=-6.0)
+        assert result[0]["coordenada"]["longitude"] == -50.0
+
+    def test_missing_coord_goes_last(self) -> None:
+        features = [
+            {},  # sem coordenada
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}},
+        ]
+        result = ContextBuilder._sort_by_proximity(features, cx=-50.0, cy=-6.0)
+        assert result[0]["coordenada"]["longitude"] == -50.0
+        assert result[-1] == {}
+
+    def test_invalid_coord_values_go_last(self) -> None:
+        """TypeError/ValueError ao converter coord: vai para o final."""
+        features = [
+            {"coordenada": {"longitude": "bad", "latitude": "bad"}},
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}},
+        ]
+        result = ContextBuilder._sort_by_proximity(features, cx=-50.0, cy=-6.0)
+        assert result[0]["coordenada"]["longitude"] == -50.0
+        assert result[-1]["coordenada"]["longitude"] == "bad"
+
+    def test_non_dict_coord_goes_last(self) -> None:
+        """coord que nao e dict: vai para o final."""
+        features = [
+            {"coordenada": None},
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}},
+        ]
+        result = ContextBuilder._sort_by_proximity(features, cx=-50.0, cy=-6.0)
+        assert result[0]["coordenada"]["longitude"] == -50.0

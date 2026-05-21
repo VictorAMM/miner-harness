@@ -124,6 +124,17 @@ class TestFeatureToTextLitoestratigrafia:
         assert "Basalto" in text
         assert "Arqueano" in text
 
+    def test_includes_coord_when_present(self) -> None:
+        lit = UnidadeLitoestratigrafica(
+            objectid=2,
+            sigla="A3f",
+            hierarquia="Formação",
+            coordenada=Coordenada(longitude=-50.0, latitude=-6.0),
+        )
+        text = feature_to_text(lit, "geosgb/litoestratigrafia")
+        assert "-50.0000" in text or "-50" in text
+        assert "Coord" in text
+
 
 class TestFeatureToTextAerogeofisica:
     """Testes para ProjetoAerogeofisico."""

@@ -9,6 +9,8 @@ Ref: RFC-002 §4.2, §6
 from __future__ import annotations
 
 import asyncio
+import math
+import re
 import time
 from datetime import datetime, timezone  # noqa: UP017
 from typing import TYPE_CHECKING, Any
@@ -386,8 +388,6 @@ class Orchestrator:
     @staticmethod
     def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
         """Distância haversine em km entre dois pontos geográficos."""
-        import math
-
         r = 6371.0
         phi1, phi2 = math.radians(lat1), math.radians(lat2)
         dphi = math.radians(lat2 - lat1)
@@ -640,7 +640,6 @@ class Orchestrator:
         palavras significativas (excluindo stopwords). Mantém o gap mais longo
         (mais informativo) e descarta os menores que sejam subconjunto dele.
         """
-        import re
 
         def significant_words(text: str) -> frozenset[str]:
             words = re.findall(r"[a-záéíóúâêîôûãõàüç]+", text.lower())

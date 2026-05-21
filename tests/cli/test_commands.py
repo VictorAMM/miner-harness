@@ -92,6 +92,13 @@ class TestCmdValidate:
         result = cmd_validate("/nonexistent/report.json")
         assert result == 1
 
+    def test_validate_non_json_extension(self, tmp_path: Path) -> None:
+        """Arquivo sem extensao .json retorna 1 imediatamente."""
+        f = tmp_path / "report.txt"
+        f.write_text("{}")
+        result = cmd_validate(str(f))
+        assert result == 1
+
     def test_validate_invalid_json(self, tmp_path: Path) -> None:
         f = tmp_path / "bad.json"
         f.write_text("not json")
@@ -313,6 +320,12 @@ class TestMainCLI:
         with patch("miner_harness.cli.commands.StorageConfig") as mock_cfg:
             mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
             result = main(["cache", "clear"])
+            assert result == 0
+
+    def test_main_cache_evict(self, tmp_path: Path) -> None:
+        with patch("miner_harness.cli.commands.StorageConfig") as mock_cfg:
+            mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
+            result = main(["cache", "evict"])
             assert result == 0
 
     def test_main_validate_missing(self) -> None:
@@ -877,6 +890,41 @@ class TestMinSourcesFlag:
 
         assert result == 0
         assert captured_config[0].orchestrator.min_data_sources == 2
+
+    @pytest.mark.asyncio
+    async def test_ctx_size_sets_num_ctx(self, tmp_path: Path) -> None:
+        """cmd_analyze com ctx_size deve setar config.orchestrator.num_ctx."""
+        from miner_harness.cli.commands import cmd_analyze
+        from miner_harness.core.config import MinerHarnessConfig
+
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        mock_orch = MagicMock()
+        mock_orch.analyze_region = AsyncMock(return_value=_make_report(bbox))
+
+        captured_config: list[MinerHarnessConfig] = []
+
+        def capture_orch(*args: object, **kwargs: object) -> MagicMock:
+            if args:
+                captured_config.append(args[3])
+            return mock_orch
+
+        with (
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cache.manager.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator", side_effect=capture_orch),
+            patch("miner_harness.orchestrator.report_validator.ReportValidator"),
+        ):
+            mock_llm_cls.return_value.health = AsyncMock(return_value=True)
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+                ctx_size=65536,
+            )
+
+        assert result == 0
+        assert captured_config[0].orchestrator.num_ctx == 65536
 
 
 class TestBboxValidation:

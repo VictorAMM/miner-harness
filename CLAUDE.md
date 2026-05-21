@@ -89,9 +89,12 @@ Target Dedup — _dedup_targets() mescla alvos sobrepostos (<10 km) via Haversin
 Context Window — --ctx-size CLI + num_ctx em OrchestratorConfig + OllamaClient; Modelfile qwen3-64k (65k ctx, KV Q4 em VRAM via OLLAMA_KV_CACHE_TYPE=q4_0) ✅ CONCLUÍDA (2026-05-20) [v0.5.17]
 Data Scale — limites de dados (records, chars, prev) escalados com √(num_ctx/4096): 65k ctx → 200 records, 32k chars, 8k prev ✅ CONCLUÍDA (2026-05-20) [v0.5.18]
 Geo Sort — ContextBuilder ordena registros por distância ao centróide do bbox antes de truncar (mais próximos primeiro; sem coord → fim da lista) ✅ CONCLUÍDA (2026-05-20) [v0.5.19]
+Code Review — 11 bugs corrigidos (2 HIGH, 6 MED, 3 LOW): _extract_json ValueError, coords fallback silenciosas, BoundingBox validação de ordem, _ctx_scale floor, path traversal CLI, objectid/_safe_int, imports no topo, __del__ CacheManager ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
+Atlas Aerogeofísico — WMS overlays SGB/CPRM no Leaflet (🧲 Mag. Total, 🌈 K-Th-U, ✈️ Pol. Projetos) + marcadores interativos de projetos por tipo de levantamento com popup (offline) ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
+Lito Centroid — UnidadeLitoestratigrafica ganha coordenada opcional via centróide aritmético do polígono (_geom_to_xy); dashboard: marcadores quadrados por hierarquia + tabela na aba Dados ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
 ```
 
-**Status**: v0.5.19 em produção. Próximo entregável: a definir.
+**Status**: v0.5.20 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 

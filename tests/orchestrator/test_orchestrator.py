@@ -346,6 +346,14 @@ class TestOrchestratorHelpers:
         # Ambos são similares; o mais longo (mais informativo) deve ser mantido
         assert any("U-Pb" in g for g in result)
 
+    def test_dedup_gaps_semantic_empty_significant_words(self) -> None:
+        """Gap com apenas stop-words (sem palavras significativas) é preservado sem dedup."""
+        # "a" e "e" são artigo/conjunção — significant_words retorna set vazio
+        gaps = ["a", "geoquímica ausente"]
+        result = Orchestrator._dedup_gaps_semantic(gaps, max_gaps=5)
+        # O gap vazio-de-palavras deve ser incluído (não descartado)
+        assert "a" in result
+
     def test_collect_caveats(self) -> None:
         results = [
             StepResult(

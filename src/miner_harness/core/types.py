@@ -48,6 +48,14 @@ class BoundingBox(BaseModel):
     lat_max: float
     srid: int = 4326
 
+    @model_validator(mode="after")
+    def _check_coordinate_order(self) -> BoundingBox:
+        if self.lon_min >= self.lon_max:
+            raise ValueError(f"lon_min ({self.lon_min}) must be < lon_max ({self.lon_max})")
+        if self.lat_min >= self.lat_max:
+            raise ValueError(f"lat_min ({self.lat_min}) must be < lat_max ({self.lat_max})")
+        return self
+
     @property
     def width(self) -> float:
         """Largura em graus."""
@@ -150,6 +158,7 @@ class UnidadeLitoestratigrafica(BaseModel):
     hierarquia: str | None = Field(default=None, description='Ex: "Formação", "Grupo"')
     litologia_principal: str | None = None
     idade: str | None = None
+    coordenada: Coordenada | None = None
 
 
 class ProjetoAerogeofisico(BaseModel):
