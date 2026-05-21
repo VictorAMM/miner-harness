@@ -98,6 +98,10 @@ class Orchestrator:
         self._llm = llm
 
         model = self._config.orchestrator.model
+        orch_cfg = self._config.orchestrator
+        max_records = orch_cfg.effective_max_records
+        max_chars = orch_cfg.effective_max_chars
+        max_prev_chars = orch_cfg.effective_max_prev_chars
 
         # Inicializar SearchEngine para RAG quando habilitado
         self._search_engine: SearchEngine | None = None
@@ -123,13 +127,18 @@ class Orchestrator:
         extra_sources = self._build_extra_sources()
         self._context_builder = ContextBuilder(connector, cache, self._search_engine, extra_sources)
 
-        # Inicializar agentes
+        # Inicializar agentes com limites de dados escalados com num_ctx
+        _agent_kwargs = dict(
+            max_records=max_records,
+            max_chars=max_chars,
+            max_prev_chars=max_prev_chars,
+        )
         self._agents: dict[str, BaseAgent] = {
-            "structural_geologist": StructuralGeoAgent(llm, model),
-            "geophysicist": GeophysicistAgent(llm, model),
-            "geochemist": GeochemistAgent(llm, model),
-            "remote_sensing": RemoteSensingAgent(llm, model),
-            "evaluator": EvaluatorAgent(llm, model),
+            "structural_geologist": StructuralGeoAgent(llm, model, **_agent_kwargs),
+            "geophysicist": GeophysicistAgent(llm, model, **_agent_kwargs),
+            "geochemist": GeochemistAgent(llm, model, **_agent_kwargs),
+            "remote_sensing": RemoteSensingAgent(llm, model, **_agent_kwargs),
+            "evaluator": EvaluatorAgent(llm, model, **_agent_kwargs),
         }
 
     async def analyze_region(
@@ -162,7 +171,10 @@ class Orchestrator:
         )
 
         # 1. Coletar dados geológicos
-        geological_data = await self._context_builder.build(bbox)
+        geological_data = await self._context_builder.build(
+            bbox,
+            max_records_per_service=self._config.orchestrator.effective_max_records,
+        )
         await self._on_data_fetched(geological_data)
 
         # 2. Validar dados mínimos

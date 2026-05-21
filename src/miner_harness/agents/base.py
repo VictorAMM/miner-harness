@@ -59,9 +59,15 @@ class BaseAgent(ABC):
         self,
         llm: OllamaClient,
         model: str = "qwen3:8b",
+        max_records: int = 50,
+        max_chars: int = 8_000,
+        max_prev_chars: int = 2_000,
     ) -> None:
         self._llm = llm
         self._model = model
+        self._max_records = max_records
+        self._max_chars = max_chars
+        self._max_prev_chars = max_prev_chars
         self._prompt_manager = PromptManager()
 
     @abstractmethod
@@ -116,7 +122,12 @@ class BaseAgent(ABC):
             records = geological_data.get(key, [])
             if records:
                 source_label = _SOURCE_LABELS.get(key, f"GeoSGB/{key}")
-                formatted = PromptManager.format_geological_data(records, source=source_label)
+                formatted = PromptManager.format_geological_data(
+                    records,
+                    source=source_label,
+                    max_records=self._max_records,
+                    max_chars=self._max_chars,
+                )
                 data_parts.append(formatted)
 
         geo_data_str = "\n\n".join(data_parts) if data_parts else "Sem dados disponiveis."
@@ -138,7 +149,9 @@ class BaseAgent(ABC):
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]
-            prev_str = PromptManager.summarize_previous_results(prev_dicts)
+            prev_str = PromptManager.summarize_previous_results(
+                prev_dicts, max_chars=self._max_prev_chars
+            )
 
         return self._prompt_manager.build_messages(
             agent_name=self.name,

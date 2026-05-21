@@ -10,6 +10,7 @@ Refs: RFC-002 §10, RFC-003 §5
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -107,6 +108,26 @@ class OrchestratorConfig(BaseModel):
         le=10,
         description="Mínimo de fontes de dados ativas para prosseguir com a análise (RFC-002 §6)",
     )
+
+    @property
+    def _ctx_scale(self) -> float:
+        """Fator de escala √(num_ctx / 4096) — cresce suavemente com o contexto."""
+        return math.sqrt(self.num_ctx / 4096)
+
+    @property
+    def effective_max_records(self) -> int:
+        """Máximo de registros por dataset no prompt, escalado com num_ctx."""
+        return min(int(self.max_data_records_per_prompt * self._ctx_scale), 500)
+
+    @property
+    def effective_max_chars(self) -> int:
+        """Máximo de chars por dataset no prompt, escalado com num_ctx."""
+        return min(int(self.max_data_chars_per_prompt * self._ctx_scale), 40_000)
+
+    @property
+    def effective_max_prev_chars(self) -> int:
+        """Máximo de chars para resumo de resultados anteriores, escalado com num_ctx."""
+        return min(int(2000 * self._ctx_scale), 8_000)
 
 
 # ---------------------------------------------------------------------------

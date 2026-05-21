@@ -83,7 +83,9 @@ async def cmd_analyze(
     print(f"Analyzing region: {region}")
     print(f"BBox: {bb.as_tuple()}")
     print(f"Model: {config.orchestrator.model}")
-    print(f"Context: {config.orchestrator.num_ctx} tokens")
+    print(f"Context: {config.orchestrator.num_ctx} tokens  "
+          f"(records/svc: {config.orchestrator.effective_max_records}, "
+          f"chars/dataset: {config.orchestrator.effective_max_chars})")
     print(f"Min sources: {config.orchestrator.min_data_sources}")
     print()
 
