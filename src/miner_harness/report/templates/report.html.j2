@@ -650,6 +650,19 @@ aside {
         <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
         <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
       </div>
+      <div class="section-title" style="font-size:0.72rem;margin-top:10px;color:#94a3b8;letter-spacing:.03em">Atlas Aerogeofísico — SGB/CPRM <span style="font-weight:400;opacity:.7">(requer internet)</span></div>
+      <div class="map-ctrl-btns">
+        <button class="ctrl-btn inactive" id="btn-atlas-mag" title="Anomalia Magnética de Campo Total — SGB/CPRM">🧲 Mag. Total</button>
+        <button class="ctrl-btn inactive" id="btn-atlas-tern" title="Ternário K-Th-U — Gamaespectrometria — SGB/CPRM">🌈 K-Th-U</button>
+        <button class="ctrl-btn inactive" id="btn-aeroproj" title="Áreas dos projetos aerogeofísicos — SGB/CPRM">✈️ Projetos</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:0 2px">
+        <span style="font-size:0.72rem;color:#94a3b8;white-space:nowrap">Opacidade:</span>
+        <input type="range" id="atlas-opacity" min="10" max="100" value="70"
+               style="flex:1;height:4px;cursor:pointer;accent-color:var(--accent)"
+               title="Opacidade das camadas do Atlas">
+        <span id="atlas-opacity-val" style="font-size:0.72rem;color:#94a3b8;min-width:2.2em;text-align:right">70%</span>
+      </div>
     </div>
 
     {% if serve_mode %}
@@ -894,6 +907,18 @@ let ocorrLayers = [];
 let ocorrVisible = true;
 let ocorrLegend = null;
 
+// Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
+const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
+const _WMS_AEROPROJ   = 'https://geoportal.sgb.gov.br/server/services/geofisica/aerogeofisica/MapServer/WMSServer';
+const _WMS_ATTR = '© <a href="https://www.sgb.gov.br" target="_blank">SGB/CPRM</a> — Atlas Aerogeofísico';
+
+let wmsAtlasMag  = L.tileLayer.wms(_WMS_ATLAS_GRIDS, { layers:'1', format:'image/png', transparent:true, opacity:0.70, attribution:_WMS_ATTR });
+let wmsAtlasTern = L.tileLayer.wms(_WMS_ATLAS_GRIDS, { layers:'0', format:'image/png', transparent:true, opacity:0.70, attribution:_WMS_ATTR });
+let wmsAeroprojetos = L.tileLayer.wms(_WMS_AEROPROJ, { layers:'0,1,2,3', format:'image/png', transparent:true, opacity:0.50, attribution:_WMS_ATTR });
+let atlasMagVisible  = false;
+let atlasTernVisible = false;
+let aeroprojVisible  = false;
+
 function createPriorityIcon(priority) {
   const color = PRIORITY_COLORS[priority] || '#6b7280';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
@@ -1104,6 +1129,47 @@ function setupMapControls(bboxBounds) {
         this.classList.remove('inactive');
       }
       ocorrVisible = !ocorrVisible;
+    };
+  }
+
+  // Atlas Aerogeofísico — toggle handlers
+  var btnMag = document.getElementById('btn-atlas-mag');
+  if (btnMag) {
+    btnMag.onclick = function() {
+      if (atlasMagVisible) { map.removeLayer(wmsAtlasMag); this.classList.add('inactive'); }
+      else { wmsAtlasMag.addTo(map); this.classList.remove('inactive'); }
+      atlasMagVisible = !atlasMagVisible;
+    };
+  }
+
+  var btnTern = document.getElementById('btn-atlas-tern');
+  if (btnTern) {
+    btnTern.onclick = function() {
+      if (atlasTernVisible) { map.removeLayer(wmsAtlasTern); this.classList.add('inactive'); }
+      else { wmsAtlasTern.addTo(map); this.classList.remove('inactive'); }
+      atlasTernVisible = !atlasTernVisible;
+    };
+  }
+
+  var btnAeroprojetos = document.getElementById('btn-aeroproj');
+  if (btnAeroprojetos) {
+    btnAeroprojetos.onclick = function() {
+      if (aeroprojVisible) { map.removeLayer(wmsAeroprojetos); this.classList.add('inactive'); }
+      else { wmsAeroprojetos.addTo(map); this.classList.remove('inactive'); }
+      aeroprojVisible = !aeroprojVisible;
+    };
+  }
+
+  // Slider de opacidade
+  var slider = document.getElementById('atlas-opacity');
+  var sliderVal = document.getElementById('atlas-opacity-val');
+  if (slider) {
+    slider.oninput = function() {
+      var op = parseInt(this.value) / 100;
+      wmsAtlasMag.setOpacity(op);
+      wmsAtlasTern.setOpacity(op);
+      wmsAeroprojetos.setOpacity(op * 0.72); // projetos um pouco mais transparentes
+      if (sliderVal) sliderVal.textContent = this.value + '%';
     };
   }
 }
