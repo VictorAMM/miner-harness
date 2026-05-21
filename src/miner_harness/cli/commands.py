@@ -36,6 +36,7 @@ async def cmd_analyze(
     profile: bool = False,
     min_sources: int | None = None,
     llm_timeout: int | None = None,
+    ctx_size: int | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -49,6 +50,8 @@ async def cmd_analyze(
         config.orchestrator.min_data_sources = min_sources
     if llm_timeout is not None:
         config.orchestrator.ollama_timeout_s = llm_timeout
+    if ctx_size is not None:
+        config.orchestrator.num_ctx = ctx_size
 
     storage = config.storage
     storage.ensure_dirs()
@@ -80,6 +83,7 @@ async def cmd_analyze(
     print(f"Analyzing region: {region}")
     print(f"BBox: {bb.as_tuple()}")
     print(f"Model: {config.orchestrator.model}")
+    print(f"Context: {config.orchestrator.num_ctx} tokens")
     print(f"Min sources: {config.orchestrator.min_data_sources}")
     print()
 

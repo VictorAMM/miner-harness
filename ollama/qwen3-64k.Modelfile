@@ -1,0 +1,29 @@
+FROM qwen3:8b
+
+# Configuração para janela de contexto estendida (64k tokens)
+# Hardware alvo: RTX 2070 SUPER 8 GB VRAM
+#
+# Memória em VRAM:
+#   Pesos Q4_K_M  : ~5.2 GB
+#   KV cache Q4   : ~2.25 GB (para 64k tokens)
+#   Total         : ~7.45 GB  → cabe nos 8 GB
+#
+# Recomendação: iniciar Ollama com OLLAMA_FLASH_ATTENTION=1
+
+# Todos os layers na GPU — sem offload para RAM
+PARAMETER num_gpu     99
+
+# Janela de contexto: 64k tokens
+PARAMETER num_ctx     65536
+
+# Threads = número de cores físicos do i5-9600KF
+PARAMETER num_thread  6
+
+# Batch: balanço entre throughput de prefill e latência
+PARAMETER num_batch   512
+
+# Manter system prompt no cache (evita re-encode)
+PARAMETER num_keep    64
+
+PARAMETER temperature      0.3
+PARAMETER repeat_penalty   1.1

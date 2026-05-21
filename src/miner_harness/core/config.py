@@ -92,6 +92,11 @@ class OrchestratorConfig(BaseModel):
     max_data_chars_per_prompt: int = 8000
     ollama_base_url: str = "http://localhost:11434"
     ollama_timeout_s: int = 120
+    num_ctx: int = Field(
+        default=4096,
+        ge=512,
+        description="Janela de contexto do LLM em tokens. Use KV cache Q4 para ctx ≥ 32k.",
+    )
     enabled_steps: list[AnalysisStep] = Field(
         default_factory=lambda: list(AnalysisStep),
     )

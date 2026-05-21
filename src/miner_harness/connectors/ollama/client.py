@@ -113,6 +113,7 @@ class OllamaClient:
             "options": {
                 "temperature": temp,
                 "num_predict": tokens,
+                "num_ctx": self._config.num_ctx,
             },
         }
 

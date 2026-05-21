@@ -147,6 +147,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "Aumente para modelos grandes ou máquinas lentas."
         ),
     )
+    analyze_parser.add_argument(
+        "--ctx-size",
+        type=int,
+        default=None,
+        metavar="TOKENS",
+        help=(
+            "Janela de contexto em tokens (padrão: 4096). "
+            "Use 32768 ou 65536 com KV cache Q4 (OLLAMA_FLASH_ATTENTION=1). "
+            "Ex: --ctx-size 32768"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -246,6 +257,7 @@ def main(argv: list[str] | None = None) -> int:
                     profile=args.profile,
                     min_sources=args.min_sources,
                     llm_timeout=args.llm_timeout,
+                    ctx_size=args.ctx_size,
                 )
             )
         if args.command == "validate":
