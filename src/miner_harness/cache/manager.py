@@ -8,6 +8,7 @@ Ref: RFC-003 §3.4
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -178,6 +179,10 @@ class CacheManager:
     def close(self) -> None:
         """Fecha conexões."""
         self._sqlite.close()
+
+    def __del__(self) -> None:
+        with contextlib.suppress(Exception):
+            self.close()
 
     def __enter__(self) -> CacheManager:
         return self

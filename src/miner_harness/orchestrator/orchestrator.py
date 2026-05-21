@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import re
 import time
 from datetime import datetime, timezone  # noqa: UP017
 from typing import TYPE_CHECKING, Any
@@ -639,7 +640,6 @@ class Orchestrator:
         palavras significativas (excluindo stopwords). Mantém o gap mais longo
         (mais informativo) e descarta os menores que sejam subconjunto dele.
         """
-        import re
 
         def significant_words(text: str) -> frozenset[str]:
             words = re.findall(r"[a-záéíóúâêîôûãõàüç]+", text.lower())
