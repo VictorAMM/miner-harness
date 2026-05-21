@@ -139,6 +139,20 @@ class ContextBuilder:
         if self._search_engine is not None:
             await self._index_features(context)
 
+        # Normalização geoquímica regional (PRD-002 F2)
+        geo_records = context.get("geoquimica", [])
+        if geo_records:
+            from miner_harness.geochemistry import GeochemistryNormalizer  # noqa: PLC0415
+
+            norm = GeochemistryNormalizer().normalize(geo_records)
+            if norm and norm.elements:
+                context["geoquimica_normalizada"] = [{"text": norm.format_for_prompt()}]
+                logger.info(
+                    "geoquimica_normalizada",
+                    n_records=norm.n_records,
+                    n_anomalous=len(norm.anomalous_elements),
+                )
+
         return context
 
     @staticmethod

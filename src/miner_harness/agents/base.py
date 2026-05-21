@@ -147,6 +147,16 @@ class BaseAgent(ABC):
                     + f"\n\n<rag_context note='{_rag_note}'>\n{rag_text}\n</rag_context>"
                 )
 
+        # Injetar análise geoquímica normalizada (PRD-002 F2)
+        norm_records = geological_data.get("geoquimica_normalizada", [])
+        if norm_records:
+            norm_text = norm_records[0].get("text", "")
+            if norm_text:
+                geo_data_str = (
+                    geo_data_str
+                    + f"\n\n<geoquimica_normalizada>\n{norm_text}\n</geoquimica_normalizada>"
+                )
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]
