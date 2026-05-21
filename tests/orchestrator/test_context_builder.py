@@ -301,7 +301,7 @@ class TestFilterByBbox:
     async def test_bbox_filtered_sources_tracked_when_all_records_removed(
         self, mock_connector: MagicMock, cache: CacheManager
     ) -> None:
-        """Quando todos os registros de um serviço são filtrados, deve aparecer em bbox_filtered_sources."""
+        """Serviço com 100% dos registros filtrados aparece em bbox_filtered_sources."""
         bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
         cache.put("aerogeofisica", bbox, [
             {"objectid": 1, "coordenada": {"longitude": -55.8, "latitude": -5.4}},  # fora
