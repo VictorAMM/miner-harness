@@ -180,6 +180,7 @@ class Orchestrator:
         await self._on_data_fetched(geological_data)
 
         # 2. Validar dados mínimos
+        bbox_filtered = self._context_builder.bbox_filtered_sources
         min_sources = self._config.orchestrator.min_data_sources
         active_sources = [k for k, v in geological_data.items() if v]
         unavailable = [k for k, v in geological_data.items() if not v]
@@ -194,8 +195,11 @@ class Orchestrator:
         # Resumo de fontes antes do pipeline LLM
         avail_str = ", ".join(f"{k}({len(geological_data[k])})" for k in active_sources)
         print(f"\nFontes ativas ({len(active_sources)}): {avail_str}", flush=True)
-        if unavailable:
-            print(f"Fontes indisponíveis: {', '.join(unavailable)}", flush=True)
+        truly_unavailable = [k for k in unavailable if k not in bbox_filtered]
+        if bbox_filtered:
+            print(f"Fontes filtradas (fora do bbox): {', '.join(bbox_filtered)}", flush=True)
+        if truly_unavailable:
+            print(f"Fontes indisponíveis: {', '.join(truly_unavailable)}", flush=True)
         print(f"Iniciando pipeline LLM — {len(steps)} passos...\n", flush=True)
 
         # 3. Executar passos sequencialmente
@@ -205,7 +209,8 @@ class Orchestrator:
             step_results.append(result)
 
         # 4. Extrair targets do resultado do Evaluator
-        targets = self._extract_targets(step_results)
+        raw_targets = self._extract_targets(step_results)
+        targets = self._validate_target_coords(raw_targets, bbox)
 
         # 5. Montar relatório
         total_ms = int((time.monotonic() - start) * 1000)
@@ -216,10 +221,11 @@ class Orchestrator:
             steps=step_results,
             targets=targets,
             integrated_summary=self._build_summary(step_results),
-            caveats=self._collect_caveats(step_results, geological_data),
+            caveats=self._collect_caveats(step_results, geological_data, bbox_filtered),
             data_quality_score=self._compute_quality(step_results, geological_data),
             total_duration_ms=total_ms,
             model_used=self._config.orchestrator.model,
+            missing_sources=[k for k in unavailable if k not in bbox_filtered],
             geological_data=geological_data,
         )
 
@@ -449,6 +455,46 @@ class Orchestrator:
         return [t.model_copy(update={"priority": i + 1}) for i, t in enumerate(kept)]
 
     @staticmethod
+    def _validate_target_coords(
+        targets: list[MineralTarget],
+        bbox: BoundingBox,
+    ) -> list[MineralTarget]:
+        """Garante que todos os alvos têm coordenadas dentro do bbox.
+
+        Se o LLM retornar coordenadas fora do bbox (contaminação por dados
+        de outra região), o alvo é movido para o centróide do bbox.
+        O rationale é preservado e um aviso é acrescentado.
+        """
+        cx, cy = bbox.center
+        result = []
+        for t in targets:
+            if bbox.contains_point(t.longitude, t.latitude):
+                result.append(t)
+            else:
+                logger.warning(
+                    "target_coord_out_of_bbox",
+                    name=t.name,
+                    lon=t.longitude,
+                    lat=t.latitude,
+                    bbox=bbox.as_tuple(),
+                )
+                updated_rationale = (
+                    f"{t.rationale} "
+                    f"[Coordenadas originais ({t.longitude:.4f}, {t.latitude:.4f}) "
+                    f"fora do bbox — posicionado no centróide da região.]"
+                )
+                result.append(
+                    t.model_copy(
+                        update={
+                            "longitude": cx,
+                            "latitude": cy,
+                            "rationale": updated_rationale,
+                        }
+                    )
+                )
+        return result
+
+    @staticmethod
     def _findings_to_targets(evaluator_result: StepResult) -> list[MineralTarget]:
         """Fallback: converte findings em targets genéricos quando o LLM não estruturou targets."""
         targets: list[MineralTarget] = []
@@ -570,14 +616,23 @@ class Orchestrator:
     def _collect_caveats(
         step_results: list[StepResult],
         geological_data: dict[str, list[dict[str, Any]]],
+        bbox_filtered_sources: list[str] | None = None,
     ) -> list[str]:
         """Coleta caveats (ressalvas) sobre a análise."""
         caveats: list[str] = []
+        filtered = set(bbox_filtered_sources or [])
 
-        # Dados faltantes
-        empty_services = [k for k, v in geological_data.items() if not v]
+        # Dados faltantes (serviços que falharam ou não retornaram nada)
+        empty_services = [k for k, v in geological_data.items() if not v and k not in filtered]
         if empty_services:
             caveats.append(f"Dados indisponíveis para: {', '.join(empty_services)}")
+
+        # Dados fora do bbox (serviços que retornaram dados, mas todos estavam fora da área)
+        if filtered:
+            caveats.append(
+                f"Dados retornados fora da área de interesse para: {', '.join(sorted(filtered))} "
+                f"— registros descartados pelo filtro de bbox"
+            )
 
         # Baixa confiança
         low_confidence = [
@@ -640,7 +695,6 @@ class Orchestrator:
         palavras significativas (excluindo stopwords). Mantém o gap mais longo
         (mais informativo) e descarta os menores que sejam subconjunto dele.
         """
-
         def significant_words(text: str) -> frozenset[str]:
             words = re.findall(r"[a-záéíóúâêîôûãõàüç]+", text.lower())
             return frozenset(

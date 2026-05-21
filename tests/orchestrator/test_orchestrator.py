@@ -377,6 +377,25 @@ class TestOrchestratorHelpers:
         assert any("Baixa confiança" in c for c in caveats)
         assert any("geocronológicos" in c for c in caveats)
 
+    def test_collect_caveats_separates_filtered_from_missing(self) -> None:
+        """Fontes filtradas pelo bbox não devem aparecer como 'indisponíveis'."""
+        results: list[StepResult] = []
+        geo_data: dict[str, list] = {
+            "ocorrencias": [{"id": 1}],
+            "aerogeofisica": [],   # zero registros após filtro
+            "gravimetria": [],     # zero registros — serviço falhou
+        }
+        caveats = Orchestrator._collect_caveats(
+            results, geo_data, bbox_filtered_sources=["aerogeofisica"]
+        )
+        # aerogeofisica NÃO deve aparecer como indisponível
+        indisponivel = next((c for c in caveats if "indisponíveis" in c), "")
+        assert "aerogeofisica" not in indisponivel
+        assert "gravimetria" in indisponivel
+        # aerogeofisica deve aparecer como filtrada
+        filtrado = next((c for c in caveats if "fora da área" in c), "")
+        assert "aerogeofisica" in filtrado
+
     def test_compute_quality_full(self) -> None:
         results = [
             StepResult(
@@ -1248,3 +1267,54 @@ class TestDedupTargets:
         # Dois targets no mesmo ponto → deve virar 1
         assert len(result) == 1
         assert result[0].name == "Alpha"
+
+
+class TestValidateTargetCoords:
+    """Testes de _validate_target_coords."""
+
+    def _make_target(self, lon: float, lat: float, name: str = "T") -> MineralTarget:
+        return MineralTarget(
+            name=name,
+            longitude=lon,
+            latitude=lat,
+            radius_km=5.0,
+            commodities=["Au"],
+            mineral_system="IOCG",
+            confidence=Confidence.HIGH,
+            priority=1,
+            rationale="base rationale",
+            recommended_followup=[],
+        )
+
+    def test_target_inside_bbox_unchanged(self) -> None:
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        t = self._make_target(-48.3, -19.0)
+        result = Orchestrator._validate_target_coords([t], bbox)
+        assert len(result) == 1
+        assert result[0].longitude == -48.3
+        assert result[0].latitude == -19.0
+        assert "centróide" not in result[0].rationale
+
+    def test_target_outside_bbox_moved_to_centroid(self) -> None:
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        t = self._make_target(-55.8, -5.4)  # Pará
+        result = Orchestrator._validate_target_coords([t], bbox)
+        assert len(result) == 1
+        cx, cy = bbox.center
+        assert result[0].longitude == cx
+        assert result[0].latitude == cy
+        assert "centróide" in result[0].rationale
+        assert "-55.4000" in result[0].rationale or "-55.8" in result[0].rationale
+
+    def test_empty_list_unchanged(self) -> None:
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        assert Orchestrator._validate_target_coords([], bbox) == []
+
+    def test_mixed_targets_only_outside_moved(self) -> None:
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        t_in = self._make_target(-48.3, -19.0, "inside")
+        t_out = self._make_target(-55.8, -5.4, "outside")
+        result = Orchestrator._validate_target_coords([t_in, t_out], bbox)
+        assert result[0].longitude == -48.3  # inside inalterado
+        cx, cy = bbox.center
+        assert result[1].longitude == cx    # outside movido para centróide

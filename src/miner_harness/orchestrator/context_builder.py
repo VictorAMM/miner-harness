@@ -61,6 +61,9 @@ class ContextBuilder:
         self._cache = cache
         self._search_engine = search_engine
         self._extra_sources: ExtraSourcesMap = extra_sources or {}
+        # Serviços filtrados pelo bbox na última chamada a build()
+        # (dados obtidos, mas todos os registros estavam fora do bbox)
+        self.bbox_filtered_sources: list[str] = []
 
     async def build(
         self,
@@ -93,8 +96,25 @@ class ContextBuilder:
         cx = (bbox.lon_min + bbox.lon_max) / 2
         cy = (bbox.lat_min + bbox.lat_max) / 2
 
+        self.bbox_filtered_sources = []
         context: dict[str, list[dict[str, Any]]] = {}
         for (service, _, _), features in zip(all_services, results, strict=True):
+            # Filtrar registros com coordenadas fora do bbox antes de truncar.
+            # Registros sem coordenada são preservados (podem ser polígonos úteis).
+            before = len(features)
+            features = self._filter_by_bbox(features, bbox)
+            dropped = before - len(features)
+            if dropped:
+                logger.warning(
+                    "context_bbox_filter",
+                    service=service,
+                    dropped=dropped,
+                    kept=len(features),
+                )
+                if before > 0 and len(features) == 0:
+                    # Dados retornados mas 100% fora do bbox — registrar separado de "falhou"
+                    self.bbox_filtered_sources.append(service)
+
             if len(features) > max_records_per_service:
                 features = self._sort_by_proximity(features, cx, cy)
                 logger.info(
@@ -119,6 +139,45 @@ class ContextBuilder:
             await self._index_features(context)
 
         return context
+
+    @staticmethod
+    def _filter_by_bbox(
+        features: list[dict[str, Any]],
+        bbox: BoundingBox,
+        tolerance_fraction: float = 0.20,
+    ) -> list[dict[str, Any]]:
+        """Remove registros cujas coordenadas estão claramente fora do bbox.
+
+        Registros sem coordenada são preservados — podem corresponder a
+        polígonos cujo centróide não foi calculado ou atributos tabulares
+        sem geometria.
+
+        Um buffer de 20% do tamanho do bbox é aplicado para tolerar
+        centroides de polígonos que extrapolam levemente a janela de consulta.
+        Registros de outra região (diferença de graus) são removidos.
+        """
+        buf_lon = max(bbox.width * tolerance_fraction, 0.5)
+        buf_lat = max(bbox.height * tolerance_fraction, 0.5)
+        lon_min = bbox.lon_min - buf_lon
+        lon_max = bbox.lon_max + buf_lon
+        lat_min = bbox.lat_min - buf_lat
+        lat_max = bbox.lat_max + buf_lat
+
+        kept = []
+        for f in features:
+            coord = f.get("coordenada")
+            if not isinstance(coord, dict):
+                kept.append(f)
+                continue
+            try:
+                lon = float(coord["longitude"])
+                lat = float(coord["latitude"])
+            except (KeyError, TypeError, ValueError):
+                kept.append(f)
+                continue
+            if lon_min <= lon <= lon_max and lat_min <= lat <= lat_max:
+                kept.append(f)
+        return kept
 
     @staticmethod
     def _sort_by_proximity(

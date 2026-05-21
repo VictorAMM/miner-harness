@@ -51,9 +51,9 @@ class BoundingBox(BaseModel):
     @model_validator(mode="after")
     def _check_coordinate_order(self) -> BoundingBox:
         if self.lon_min >= self.lon_max:
-            raise ValueError(f"lon_min ({self.lon_min}) must be < lon_max ({self.lon_max})")
+            raise ValueError(f"lon_min ({self.lon_min}) deve ser < lon_max ({self.lon_max})")
         if self.lat_min >= self.lat_max:
-            raise ValueError(f"lat_min ({self.lat_min}) must be < lat_max ({self.lat_max})")
+            raise ValueError(f"lat_min ({self.lat_min}) deve ser < lat_max ({self.lat_max})")
         return self
 
     @property
@@ -299,6 +299,10 @@ class ProspectionReport(BaseModel):
     data_quality_score: float = Field(ge=0, le=1)
     total_duration_ms: int
     model_used: str
+    missing_sources: list[str] = Field(
+        default_factory=list,
+        description="Fontes de dados que não retornaram registros para esta análise",
+    )
     geological_data: dict[str, list[dict[str, Any]]] | None = Field(
         default=None,
         description="Dados brutos usados na análise (opcional, para visualização no dashboard)",
