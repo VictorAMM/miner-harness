@@ -91,6 +91,7 @@ Data Scale — limites de dados (records, chars, prev) escalados com √(num_ctx
 Geo Sort — ContextBuilder ordena registros por distância ao centróide do bbox antes de truncar (mais próximos primeiro; sem coord → fim da lista) ✅ CONCLUÍDA (2026-05-20) [v0.5.19]
 Code Review — 11 bugs corrigidos (2 HIGH, 6 MED, 3 LOW): _extract_json ValueError, coords fallback silenciosas, BoundingBox validação de ordem, _ctx_scale floor, path traversal CLI, objectid/_safe_int, imports no topo, __del__ CacheManager ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
 Atlas Aerogeofísico — WMS overlays SGB/CPRM no Leaflet (🧲 Mag. Total, 🌈 K-Th-U, ✈️ Pol. Projetos) + marcadores interativos de projetos por tipo de levantamento com popup (offline) ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
+Lito Centroid — UnidadeLitoestratigrafica ganha coordenada opcional via centróide aritmético do polígono (_geom_to_xy); dashboard: marcadores quadrados por hierarquia + tabela na aba Dados ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
 ```
 
 **Status**: v0.5.20 em produção. Próximo entregável: a definir.
