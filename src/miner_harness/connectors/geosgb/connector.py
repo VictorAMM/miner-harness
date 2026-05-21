@@ -94,7 +94,7 @@ class GeoSGBConnector:
         raw = await self._query_features(OCORRENCIAS, bbox=bbox)
         mapper = AliasMapper("ocorrencias")
         mapped = mapper.map_records(raw)
-        return [self._parse_ocorrencia(r) for r in mapped]
+        return [f for r in mapped if (f := self._parse_ocorrencia(r)) is not None]
 
     async def gravimetria(
         self,
@@ -104,7 +104,7 @@ class GeoSGBConnector:
         raw = await self._query_features(GRAVIMETRIA, bbox=bbox)
         mapper = AliasMapper("gravimetria")
         mapped = mapper.map_records(raw)
-        return [self._parse_gravimetria(r) for r in mapped]
+        return [f for r in mapped if (f := self._parse_gravimetria(r)) is not None]
 
     async def geoquimica(
         self,
@@ -115,7 +115,7 @@ class GeoSGBConnector:
         raw = await self._query_all_layers(GEOQUIMICA, bbox=bbox)
         mapper = AliasMapper("geoquimica")
         mapped = mapper.map_records(raw)
-        return [self._parse_geoquimica(r) for r in mapped]
+        return [f for r in mapped if (f := self._parse_geoquimica(r)) is not None]
 
     async def geocronologia(
         self,
@@ -126,7 +126,7 @@ class GeoSGBConnector:
         raw = await self._query_features(GEOCRONOLOGIA, bbox=bbox)
         mapper = AliasMapper("geocronologia")
         mapped = mapper.map_records(raw)
-        return [self._parse_geocronologia(r) for r in mapped]
+        return [f for r in mapped if (f := self._parse_geocronologia(r)) is not None]
 
     async def litoestratigrafia(
         self,
@@ -148,7 +148,7 @@ class GeoSGBConnector:
         raw = await self._query_all_layers(AEROGEOFISICA, bbox=bbox)
         mapper = AliasMapper("aerogeofisica")
         mapped = mapper.map_records(raw)
-        return [self._parse_aerogeofisica(r) for r in mapped]
+        return [f for r in mapped if (f := self._parse_aerogeofisica(r)) is not None]
 
     async def count_ocorrencias(self, bbox: BoundingBox | None = None) -> int:
         """Conta ocorrências minerais (via FeatureServer/returnCountOnly).
@@ -472,10 +472,58 @@ class GeoSGBConnector:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _parse_ocorrencia(data: dict[str, Any]) -> OcorrenciaMineral:
-        """Constrói OcorrenciaMineral a partir de dados mapeados."""
+    def _safe_int(value: Any, default: int = 0) -> int:
+        """Converte value para int, retornando default em caso de falha."""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _safe_int_or_none(value: Any) -> int | None:
+        """Converte value para int, retornando None se ausente ou inválido."""
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _safe_float_or_none(value: Any) -> float | None:
+        """Converte value para float, retornando None se ausente ou inválido."""
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _parse_coordenada(data: dict[str, Any]) -> Coordenada | None:
+        """Extrai Coordenada de um dict de atributos, retornando None se ausente."""
+        lon = data.get("longitude")
+        lat = data.get("latitude")
+        if lon is None or lat is None:
+            return None
+        try:
+            return Coordenada(longitude=float(lon), latitude=float(lat))
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def _parse_ocorrencia(data: dict[str, Any]) -> OcorrenciaMineral | None:
+        """Constrói OcorrenciaMineral a partir de dados mapeados; None se sem coordenada."""
+        coordenada = GeoSGBConnector._parse_coordenada(data)
+        if coordenada is None:
+            logger.warning(
+                "ocorrencia_sem_coordenada",
+                objectid=data.get("objectid"),
+                substancias=data.get("substancias"),
+            )
+            return None
         return OcorrenciaMineral(
-            objectid=int(data.get("objectid", 0)),
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
             substancias=str(data.get("substancias", "")),
             municipio=str(data.get("municipio", "")),
             uf=str(data.get("uf", "")),
@@ -487,21 +535,19 @@ class GeoSGBConnector:
             tipos_alteracao=data.get("tipos_alteracao"),
             morfologia=data.get("morfologia"),
             texturas=data.get("texturas"),
-            coordenada=Coordenada(
-                longitude=float(data.get("longitude") or -50.0),
-                latitude=float(data.get("latitude") or -6.0),
-            ),
+            coordenada=coordenada,
         )
 
     @staticmethod
-    def _parse_gravimetria(data: dict[str, Any]) -> DadoGravimetrico:
-        """Constrói DadoGravimetrico a partir de dados mapeados."""
+    def _parse_gravimetria(data: dict[str, Any]) -> DadoGravimetrico | None:
+        """Constrói DadoGravimetrico a partir de dados mapeados; None se sem coordenada."""
+        coordenada = GeoSGBConnector._parse_coordenada(data)
+        if coordenada is None:
+            logger.warning("gravimetria_sem_coordenada", objectid=data.get("objectid"))
+            return None
         return DadoGravimetrico(
-            objectid=int(data.get("objectid", 0)),
-            coordenada=Coordenada(
-                longitude=float(data.get("longitude") or -50.0),
-                latitude=float(data.get("latitude") or -6.0),
-            ),
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
+            coordenada=coordenada,
             altitude_ortometrica=float(data.get("altitude_ortometrica", 0.0)),
             gravidade=float(data.get("gravidade", 0.0)),
             anomalia_ar_livre=float(data.get("anomalia_ar_livre", 0.0)),
@@ -509,8 +555,12 @@ class GeoSGBConnector:
         )
 
     @staticmethod
-    def _parse_geoquimica(data: dict[str, Any]) -> AmostraGeoquimica:
-        """Constrói AmostraGeoquimica a partir de dados mapeados."""
+    def _parse_geoquimica(data: dict[str, Any]) -> AmostraGeoquimica | None:
+        """Constrói AmostraGeoquimica a partir de dados mapeados; None se sem coordenada."""
+        coordenada = GeoSGBConnector._parse_coordenada(data)
+        if coordenada is None:
+            logger.warning("geoquimica_sem_coordenada", objectid=data.get("objectid"))
+            return None
         # Campos conhecidos
         known_keys = {
             "objectid",
@@ -525,41 +575,39 @@ class GeoSGBConnector:
         analises = {k: v for k, v in data.items() if k not in known_keys and v is not None}
 
         return AmostraGeoquimica(
-            objectid=int(data.get("objectid", 0)),
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
             projeto=str(data.get("projeto", "")),
             classe=str(data.get("classe", "")),
             material_coletado=data.get("material_coletado"),
             rocha_matriz=data.get("rocha_matriz"),
-            coordenada=Coordenada(
-                longitude=float(data.get("longitude") or -50.0),
-                latitude=float(data.get("latitude") or -6.0),
-            ),
+            coordenada=coordenada,
             analises=analises,
         )
 
     @staticmethod
-    def _parse_geocronologia(data: dict[str, Any]) -> DatacaoGeocronologica:
-        """Constrói DatacaoGeocronologica a partir de dados mapeados."""
+    def _parse_geocronologia(data: dict[str, Any]) -> DatacaoGeocronologica | None:
+        """Constrói DatacaoGeocronologica a partir de dados mapeados; None se sem coordenada."""
+        coordenada = GeoSGBConnector._parse_coordenada(data)
+        if coordenada is None:
+            logger.warning("geocronologia_sem_coordenada", objectid=data.get("objectid"))
+            return None
         idade_raw = data.get("idade_ma")
         erro_raw = data.get("erro_ma")
         return DatacaoGeocronologica(
-            objectid=int(data.get("objectid", 0)),
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
             metodo=data.get("metodo"),
-            idade_ma=float(idade_raw) if idade_raw is not None else None,
-            erro_ma=float(erro_raw) if erro_raw is not None else None,
+            idade_ma=GeoSGBConnector._safe_float_or_none(idade_raw),
+            erro_ma=GeoSGBConnector._safe_float_or_none(erro_raw),
             material=data.get("material"),
             unidade_geologica=data.get("unidade_geologica"),
-            coordenada=Coordenada(
-                longitude=float(data.get("longitude") or -50.0),
-                latitude=float(data.get("latitude") or -6.0),
-            ),
+            coordenada=coordenada,
         )
 
     @staticmethod
     def _parse_litoestratigrafia(data: dict[str, Any]) -> UnidadeLitoestratigrafica:
         """Constrói UnidadeLitoestratigrafica a partir de dados mapeados."""
         return UnidadeLitoestratigrafica(
-            objectid=int(data.get("objectid", 0)),
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
             sigla=data.get("sigla"),
             nome=data.get("nome"),
             hierarquia=data.get("hierarquia"),
@@ -568,18 +616,19 @@ class GeoSGBConnector:
         )
 
     @staticmethod
-    def _parse_aerogeofisica(data: dict[str, Any]) -> ProjetoAerogeofisico:
-        """Constrói ProjetoAerogeofisico a partir de dados mapeados."""
+    def _parse_aerogeofisica(data: dict[str, Any]) -> ProjetoAerogeofisico | None:
+        """Constrói ProjetoAerogeofisico a partir de dados mapeados; None se sem coordenada."""
+        coordenada = GeoSGBConnector._parse_coordenada(data)
+        if coordenada is None:
+            logger.warning("aerogeofisica_sem_coordenada", objectid=data.get("objectid"))
+            return None
         ano_raw = data.get("ano")
         area_raw = data.get("area_km2")
         return ProjetoAerogeofisico(
-            objectid=int(data.get("objectid", 0)),
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
             nome_projeto=data.get("nome_projeto"),
-            ano=int(ano_raw) if ano_raw is not None else None,
+            ano=GeoSGBConnector._safe_int_or_none(ano_raw),
             tipo_levantamento=data.get("tipo_levantamento"),
-            area_km2=float(area_raw) if area_raw is not None else None,
-            coordenada=Coordenada(
-                longitude=float(data.get("longitude") or -50.0),
-                latitude=float(data.get("latitude") or -6.0),
-            ),
+            area_km2=GeoSGBConnector._safe_float_or_none(area_raw),
+            coordenada=coordenada,
         )

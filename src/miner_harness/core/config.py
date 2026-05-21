@@ -112,7 +112,7 @@ class OrchestratorConfig(BaseModel):
     @property
     def _ctx_scale(self) -> float:
         """Fator de escala √(num_ctx / 4096) — cresce suavemente com o contexto."""
-        return math.sqrt(self.num_ctx / 4096)
+        return math.sqrt(max(self.num_ctx, 1) / 4096)
 
     @property
     def effective_max_records(self) -> int:

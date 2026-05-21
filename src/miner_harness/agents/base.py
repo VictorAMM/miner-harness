@@ -222,10 +222,11 @@ class BaseAgent(ABC):
 
         # Procura bloco JSON entre ```json e ```
         if "```json" in text:
-            start = text.index("```json") + 7
-            end = text.index("```", start)
-            result = json.loads(text[start:end].strip())
-            return result
+            start = text.find("```json") + 7
+            end = text.find("```", start)
+            if end != -1:
+                result = json.loads(text[start:end].strip())
+                return result
 
         # Procura primeiro { e ultimo }
         first_brace = text.find("{")
