@@ -174,6 +174,26 @@ class TestSQLiteStoreEviction:
         store.put("ocorrencias", bbox, [{"id": 1}])
         assert store.evict_expired() == 0
 
+    def test_evict_handles_naive_datetime(
+        self,
+        store: SQLiteStore,
+        bbox: BoundingBox,
+    ) -> None:
+        """fetched_at sem tzinfo (datetime naive) e expirado ainda e evictado."""
+        store.put("ocorrencias", bbox, [{"id": 1}])
+        conn = store._get_conn()
+        # Gravar datetime naive (sem fuso) expirado (mais de 7 dias atras)
+        naive_old = (datetime.now(tz=timezone.utc) - timedelta(days=31)).replace(  # noqa: UP017
+            tzinfo=None
+        )
+        conn.execute(
+            "UPDATE cache_entries SET fetched_at = ? WHERE service = ?",
+            (naive_old.isoformat(), "ocorrencias"),
+        )
+        conn.commit()
+        evicted = store.evict_expired()
+        assert evicted == 1
+
 
 class TestSQLiteStoreStats:
     """Testes de stats."""

@@ -62,6 +62,14 @@ class TestBoundingBox:
     def test_as_tuple(self, bbox_carajas: BoundingBox) -> None:
         assert bbox_carajas.as_tuple() == (-51.5, -7.0, -49.0, -5.0)
 
+    def test_inverted_lon_raises(self) -> None:
+        with pytest.raises(ValueError, match="lon_min"):
+            BoundingBox(lon_min=-49.0, lat_min=-7.0, lon_max=-51.5, lat_max=-5.0)
+
+    def test_inverted_lat_raises(self) -> None:
+        with pytest.raises(ValueError, match="lat_min"):
+            BoundingBox(lon_min=-51.5, lat_min=-5.0, lon_max=-49.0, lat_max=-7.0)
+
 
 class TestOcorrenciaMineral:
     """Testes para OcorrenciaMineral."""
@@ -188,3 +196,8 @@ class TestMineralTargetAliasValidator:
         """Sem mineral_system nem alias, Pydantic deve rejeitar."""
         with pytest.raises(ValueError):
             MineralTarget(**self._BASE)
+
+    def test_non_dict_data_passthrough(self) -> None:
+        """Dados nao-dict (ex: string) sao passados adiante sem modificacao."""
+        result = MineralTarget._normalize_field_aliases("not a dict")
+        assert result == "not a dict"
