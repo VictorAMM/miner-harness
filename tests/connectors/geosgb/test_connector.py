@@ -219,6 +219,53 @@ class TestParseModels:
         result = GeoSGBConnector._parse_aerogeofisica(data)
         assert result is None
 
+    # ------------------------------------------------------------------
+    # _safe_int / _safe_int_or_none / _safe_float_or_none — exception paths
+    # ------------------------------------------------------------------
+
+    def test_safe_int_invalid_raises_default(self) -> None:
+        assert GeoSGBConnector._safe_int("abc") == 0
+        assert GeoSGBConnector._safe_int(None) == 0
+        assert GeoSGBConnector._safe_int("abc", default=99) == 99
+
+    def test_safe_int_or_none_none_input(self) -> None:
+        assert GeoSGBConnector._safe_int_or_none(None) is None
+
+    def test_safe_int_or_none_invalid(self) -> None:
+        assert GeoSGBConnector._safe_int_or_none("bad") is None
+
+    def test_safe_float_or_none_invalid(self) -> None:
+        assert GeoSGBConnector._safe_float_or_none("bad") is None
+
+    # ------------------------------------------------------------------
+    # _parse_coordenada — exception branch
+    # ------------------------------------------------------------------
+
+    def test_parse_coordenada_invalid_values(self) -> None:
+        """Valores não-numéricos disparam except e retornam None."""
+        result = GeoSGBConnector._parse_coordenada({"longitude": "bad", "latitude": "bad"})
+        assert result is None
+
+    # ------------------------------------------------------------------
+    # Parsers — None coord paths (sem coordenada → retorna None)
+    # ------------------------------------------------------------------
+
+    def test_parse_ocorrencia_no_coord_returns_none(self) -> None:
+        data = {"objectid": 1, "substancias": "Cobre", "municipio": "X", "uf": "PA"}
+        assert GeoSGBConnector._parse_ocorrencia(data) is None
+
+    def test_parse_gravimetria_no_coord_returns_none(self) -> None:
+        data = {"objectid": 2, "altitude_ortometrica": 100.0}
+        assert GeoSGBConnector._parse_gravimetria(data) is None
+
+    def test_parse_geoquimica_no_coord_returns_none(self) -> None:
+        data = {"objectid": 3, "projeto": "P", "classe": "Rocha"}
+        assert GeoSGBConnector._parse_geoquimica(data) is None
+
+    def test_parse_geocronologia_no_coord_returns_none(self) -> None:
+        data = {"objectid": 4, "metodo": "U-Pb"}
+        assert GeoSGBConnector._parse_geocronologia(data) is None
+
 
 class TestConnectorExtraction:
     """Testes de extração end-to-end com mocks."""
