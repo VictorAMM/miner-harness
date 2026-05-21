@@ -7,26 +7,37 @@
 
 ## Fluxo de Desenvolvimento
 
-1. Criar branch a partir de `develop`:
+Seguir sempre esta sequência — sem exceções:
+
+### Por task
+
+1. Implementar a task.
+2. Rodar testes — devem estar 100% verdes:
    ```bash
-   git checkout develop
-   git pull origin develop
-   git checkout -b feature/minha-feature
+   pytest tests/ -q
    ```
-
-2. Implementar mudancas seguindo as convencoes abaixo.
-
-3. Verificar localmente antes de abrir PR:
+3. Verificar lint e formatação:
    ```bash
    ruff check src/ tests/
    ruff format --check src/ tests/
-   mypy src/ --strict
-   pytest tests/ -v --cov --cov-report=term-missing
-   coverage report --fail-under=80
-   bandit -r src/ -ll
    ```
+4. Commitar seguindo Conventional Commits.
+5. Repetir para a próxima task.
 
-4. Abrir PR para `develop` com titulo em Conventional Commits.
+### Após todas as tasks
+
+6. Confirmar suite completa verde:
+   ```bash
+   pytest tests/ -q
+   ```
+7. Criar branch e abrir PR para `main`.
+
+### Após abrir a PR
+
+8. Aguardar o CI completar (não mergear antes).
+9. Revisar o relatório do CI — verificar lint, testes, typecheck, security.
+10. Se o CI falhar: corrigir, commitar, push → aguardar nova execução do CI.
+11. CI verde → mergear.
 
 ## Conventional Commits
 

@@ -464,7 +464,6 @@ class Orchestrator:
 
         Se o LLM retornar coordenadas fora do bbox (contaminação por dados
         de outra região), o alvo é movido para o centróide do bbox.
-        O rationale é preservado e um aviso é acrescentado.
         """
         cx, cy = bbox.center
         result = []
@@ -479,17 +478,11 @@ class Orchestrator:
                     lat=t.latitude,
                     bbox=bbox.as_tuple(),
                 )
-                updated_rationale = (
-                    f"{t.rationale} "
-                    f"[Coordenadas originais ({t.longitude:.4f}, {t.latitude:.4f}) "
-                    f"fora do bbox — posicionado no centróide da região.]"
-                )
                 result.append(
                     t.model_copy(
                         update={
                             "longitude": cx,
                             "latitude": cy,
-                            "rationale": updated_rationale,
                         }
                     )
                 )

@@ -93,9 +93,11 @@ Code Review — 11 bugs corrigidos (2 HIGH, 6 MED, 3 LOW): _extract_json ValueEr
 Atlas Aerogeofísico — WMS overlays SGB/CPRM no Leaflet (🧲 Mag. Total, 🌈 K-Th-U, ✈️ Pol. Projetos) + marcadores interativos de projetos por tipo de levantamento com popup (offline) ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
 Lito Centroid — UnidadeLitoestratigrafica ganha coordenada opcional via centróide aritmético do polígono (_geom_to_xy); dashboard: marcadores quadrados por hierarquia + tabela na aba Dados ✅ CONCLUÍDA (2026-05-21) [v0.5.20]
 Bbox Filter + Source Triage — _filter_by_bbox() remove registros com coords fora da área (buffer 20%); bbox_filtered_sources separa "fora do escopo" de "falhou/vazio"; _validate_target_coords() reposiciona alvos do LLM fora do bbox; banner de cobertura corrigido ✅ CONCLUÍDA (2026-05-21) [v0.5.21]
+Dashboard UX — 3 bugs corrigidos em teste visual: banner "X de 14"→"X de 8", popup CSS overflow, aba Dados distingue bbox-filtrado de indisponível via bbox_filtered_sources ✅ CONCLUÍDA (2026-05-21) [v0.5.22]
+Popup Rationale — nota técnica "[Coordenadas originais...]" removida do rationale do alvo; reposicionamento continua logado como warning estruturado ✅ CONCLUÍDA (2026-05-21) [v0.5.23]
 ```
 
-**Status**: v0.5.21 em produção. Próximo entregável: a definir.
+**Status**: v0.5.23 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
@@ -149,6 +151,34 @@ Usar os templates definidos em `../entrai-docs/docs/agentic-os/templates/README.
 - **RFC** → `docs/rfc/`
 - **ADR** → `docs/adr/` (com `valid_from`, `valid_until`, `review_trigger`)
 - **RCA** → `docs/rca/`
+
+## Workflow de Desenvolvimento (Obrigatório)
+
+Seguir sempre esta sequência — sem exceções:
+
+```
+Para cada task:
+  1. Implementar a task
+  2. pytest tests/ -q → deve passar 100%
+  3. ruff check + ruff format --check → sem violações
+  4. Commitar (Conventional Commits)
+  5. Repetir para a próxima task
+
+Após todas as tasks:
+  6. pytest tests/ -q → confirmar suite completa verde
+  7. Abrir PR
+
+Após abrir a PR:
+  8. Aguardar CI completar (gh run list --branch <branch>)
+  9. Revisar relatório do CI (gh run view <id>)
+ 10. Se CI falhou: corrigir, commitar, push → voltar ao passo 8
+ 11. CI verde → merge
+```
+
+**Regras inegociáveis:**
+- Nunca abrir PR com testes falhando localmente
+- Nunca mergear sem CI verde
+- Nunca pular a espera pelo CI — o relatório pode revelar erros que os testes locais não pegaram (ex: ruff format, cobertura, bandit)
 
 ## Gates de Qualidade
 
