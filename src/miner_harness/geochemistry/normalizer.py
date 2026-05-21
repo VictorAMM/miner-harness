@@ -161,7 +161,7 @@ class GeochemistryNormalizer:
             oid = rec.get("objectid", 0)
             for key, val in analises.items():
                 try:
-                    fval = float(val)  # type: ignore[arg-type]
+                    fval = float(val)
                 except (TypeError, ValueError):
                     continue
                 if fval < 0:
