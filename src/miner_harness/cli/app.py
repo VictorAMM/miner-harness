@@ -212,7 +212,7 @@ def _fix_windows_event_loop() -> None:
     import asyncio  # noqa: PLC0415
 
     if sys.platform == "win32" and hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())  # type: ignore[attr-defined]
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def main(argv: list[str] | None = None) -> int:
