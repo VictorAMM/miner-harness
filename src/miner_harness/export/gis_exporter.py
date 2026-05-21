@@ -187,7 +187,11 @@ class GisExporter:
         """
         try:
             import geopandas as gpd  # noqa: PLC0415
-            from shapely.geometry import Point, Polygon, mapping  # noqa: PLC0415, F401
+            from shapely.geometry import (  # noqa: PLC0415, F401  # type: ignore[import-untyped]
+                Point,
+                Polygon,
+                mapping,
+            )
         except ImportError as exc:
             raise ImportError(
                 "geopandas e shapely são necessários para exportação GeoPackage. "
