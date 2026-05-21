@@ -51,9 +51,9 @@ class BoundingBox(BaseModel):
     @model_validator(mode="after")
     def _check_coordinate_order(self) -> BoundingBox:
         if self.lon_min >= self.lon_max:
-            raise ValueError(f"lon_min ({self.lon_min}) must be < lon_max ({self.lon_max})")
+            raise ValueError(f"lon_min ({self.lon_min}) deve ser < lon_max ({self.lon_max})")
         if self.lat_min >= self.lat_max:
-            raise ValueError(f"lat_min ({self.lat_min}) must be < lat_max ({self.lat_max})")
+            raise ValueError(f"lat_min ({self.lat_min}) deve ser < lat_max ({self.lat_max})")
         return self
 
     @property

@@ -865,7 +865,8 @@ function renderHeader(r) {
   const missing = r.missing_sources || [];
   const banner = document.getElementById('coverage-banner');
   if (missing.length > 0) {
-    const total = missing.length + (r.geological_data ? Object.keys(r.geological_data).length : 8);
+    const knownSources = r.geological_data ? Object.keys(r.geological_data).length : 6;
+    const total = missing.length + knownSources;
     document.getElementById('coverage-banner-text').textContent =
       missing.length + ' de ' + total + ' fontes indisponíveis: ' + missing.join(', ') +
       '. Resultados baseados em dados parciais — interpretar com cautela.';
@@ -1345,7 +1346,7 @@ function setupMapControls(bboxBounds) {
       var op = parseInt(this.value) / 100;
       wmsAtlasMag.setOpacity(op);
       wmsAtlasTern.setOpacity(op);
-      wmsAeroprojetos.setOpacity(op * 0.72); // projetos um pouco mais transparentes
+      wmsAeroprojetos.setOpacity(op * 0.72); // polígonos de cobertura: mais transparentes que as grades
       if (sliderVal) sliderVal.textContent = this.value + '%';
     };
   }
