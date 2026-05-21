@@ -650,6 +650,14 @@ aside {
         <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
         <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
       </div>
+      <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
+        <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
+        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #7c3aed;margin-right:6px;vertical-align:middle"></span>Mag + Gama</div>
+        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #2563eb;margin-right:6px;vertical-align:middle"></span>Magnetometria</div>
+        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #16a34a;margin-right:6px;vertical-align:middle"></span>Gamaespectrometria</div>
+        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #d97706;margin-right:6px;vertical-align:middle"></span>Eletromagnetometria</div>
+        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #6b7280;margin-right:6px;vertical-align:middle"></span>Outros</div>
+      </div>
       <div class="section-title" style="font-size:0.72rem;margin-top:10px;color:#94a3b8;letter-spacing:.03em">Atlas Aerogeofísico — SGB/CPRM <span style="font-weight:400;opacity:.7">(requer internet)</span></div>
       <div class="map-ctrl-btns">
         <button class="ctrl-btn inactive" id="btn-atlas-mag" title="Anomalia Magnética de Campo Total — SGB/CPRM">🧲 Mag. Total</button>
@@ -1088,6 +1096,10 @@ function renderMapForReport(r) {
     aerogeoProjLayers.push(marker);
   });
 
+  // Mostrar legenda de aerogeo se houver projetos
+  var aeroLegendEl = document.getElementById('aerogeo-legend');
+  if (aeroLegendEl) aeroLegendEl.style.display = aerogeoProjLayers.length > 0 ? 'block' : 'none';
+
   // Adicionar camadas de ocorrências — pontos GeoSGB (coloridos por substância)
   var ocorrRecords = geo['ocorrencias'] || [];
   var usedSubstancias = {};
@@ -1211,14 +1223,17 @@ function setupMapControls(bboxBounds) {
   }
 
   var btnAeroProjData = document.getElementById('btn-aerogeo-proj');
+  var aeroLegend = document.getElementById('aerogeo-legend');
   if (btnAeroProjData) {
     btnAeroProjData.onclick = function() {
       if (aerogeoProjVisible) {
         aerogeoProjLayers.forEach(function(l) { map.removeLayer(l); });
         this.classList.add('inactive');
+        if (aeroLegend) aeroLegend.style.display = 'none';
       } else {
         aerogeoProjLayers.forEach(function(l) { l.addTo(map); });
         this.classList.remove('inactive');
+        if (aeroLegend && aerogeoProjLayers.length > 0) aeroLegend.style.display = 'block';
       }
       aerogeoProjVisible = !aerogeoProjVisible;
     };
@@ -1716,6 +1731,139 @@ function renderDadosTab(r) {
       html += '</tr>';
     });
     if (ocorr.length > 100) html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (ocorr.length - 100) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- Aerogeofísica ---
+  var aerogeo = geo['aerogeofisica'] || [];
+  html += '<h3 style="margin:0 0 .5rem;color:#2563eb">✈️ GeoSGB — Projetos Aerogeofísicos</h3>';
+  if (!aerogeo.length) {
+    html += '<p style="color:#6b7280">Sem projetos aerogeofísicos para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + aerogeo.length + ' projeto(s) encontrado(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#eff6ff">';
+    ['Nome do Projeto','Ano','Tipo de Levantamento','Área (km²)','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #2563eb22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    aerogeo.slice(0, 100).forEach(function(p, i) {
+      var bg = i % 2 ? '#eff6ff' : '#fff';
+      var coord = p.coordenada || {};
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      var color = _aerogeoColor(p.tipo_levantamento);
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:600"><span style="display:inline-block;width:9px;height:9px;clip-path:polygon(50% 0%,100% 100%,0% 100%);background:' +
+        color + ';margin-right:5px;vertical-align:middle"></span>' + (p.nome_projeto || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (p.ano || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (p.tipo_levantamento || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (p.area_km2 != null ? Number(p.area_km2).toLocaleString('pt-BR',{maximumFractionDigits:0}) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (aerogeo.length > 100) html += '<tr><td colspan="5" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (aerogeo.length - 100) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- Geocronologia ---
+  var geocron = geo['geocronologia'] || [];
+  html += '<h3 style="margin:0 0 .5rem;color:#b45309">⏱️ GeoSGB — Geocronologia</h3>';
+  if (!geocron.length) {
+    html += '<p style="color:#6b7280">Sem datações geocronológicas para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + geocron.length + ' datação(ões) encontrada(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#fffbeb">';
+    ['Método','Idade (Ma)','Erro (Ma)','Material','Unidade Geológica','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #b4530922;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    geocron.slice(0, 100).forEach(function(d, i) {
+      var bg = i % 2 ? '#fffbeb' : '#fff';
+      var coord = d.coordenada || {};
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:600">' + (d.metodo || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right;font-weight:700;color:#b45309">' + (d.idade_ma != null ? Number(d.idade_ma).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (d.erro_ma != null ? '±' + Number(d.erro_ma).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (d.material || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (d.unidade_geologica || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (geocron.length > 100) html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (geocron.length - 100) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- Gravimetria ---
+  var grav = geo['gravimetria'] || [];
+  html += '<h3 style="margin:0 0 .5rem;color:#0f766e">📐 GeoSGB — Gravimetria</h3>';
+  if (!grav.length) {
+    html += '<p style="color:#6b7280">Sem dados gravimétricos para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + grav.length + ' estação(ões) gravimétrica(s) encontrada(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#f0fdfa">';
+    ['Alt. Ortométrica (m)','Gravidade (mGal)','Anom. Ar Livre (mGal)','Anom. Bouguer (mGal)','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #0f766e22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    grav.slice(0, 100).forEach(function(g, i) {
+      var bg = i % 2 ? '#f0fdfa' : '#fff';
+      var coord = g.coordenada || {};
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (g.altitude_ortometrica != null ? Number(g.altitude_ortometrica).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (g.gravidade != null ? Number(g.gravidade).toFixed(2) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (g.anomalia_ar_livre != null ? Number(g.anomalia_ar_livre).toFixed(2) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right;font-weight:600;color:#0f766e">' + (g.anomalia_bouguer != null ? Number(g.anomalia_bouguer).toFixed(2) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (grav.length > 100) html += '<tr><td colspan="5" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (grav.length - 100) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- Geoquímica ---
+  var geoquim = geo['geoquimica'] || [];
+  html += '<h3 style="margin:0 0 .5rem;color:#7c3aed">🧪 GeoSGB — Geoquímica</h3>';
+  if (!geoquim.length) {
+    html += '<p style="color:#6b7280">Sem amostras geoquímicas para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + geoquim.length + ' amostra(s) geoquímica(s) encontrada(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#faf5ff">';
+    ['Projeto','Classe','Material','Rocha Matriz','Análises (elementos)','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #7c3aed22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    geoquim.slice(0, 100).forEach(function(q, i) {
+      var bg = i % 2 ? '#faf5ff' : '#fff';
+      var coord = q.coordenada || {};
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      var nAnalises = q.analises ? Object.keys(q.analises).length : 0;
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem">' + (q.projeto || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-weight:600">' + (q.classe || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (q.material_coletado || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (q.rocha_matriz || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right;color:#7c3aed">' + nAnalises + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (geoquim.length > 100) html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (geoquim.length - 100) + ' registros</td></tr>';
     html += '</tbody></table></div>';
   }
 
