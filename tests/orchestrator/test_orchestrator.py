@@ -377,6 +377,25 @@ class TestOrchestratorHelpers:
         assert any("Baixa confiança" in c for c in caveats)
         assert any("geocronológicos" in c for c in caveats)
 
+    def test_collect_caveats_separates_filtered_from_missing(self) -> None:
+        """Fontes filtradas pelo bbox não devem aparecer como 'indisponíveis'."""
+        results: list[StepResult] = []
+        geo_data: dict[str, list] = {
+            "ocorrencias": [{"id": 1}],
+            "aerogeofisica": [],   # zero registros após filtro
+            "gravimetria": [],     # zero registros — serviço falhou
+        }
+        caveats = Orchestrator._collect_caveats(
+            results, geo_data, bbox_filtered_sources=["aerogeofisica"]
+        )
+        # aerogeofisica NÃO deve aparecer como indisponível
+        indisponivel = next((c for c in caveats if "indisponíveis" in c), "")
+        assert "aerogeofisica" not in indisponivel
+        assert "gravimetria" in indisponivel
+        # aerogeofisica deve aparecer como filtrada
+        filtrado = next((c for c in caveats if "fora da área" in c), "")
+        assert "aerogeofisica" in filtrado
+
     def test_compute_quality_full(self) -> None:
         results = [
             StepResult(

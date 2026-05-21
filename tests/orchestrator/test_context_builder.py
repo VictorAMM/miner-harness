@@ -297,6 +297,34 @@ class TestFilterByBbox:
         assert len(context["aerogeofisica"]) == 1
         assert context["aerogeofisica"][0]["objectid"] == 1
 
+    @pytest.mark.asyncio
+    async def test_bbox_filtered_sources_tracked_when_all_records_removed(
+        self, mock_connector: MagicMock, cache: CacheManager
+    ) -> None:
+        """Quando todos os registros de um serviço são filtrados, deve aparecer em bbox_filtered_sources."""
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        cache.put("aerogeofisica", bbox, [
+            {"objectid": 1, "coordenada": {"longitude": -55.8, "latitude": -5.4}},  # fora
+            {"objectid": 2, "coordenada": {"longitude": -56.0, "latitude": -6.0}},  # fora
+        ])
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+        assert "aerogeofisica" in builder.bbox_filtered_sources
+
+    @pytest.mark.asyncio
+    async def test_bbox_filtered_sources_not_set_when_some_records_kept(
+        self, mock_connector: MagicMock, cache: CacheManager
+    ) -> None:
+        """Se pelo menos um registro é mantido, o serviço NÃO aparece em bbox_filtered_sources."""
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        cache.put("aerogeofisica", bbox, [
+            {"objectid": 1, "coordenada": {"longitude": -48.3, "latitude": -19.0}},  # dentro
+            {"objectid": 2, "coordenada": {"longitude": -55.8, "latitude": -5.4}},   # fora
+        ])
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+        assert "aerogeofisica" not in builder.bbox_filtered_sources
+
 
 class TestSortByProximity:
     """Testes de _sort_by_proximity."""

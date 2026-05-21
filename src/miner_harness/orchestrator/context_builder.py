@@ -61,6 +61,9 @@ class ContextBuilder:
         self._cache = cache
         self._search_engine = search_engine
         self._extra_sources: ExtraSourcesMap = extra_sources or {}
+        # Serviços filtrados pelo bbox na última chamada a build()
+        # (dados obtidos, mas todos os registros estavam fora do bbox)
+        self.bbox_filtered_sources: list[str] = []
 
     async def build(
         self,
@@ -93,6 +96,7 @@ class ContextBuilder:
         cx = (bbox.lon_min + bbox.lon_max) / 2
         cy = (bbox.lat_min + bbox.lat_max) / 2
 
+        self.bbox_filtered_sources = []
         context: dict[str, list[dict[str, Any]]] = {}
         for (service, _, _), features in zip(all_services, results, strict=True):
             # Filtrar registros com coordenadas fora do bbox antes de truncar.
@@ -107,6 +111,9 @@ class ContextBuilder:
                     dropped=dropped,
                     kept=len(features),
                 )
+                if before > 0 and len(features) == 0:
+                    # Dados retornados mas 100% fora do bbox — registrar separado de "falhou"
+                    self.bbox_filtered_sources.append(service)
 
             if len(features) > max_records_per_service:
                 features = self._sort_by_proximity(features, cx, cy)
