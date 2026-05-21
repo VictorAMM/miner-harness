@@ -158,6 +158,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "Ex: --ctx-size 32768"
         ),
     )
+    analyze_parser.add_argument(
+        "--output-gis",
+        default=None,
+        metavar="ARQUIVO",
+        help=(
+            "Exportar alvos para arquivo GIS. "
+            "Use .gpkg para GeoPackage (QGIS/ArcGIS) ou .geojson para GeoJSON. "
+            "Ex: --output-gis targets.gpkg"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -258,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
                     min_sources=args.min_sources,
                     llm_timeout=args.llm_timeout,
                     ctx_size=args.ctx_size,
+                    output_gis=args.output_gis,
                 )
             )
         if args.command == "validate":

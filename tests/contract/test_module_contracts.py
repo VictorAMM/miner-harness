@@ -166,7 +166,7 @@ class TestCacheToContextBuilderContract:
     async def test_context_has_all_six_services(
         self, cache: CacheManager, bbox: BoundingBox
     ) -> None:
-        """ContextBuilder sempre retorna dict com exatamente 6 chaves."""
+        """ContextBuilder sempre retorna dict com exatamente 7 chaves (6 GeoSGB + furos)."""
         connector = MagicMock()
         for method in [
             "ocorrencias",
@@ -175,6 +175,7 @@ class TestCacheToContextBuilderContract:
             "geocronologia",
             "litoestratigrafia",
             "aerogeofisica",
+            "furos_sondagem",
         ]:
             setattr(connector, method, AsyncMock(return_value=[]))
 
@@ -188,6 +189,7 @@ class TestCacheToContextBuilderContract:
             "geocronologia",
             "litoestratigrafia",
             "aerogeofisica",
+            "furos",
         }
         assert set(context.keys()) == expected_keys
         assert all(isinstance(v, list) for v in context.values())

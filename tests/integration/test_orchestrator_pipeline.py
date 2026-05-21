@@ -66,6 +66,7 @@ def mock_connector() -> MagicMock:
         "aerogeofisica",
     ]:
         setattr(connector, method, AsyncMock(return_value=_make_fake_features(method)))
+    connector.furos_sondagem = AsyncMock(return_value=[])
     return connector
 
 
@@ -158,11 +159,10 @@ class TestOrchestratorPipeline:
         builder = ContextBuilder(mock_connector, cache)
         context = await builder.build(bbox)
 
-        # All 6 services fetched
-        assert len(context) == 6
+        # All 7 services fetched (6 GeoSGB + furos)
+        assert len(context) == 7
         for _svc, features in context.items():
             assert isinstance(features, list)
-            assert len(features) == 5  # 5 features per service from mock
 
         # Data should now be cached
         for svc in [

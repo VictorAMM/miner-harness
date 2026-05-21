@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from miner_harness.connectors.geosgb.services import OCORRENCIAS, ServiceEndpoint
+from miner_harness.connectors.geosgb.services import (
+    FUROS_SONDAGEM,
+    OCORRENCIAS,
+    SERVICE_REGISTRY,
+    ServiceEndpoint,
+)
 
 
 class TestServiceEndpoint:
@@ -34,3 +39,28 @@ class TestServiceEndpoint:
 
     def test_query_url(self) -> None:
         assert OCORRENCIAS.query_url(0).endswith("/0/query")
+
+
+class TestServiceRegistry:
+    """Testes do SERVICE_REGISTRY."""
+
+    def test_furos_sondagem_in_registry(self) -> None:
+        assert "furos" in SERVICE_REGISTRY
+
+    def test_furos_sondagem_is_featureserver(self) -> None:
+        assert FUROS_SONDAGEM.server_type == "FeatureServer"
+
+    def test_furos_sondagem_path(self) -> None:
+        assert "furos_sondagem" in FUROS_SONDAGEM.path
+
+    def test_registry_has_expected_services(self) -> None:
+        expected = {
+            "ocorrencias",
+            "gravimetria",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
+            "furos",
+        }
+        assert expected.issubset(set(SERVICE_REGISTRY.keys()))

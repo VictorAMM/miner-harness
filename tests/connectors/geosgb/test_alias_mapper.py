@@ -82,3 +82,28 @@ class TestAliasMapper:
         raw = {"Método analítico": "U-Pb"}
         mapped = mapper.map_record(raw)
         assert mapped["metodo"] == "U-Pb"
+
+    def test_furos_mapper_exists(self) -> None:
+        mapper = AliasMapper("furos")
+        raw = {"Projeto": "CARAJAS", "Profundidade": 350.0}
+        mapped = mapper.map_record(raw)
+        assert mapped["projeto"] == "CARAJAS"
+        assert mapped["profundidade_m"] == 350.0
+
+    def test_furos_tipo_furo_alias(self) -> None:
+        mapper = AliasMapper("furos")
+        raw = {"tipo": "Diamantada"}
+        mapped = mapper.map_record(raw)
+        assert mapped["tipo_furo"] == "Diamantada"
+
+    def test_furos_azimute_alias(self) -> None:
+        mapper = AliasMapper("furos")
+        raw = {"az": 90.0}
+        mapped = mapper.map_record(raw)
+        assert mapped["azimute"] == 90.0
+
+    def test_furos_dip_alias(self) -> None:
+        mapper = AliasMapper("furos")
+        raw = {"dip": -60.0}
+        mapped = mapper.map_record(raw)
+        assert mapped["mergulho"] == -60.0

@@ -42,6 +42,7 @@ def mock_connector() -> MagicMock:
         "geocronologia",
         "litoestratigrafia",
         "aerogeofisica",
+        "furos_sondagem",
     ]:
         setattr(connector, method, AsyncMock(return_value=[]))
     return connector
@@ -56,7 +57,7 @@ class TestContextBuilder:
     ) -> None:
         builder = ContextBuilder(mock_connector, cache)
         context = await builder.build(bbox)
-        assert len(context) == 6
+        assert len(context) == 7  # 6 GeoSGB + furos
         assert all(isinstance(v, list) for v in context.values())
 
     @pytest.mark.asyncio

@@ -37,6 +37,7 @@ async def cmd_analyze(
     min_sources: int | None = None,
     llm_timeout: int | None = None,
     ctx_size: int | None = None,
+    output_gis: str | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -140,6 +141,10 @@ async def cmd_analyze(
             await _serve_dashboard(report, connector, cache, llm, config, port)
             return 0
 
+        # Exportação GIS (GeoPackage ou GeoJSON)
+        if output_gis:
+            _export_gis(report, Path(output_gis))
+
         # Gerar dashboard HTML estático
         if not no_html:
             _render_html_report(report, storage, region)
@@ -150,6 +155,25 @@ async def cmd_analyze(
         # Em modo serve, o DashboardServer fecha o cache no seu próprio cleanup
         if not serve:
             cache.close()
+
+
+def _export_gis(report: ProspectionReport, output_path: Path) -> None:
+    """Exporta relatório para GeoPackage ou GeoJSON."""
+    try:
+        from miner_harness.export import GisExporter
+
+        exporter = GisExporter()
+        suffix = output_path.suffix.lower()
+        if suffix == ".geojson":
+            exporter.export_geojson(report, output_path)
+        else:
+            # Padrão: GeoPackage (inclui .gpkg ou qualquer outra extensão)
+            exporter.export(report, output_path)
+    except ImportError as exc:
+        print(f"Aviso: exportação GIS requer geopandas: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("gis_export_failed", error=str(exc))
+        print(f"Aviso: falha na exportação GIS: {exc}", file=sys.stderr)
 
 
 def _render_html_report(

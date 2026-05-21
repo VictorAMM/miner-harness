@@ -341,7 +341,8 @@ class TestAgentDataKeys:
     def test_evaluator_needs_all_data(self) -> None:
         agent = self._make_agent(EvaluatorAgent)
         keys = agent._get_relevant_data_keys(AnalysisStep.TOTAL_INTEGRATION)
-        assert len(keys) == 8  # 6 GeoSGB + anm + usgs
+        assert len(keys) == 9  # 6 GeoSGB + furos + anm + usgs
+        assert "furos" in keys
         assert "anm" in keys
         assert "usgs" in keys
 

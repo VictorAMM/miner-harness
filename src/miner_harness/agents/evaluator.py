@@ -31,7 +31,7 @@ class EvaluatorAgent(BaseAgent):
     ]
 
     def _get_relevant_data_keys(self, step: AnalysisStep) -> list[str]:
-        # No passo de integração, todos os dados são relevantes
+        # No passo de integração, todos os dados são relevantes — incluindo furos históricos
         return [
             "ocorrencias",
             "gravimetria",
@@ -39,6 +39,7 @@ class EvaluatorAgent(BaseAgent):
             "geocronologia",
             "litoestratigrafia",
             "aerogeofisica",
+            "furos",
             "anm",
             "usgs",
         ]

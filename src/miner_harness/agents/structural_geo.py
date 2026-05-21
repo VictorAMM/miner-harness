@@ -23,4 +23,5 @@ class StructuralGeoAgent(BaseAgent):
         if step == AnalysisStep.TECTONIC_HISTORY:
             # usgs: sismicidade revela falhas ativas e estruturas tectônicas
             return ["litoestratigrafia", "geocronologia", "ocorrencias", "usgs"]
-        return ["litoestratigrafia", "ocorrencias", "aerogeofisica", "usgs"]
+        # furos: localização e azimute de sondagens históricas revela controles estruturais
+        return ["litoestratigrafia", "ocorrencias", "aerogeofisica", "furos", "usgs"]

@@ -21,6 +21,7 @@ from miner_harness.core.types import (
     Coordenada,
     DadoGravimetrico,
     DatacaoGeocronologica,
+    FuroSondagem,
     OcorrenciaMineral,
     ProjetoAerogeofisico,
     UnidadeLitoestratigrafica,
@@ -35,6 +36,7 @@ from .grid_extractor import (
 )
 from .services import (
     AEROGEOFISICA,
+    FUROS_SONDAGEM,
     GEOCRONOLOGIA,
     GEOQUIMICA,
     GRAVIMETRIA,
@@ -149,6 +151,39 @@ class GeoSGBConnector:
         mapper = AliasMapper("aerogeofisica")
         mapped = mapper.map_records(raw)
         return [f for r in mapped if (f := self._parse_aerogeofisica(r)) is not None]
+
+    async def furos_sondagem(
+        self,
+        bbox: BoundingBox,
+        density: GridDensity = GridDensity.MEDIUM,
+    ) -> list[FuroSondagem]:
+        """Extrai furos de sondagem históricos do GeoSGB.
+
+        Tenta FeatureServer/query primeiro; se o endpoint retornar erro 400
+        (comportamento conhecido de vários serviços GeoSGB), o fallback
+        automático em _query_features usa _query_via_ids.
+
+        Args:
+            bbox: Bounding box da região.
+            density: Densidade de grid (não usada no FeatureServer, mas mantida
+                para consistência com outros métodos).
+
+        Returns:
+            Lista de FuroSondagem na região; lista vazia se o endpoint não
+            retornar dados ou não estiver disponível.
+        """
+        try:
+            raw = await self._query_features(FUROS_SONDAGEM, bbox=bbox)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "furos_sondagem_unavailable",
+                error=str(exc),
+                hint="Endpoint furos_sondagem pode não estar disponível nesta região",
+            )
+            return []
+        mapper = AliasMapper("furos")
+        mapped = mapper.map_records(raw)
+        return [f for r in mapped if (f := self._parse_furo(r)) is not None]
 
     async def count_ocorrencias(self, bbox: BoundingBox | None = None) -> int:
         """Conta ocorrências minerais (via FeatureServer/returnCountOnly).
@@ -631,6 +666,24 @@ class GeoSGBConnector:
             litologia_principal=data.get("litologia_principal"),
             idade=data.get("idade"),
             coordenada=GeoSGBConnector._parse_coordenada(data),
+        )
+
+    @staticmethod
+    def _parse_furo(data: dict[str, Any]) -> FuroSondagem | None:
+        """Constrói FuroSondagem a partir de dados mapeados; None se sem coordenada."""
+        coordenada = GeoSGBConnector._parse_coordenada(data)
+        if coordenada is None:
+            logger.warning("furo_sem_coordenada", objectid=data.get("objectid"))
+            return None
+        return FuroSondagem(
+            objectid=GeoSGBConnector._safe_int(data.get("objectid")),
+            projeto=data.get("projeto"),
+            tipo_furo=data.get("tipo_furo"),
+            profundidade_m=GeoSGBConnector._safe_float_or_none(data.get("profundidade_m")),
+            azimute=GeoSGBConnector._safe_float_or_none(data.get("azimute")),
+            mergulho=GeoSGBConnector._safe_float_or_none(data.get("mergulho")),
+            ano=GeoSGBConnector._safe_int_or_none(data.get("ano")),
+            coordenada=coordenada,
         )
 
     @staticmethod

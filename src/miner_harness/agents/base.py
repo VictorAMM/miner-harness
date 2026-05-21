@@ -33,6 +33,7 @@ _SOURCE_LABELS: dict[str, str] = {
     "geocronologia": "GeoSGB/Geocronologia",
     "litoestratigrafia": "GeoSGB/Litoestratigrafia",
     "aerogeofisica": "GeoSGB/Aerogeofísica",
+    "furos": "GeoSGB/Furos de Sondagem Históricos",
     "anm": "ANM/SIGMINE — Concessões Minerárias",
     "usgs": "USGS — Eventos Sísmicos",
 }

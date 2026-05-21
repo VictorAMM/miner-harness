@@ -672,6 +672,7 @@ aside {
         <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
         <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
         <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
+        <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos</button>
       </div>
       <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
         <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
@@ -972,6 +973,10 @@ let aerogeoProjVisible = true;
 let litoLayers = [];
 let litoVisible = true;
 
+// Furos de sondagem históricos GeoSGB
+let furosLayers = [];
+let furosVisible = true;
+
 const _AEROGEO_TIPO_COLOR = {
   'magnetometria': '#2563eb',
   'gamaespectrometria': '#16a34a',
@@ -1066,6 +1071,8 @@ function renderMapForReport(r) {
   aerogeoProjLayers = [];
   litoLayers.forEach(function(l) { map.removeLayer(l); });
   litoLayers = [];
+  furosLayers.forEach(function(l) { map.removeLayer(l); });
+  furosLayers = [];
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -1076,17 +1083,20 @@ function renderMapForReport(r) {
   ocorrVisible = true;
   aerogeoProjVisible = true;
   litoVisible = true;
+  furosVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
   var btnOcorr = document.getElementById('btn-ocorr');
   var btnAeroProj = document.getElementById('btn-aerogeo-proj');
   var btnLito = document.getElementById('btn-lito');
+  var btnFuros = document.getElementById('btn-furos');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
   if (btnAeroProj) btnAeroProj.classList.remove('inactive');
   if (btnLito) btnLito.classList.remove('inactive');
+  if (btnFuros) btnFuros.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1229,6 +1239,30 @@ function renderMapForReport(r) {
     litoLayers.push(marker);
   });
 
+  // Furos de sondagem históricos GeoSGB
+  var furosRecords = geo['furos'] || [];
+  furosRecords.forEach(function(f) {
+    var coord = f.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var icon = L.divIcon({
+      className: '',
+      html: '<div style="width:10px;height:10px;background:#a855f7;border:2px solid #fff;border-radius:50%;box-shadow:0 0 4px rgba(168,85,247,0.7)"></div>',
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+    });
+    var popup = '<b style="color:#a855f7">🔩 Furo de Sondagem</b><br>' +
+      (f.projeto ? '<b>' + f.projeto + '</b><br>' : '') +
+      (f.tipo_furo ? 'Tipo: ' + f.tipo_furo + '<br>' : '') +
+      (f.profundidade_m != null ? 'Profundidade: ' + f.profundidade_m + ' m<br>' : '') +
+      (f.azimute != null ? 'Azimute: ' + f.azimute + '°<br>' : '') +
+      (f.mergulho != null ? 'Mergulho: ' + f.mergulho + '°<br>' : '') +
+      (f.ano ? 'Ano: ' + f.ano + '<br>' : '') +
+      '<span style="color:#94a3b8;font-size:0.82em">ID: ' + f.objectid + '</span>';
+    var marker = L.marker([coord.latitude, coord.longitude], { icon: icon }).bindPopup(popup);
+    marker.addTo(map);
+    furosLayers.push(marker);
+  });
+
   setupMapControls(bboxBounds);
 }
 
@@ -1289,6 +1323,15 @@ function setupMapControls(bboxBounds) {
       if (litoVisible) { litoLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
       else { litoLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
       litoVisible = !litoVisible;
+    };
+  }
+
+  var btnFuros = document.getElementById('btn-furos');
+  if (btnFuros) {
+    btnFuros.onclick = function() {
+      if (furosVisible) { furosLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { furosLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      furosVisible = !furosVisible;
     };
   }
 

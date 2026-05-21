@@ -32,6 +32,7 @@ _SERVICE_METHODS = {
     "geocronologia": "geocronologia",
     "litoestratigrafia": "litoestratigrafia",
     "aerogeofisica": "aerogeofisica",
+    "furos": "furos_sondagem",
 }
 
 # Máximo de registros por serviço no prompt (RFC-002 §7.3)
