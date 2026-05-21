@@ -1303,8 +1303,7 @@ class TestValidateTargetCoords:
         cx, cy = bbox.center
         assert result[0].longitude == cx
         assert result[0].latitude == cy
-        assert "centróide" in result[0].rationale
-        assert "-55.4000" in result[0].rationale or "-55.8" in result[0].rationale
+        assert result[0].rationale == t.rationale  # rationale inalterado
 
     def test_empty_list_unchanged(self) -> None:
         bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
