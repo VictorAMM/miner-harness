@@ -245,7 +245,7 @@ class TestFilterByBbox:
         bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
         features = [
             {"coordenada": {"longitude": -48.3, "latitude": -19.0}},  # dentro
-            {"coordenada": {"longitude": -55.8, "latitude": -5.4}},   # Pará — fora
+            {"coordenada": {"longitude": -55.8, "latitude": -5.4}},  # Pará — fora
         ]
         result = ContextBuilder._filter_by_bbox(features, bbox)
         assert len(result) == 1
@@ -254,8 +254,8 @@ class TestFilterByBbox:
     def test_keeps_records_without_coordenada(self) -> None:
         bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
         features = [
-            {},                       # sem coordenada — preservar
-            {"coordenada": None},     # coordenada nula — preservar
+            {},  # sem coordenada — preservar
+            {"coordenada": None},  # coordenada nula — preservar
         ]
         result = ContextBuilder._filter_by_bbox(features, bbox)
         assert len(result) == 2
@@ -288,10 +288,14 @@ class TestFilterByBbox:
         """build() deve remover registros com coordenadas fora do bbox."""
         bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
         # Um registro dentro do bbox, um fora (Pará)
-        cache.put("aerogeofisica", bbox, [
-            {"objectid": 1, "coordenada": {"longitude": -48.3, "latitude": -19.0}},
-            {"objectid": 2, "coordenada": {"longitude": -55.8, "latitude": -5.4}},
-        ])
+        cache.put(
+            "aerogeofisica",
+            bbox,
+            [
+                {"objectid": 1, "coordenada": {"longitude": -48.3, "latitude": -19.0}},
+                {"objectid": 2, "coordenada": {"longitude": -55.8, "latitude": -5.4}},
+            ],
+        )
         builder = ContextBuilder(mock_connector, cache)
         context = await builder.build(bbox)
         assert len(context["aerogeofisica"]) == 1
@@ -303,10 +307,14 @@ class TestFilterByBbox:
     ) -> None:
         """Serviço com 100% dos registros filtrados aparece em bbox_filtered_sources."""
         bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
-        cache.put("aerogeofisica", bbox, [
-            {"objectid": 1, "coordenada": {"longitude": -55.8, "latitude": -5.4}},  # fora
-            {"objectid": 2, "coordenada": {"longitude": -56.0, "latitude": -6.0}},  # fora
-        ])
+        cache.put(
+            "aerogeofisica",
+            bbox,
+            [
+                {"objectid": 1, "coordenada": {"longitude": -55.8, "latitude": -5.4}},  # fora
+                {"objectid": 2, "coordenada": {"longitude": -56.0, "latitude": -6.0}},  # fora
+            ],
+        )
         builder = ContextBuilder(mock_connector, cache)
         await builder.build(bbox)
         assert "aerogeofisica" in builder.bbox_filtered_sources
@@ -317,10 +325,14 @@ class TestFilterByBbox:
     ) -> None:
         """Se pelo menos um registro é mantido, o serviço NÃO aparece em bbox_filtered_sources."""
         bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
-        cache.put("aerogeofisica", bbox, [
-            {"objectid": 1, "coordenada": {"longitude": -48.3, "latitude": -19.0}},  # dentro
-            {"objectid": 2, "coordenada": {"longitude": -55.8, "latitude": -5.4}},   # fora
-        ])
+        cache.put(
+            "aerogeofisica",
+            bbox,
+            [
+                {"objectid": 1, "coordenada": {"longitude": -48.3, "latitude": -19.0}},  # dentro
+                {"objectid": 2, "coordenada": {"longitude": -55.8, "latitude": -5.4}},  # fora
+            ],
+        )
         builder = ContextBuilder(mock_connector, cache)
         await builder.build(bbox)
         assert "aerogeofisica" not in builder.bbox_filtered_sources

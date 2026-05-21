@@ -695,6 +695,7 @@ class Orchestrator:
         palavras significativas (excluindo stopwords). Mantém o gap mais longo
         (mais informativo) e descarta os menores que sejam subconjunto dele.
         """
+
         def significant_words(text: str) -> frozenset[str]:
             words = re.findall(r"[a-záéíóúâêîôûãõàüç]+", text.lower())
             return frozenset(

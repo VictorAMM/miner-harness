@@ -382,8 +382,8 @@ class TestOrchestratorHelpers:
         results: list[StepResult] = []
         geo_data: dict[str, list] = {
             "ocorrencias": [{"id": 1}],
-            "aerogeofisica": [],   # zero registros após filtro
-            "gravimetria": [],     # zero registros — serviço falhou
+            "aerogeofisica": [],  # zero registros após filtro
+            "gravimetria": [],  # zero registros — serviço falhou
         }
         caveats = Orchestrator._collect_caveats(
             results, geo_data, bbox_filtered_sources=["aerogeofisica"]
@@ -1317,4 +1317,4 @@ class TestValidateTargetCoords:
         result = Orchestrator._validate_target_coords([t_in, t_out], bbox)
         assert result[0].longitude == -48.3  # inside inalterado
         cx, cy = bbox.center
-        assert result[1].longitude == cx    # outside movido para centróide
+        assert result[1].longitude == cx  # outside movido para centróide
