@@ -649,6 +649,7 @@ aside {
         <button class="ctrl-btn" id="btn-anm" title="Concessões ANM/SIGMINE">🏗️ ANM</button>
         <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
         <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
+        <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
       </div>
       <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
         <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
@@ -932,6 +933,10 @@ let aeroprojVisible  = false;
 let aerogeoProjLayers = [];
 let aerogeoProjVisible = true;
 
+// Marcadores de litoestratigrafia (centróides de polígonos — offline)
+let litoLayers = [];
+let litoVisible = true;
+
 const _AEROGEO_TIPO_COLOR = {
   'magnetometria': '#2563eb',
   'gamaespectrometria': '#16a34a',
@@ -951,6 +956,30 @@ function _aerogeoIcon(tipo) {
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14">' +
     '<polygon points="7,1 13,13 1,13" fill="' + c + '" stroke="white" stroke-width="1.2"/></svg>';
   return L.divIcon({ html: svg, iconSize:[14,14], iconAnchor:[7,13], popupAnchor:[0,-14], className:'' });
+}
+
+const _LITO_HIER_COLOR = {
+  'formação': '#0ea5e9',
+  'grupo': '#7c3aed',
+  'suíte': '#16a34a',
+  'complexo': '#b45309',
+  'supergrupo': '#dc2626',
+  'sequência': '#0891b2',
+  'associação': '#65a30d',
+};
+function _litoColor(hierarquia) {
+  if (!hierarquia) return '#64748b';
+  var h = hierarquia.toLowerCase();
+  for (var k in _LITO_HIER_COLOR) {
+    if (h.indexOf(k) !== -1) return _LITO_HIER_COLOR[k];
+  }
+  return '#64748b';
+}
+function _litoIcon(hierarquia) {
+  var c = _litoColor(hierarquia);
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">' +
+    '<rect x="1" y="1" width="10" height="10" rx="2" fill="' + c + '" stroke="white" stroke-width="1.2"/></svg>';
+  return L.divIcon({ html: svg, iconSize:[12,12], iconAnchor:[6,6], popupAnchor:[0,-8], className:'' });
 }
 
 function createPriorityIcon(priority) {
@@ -1000,6 +1029,8 @@ function renderMapForReport(r) {
   if (ocorrLegend) { map.removeControl(ocorrLegend); ocorrLegend = null; }
   aerogeoProjLayers.forEach(function(l) { map.removeLayer(l); });
   aerogeoProjLayers = [];
+  litoLayers.forEach(function(l) { map.removeLayer(l); });
+  litoLayers = [];
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -1009,15 +1040,18 @@ function renderMapForReport(r) {
   usgsVisible = true;
   ocorrVisible = true;
   aerogeoProjVisible = true;
+  litoVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
   var btnOcorr = document.getElementById('btn-ocorr');
   var btnAeroProj = document.getElementById('btn-aerogeo-proj');
+  var btnLito = document.getElementById('btn-lito');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
   if (btnAeroProj) btnAeroProj.classList.remove('inactive');
+  if (btnLito) btnLito.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1140,6 +1174,26 @@ function renderMapForReport(r) {
     ocorrLegend.addTo(map);
   }
 
+  // Adicionar unidades litoestratigráficas — quadrados coloridos por hierarquia
+  var litoRecords = geo['litoestratigrafia'] || [];
+  litoRecords.forEach(function(u) {
+    var coord = u.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var hier = u.hierarquia || 'Unidade';
+    var color = _litoColor(hier);
+    var popup = '<b style="color:' + color + '">🗺 Litoestratigrafia</b><br>' +
+      (u.sigla ? '<b>' + u.sigla + '</b> — ' : '') +
+      (u.nome || '—') +
+      '<br>Hierarquia: ' + hier +
+      (u.litologia_principal ? '<br>Litologia: ' + u.litologia_principal : '') +
+      (u.idade ? '<br>Idade: ' + u.idade : '') +
+      '<br><span style="color:#94a3b8;font-size:0.82em">ID: ' + u.objectid + '</span>';
+    var marker = L.marker([coord.latitude, coord.longitude], { icon: _litoIcon(hier) })
+      .bindPopup(popup);
+    marker.addTo(map);
+    litoLayers.push(marker);
+  });
+
   setupMapControls(bboxBounds);
 }
 
@@ -1191,6 +1245,15 @@ function setupMapControls(bboxBounds) {
         this.classList.remove('inactive');
       }
       ocorrVisible = !ocorrVisible;
+    };
+  }
+
+  var btnLito = document.getElementById('btn-lito');
+  if (btnLito) {
+    btnLito.onclick = function() {
+      if (litoVisible) { litoLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { litoLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      litoVisible = !litoVisible;
     };
   }
 
@@ -1864,6 +1927,42 @@ function renderDadosTab(r) {
       html += '</tr>';
     });
     if (geoquim.length > 100) html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (geoquim.length - 100) + ' registros</td></tr>';
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+
+  // --- Litoestratigrafia ---
+  var lito = geo['litoestratigrafia'] || [];
+  html += '<h3 style="margin:0 0 .5rem;color:#0ea5e9">🗺 GeoSGB — Litoestratigrafia</h3>';
+  if (!lito.length) {
+    html += '<p style="color:#6b7280">Sem unidades litoestratigráficas para esta região.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + lito.length + ' unidade(s) litoestratigráfica(s) encontrada(s)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#f0f9ff">';
+    ['Sigla','Nome','Hierarquia','Litologia Principal','Idade','Coord (lat, lon)'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #0ea5e922;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    lito.slice(0, 100).forEach(function(u, i) {
+      var bg = i % 2 ? '#f0f9ff' : '#fff';
+      var coord = u.coordenada || {};
+      var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
+      var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
+      var hier = u.hierarquia || '—';
+      var color = _litoColor(u.hierarquia);
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:700;color:' + color + '">' + (u.sigla || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (u.nome || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' +
+        color + ';margin-right:5px;vertical-align:middle"></span>' + hier + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (u.litologia_principal || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (u.idade || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + lat + ', ' + lon + '</td>';
+      html += '</tr>';
+    });
+    if (lito.length > 100) html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' + (lito.length - 100) + ' registros</td></tr>';
     html += '</tbody></table></div>';
   }
 

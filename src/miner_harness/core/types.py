@@ -158,6 +158,7 @@ class UnidadeLitoestratigrafica(BaseModel):
     hierarquia: str | None = Field(default=None, description='Ex: "Formação", "Grupo"')
     litologia_principal: str | None = None
     idade: str | None = None
+    coordenada: Coordenada | None = None
 
 
 class ProjetoAerogeofisico(BaseModel):

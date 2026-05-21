@@ -340,10 +340,9 @@ class GeoSGBConnector:
             features = data.get("features", [])
             for feat in features:
                 attrs = feat.get("attributes", {})
-                geom = feat.get("geometry", {})
-                if geom:
-                    attrs["longitude"] = geom.get("x")
-                    attrs["latitude"] = geom.get("y")
+                xy = GeoSGBConnector._geom_to_xy(feat.get("geometry", {}))
+                if xy:
+                    attrs["longitude"], attrs["latitude"] = xy
                 all_features.append(attrs)
 
             # Verificar se há mais páginas
@@ -437,10 +436,9 @@ class GeoSGBConnector:
 
             for feat in batch_data.get("features", []):
                 attrs = feat.get("attributes", {})
-                geom = feat.get("geometry", {})
-                if geom:
-                    attrs["longitude"] = geom.get("x")
-                    attrs["latitude"] = geom.get("y")
+                xy = GeoSGBConnector._geom_to_xy(feat.get("geometry", {}))
+                if xy:
+                    attrs["longitude"], attrs["latitude"] = xy
                 all_features.append(attrs)
 
         return all_features
@@ -460,16 +458,35 @@ class GeoSGBConnector:
         features: list[dict[str, Any]] = []
         for result in results:
             attrs = dict(result.get("attributes", {}))
-            geom = result.get("geometry", {})
-            if geom:
-                attrs["longitude"] = geom.get("x")
-                attrs["latitude"] = geom.get("y")
+            xy = GeoSGBConnector._geom_to_xy(result.get("geometry", {}))
+            if xy:
+                attrs["longitude"], attrs["latitude"] = xy
             features.append(attrs)
         return features
 
     # ------------------------------------------------------------------
     # Construtores de modelos tipados
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _geom_to_xy(geom: dict[str, Any]) -> tuple[float, float] | None:
+        """Extrai (longitude, latitude) de uma geometria ArcGIS.
+
+        Suporta ponto (x/y) e polígono (rings → centróide aritmético do anel externo).
+        """
+        if not geom:
+            return None
+        x, y = geom.get("x"), geom.get("y")
+        if x is not None and y is not None:
+            return float(x), float(y)
+        rings = geom.get("rings")
+        if rings:
+            ring = rings[0]
+            if ring:
+                x = sum(p[0] for p in ring) / len(ring)
+                y = sum(p[1] for p in ring) / len(ring)
+                return x, y
+        return None
 
     @staticmethod
     def _safe_int(value: Any, default: int = 0) -> int:
@@ -613,6 +630,7 @@ class GeoSGBConnector:
             hierarquia=data.get("hierarquia"),
             litologia_principal=data.get("litologia_principal"),
             idade=data.get("idade"),
+            coordenada=GeoSGBConnector._parse_coordenada(data),
         )
 
     @staticmethod
