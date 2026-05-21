@@ -654,7 +654,8 @@ aside {
       <div class="map-ctrl-btns">
         <button class="ctrl-btn inactive" id="btn-atlas-mag" title="Anomalia Magnética de Campo Total — SGB/CPRM">🧲 Mag. Total</button>
         <button class="ctrl-btn inactive" id="btn-atlas-tern" title="Ternário K-Th-U — Gamaespectrometria — SGB/CPRM">🌈 K-Th-U</button>
-        <button class="ctrl-btn inactive" id="btn-aeroproj" title="Áreas dos projetos aerogeofísicos — SGB/CPRM">✈️ Projetos</button>
+        <button class="ctrl-btn inactive" id="btn-aeroproj" title="Polígonos de cobertura dos projetos aerogeofísicos — SGB/CPRM (requer internet)">✈️ Pol. Projetos</button>
+        <button class="ctrl-btn" id="btn-aerogeo-proj" title="Centroides dos projetos aerogeofísicos (dados do relatório, offline)">🔺 Proj. Aero.</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:0 2px">
         <span style="font-size:0.72rem;color:#94a3b8;white-space:nowrap">Opacidade:</span>
@@ -919,6 +920,31 @@ let atlasMagVisible  = false;
 let atlasTernVisible = false;
 let aeroprojVisible  = false;
 
+// Marcadores de projetos aerogeofísicos (dados do relatório — offline)
+let aerogeoProjLayers = [];
+let aerogeoProjVisible = true;
+
+const _AEROGEO_TIPO_COLOR = {
+  'magnetometria': '#2563eb',
+  'gamaespectrometria': '#16a34a',
+  'eletromagnetometria': '#d97706',
+};
+function _aerogeoColor(tipo) {
+  if (!tipo) return '#6b7280';
+  var t = tipo.toLowerCase();
+  if (t.indexOf('magnetometria') !== -1 && t.indexOf('gama') !== -1) return '#7c3aed';
+  for (var k in _AEROGEO_TIPO_COLOR) {
+    if (t.indexOf(k) !== -1) return _AEROGEO_TIPO_COLOR[k];
+  }
+  return '#6b7280';
+}
+function _aerogeoIcon(tipo) {
+  var c = _aerogeoColor(tipo);
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14">' +
+    '<polygon points="7,1 13,13 1,13" fill="' + c + '" stroke="white" stroke-width="1.2"/></svg>';
+  return L.divIcon({ html: svg, iconSize:[14,14], iconAnchor:[7,13], popupAnchor:[0,-14], className:'' });
+}
+
 function createPriorityIcon(priority) {
   const color = PRIORITY_COLORS[priority] || '#6b7280';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
@@ -964,6 +990,8 @@ function renderMapForReport(r) {
   ocorrLayers.forEach(function(l) { map.removeLayer(l); });
   ocorrLayers = [];
   if (ocorrLegend) { map.removeControl(ocorrLegend); ocorrLegend = null; }
+  aerogeoProjLayers.forEach(function(l) { map.removeLayer(l); });
+  aerogeoProjLayers = [];
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -972,13 +1000,16 @@ function renderMapForReport(r) {
   anmVisible = true;
   usgsVisible = true;
   ocorrVisible = true;
+  aerogeoProjVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
   var btnOcorr = document.getElementById('btn-ocorr');
+  var btnAeroProj = document.getElementById('btn-aerogeo-proj');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
+  if (btnAeroProj) btnAeroProj.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1036,6 +1067,25 @@ function renderMapForReport(r) {
       radius: radius, color: '#ea580c', fillColor: '#f97316', fillOpacity: 0.55, weight: 1.5,
     }).bindPopup(popup).addTo(map);
     usgsLayers.push(marker);
+  });
+
+  // Adicionar projetos aerogeofísicos — triângulos coloridos por tipo de levantamento
+  var aerogeoRecords = geo['aerogeofisica'] || [];
+  aerogeoRecords.forEach(function(p) {
+    var coord = p.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var tipo = p.tipo_levantamento || 'Desconhecido';
+    var color = _aerogeoColor(tipo);
+    var popup = '<b style="color:' + color + '">✈️ Projeto Aerogeofísico</b><br>' +
+      '<b>' + (p.nome_projeto || '—') + '</b>' +
+      (p.ano ? '<br>Ano: ' + p.ano : '') +
+      '<br>Tipo: ' + tipo +
+      (p.area_km2 ? '<br>Área: ' + p.area_km2.toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' km²' : '') +
+      '<br><span style="color:#94a3b8;font-size:0.82em">ID: ' + p.objectid + '</span>';
+    var marker = L.marker([coord.latitude, coord.longitude], { icon: _aerogeoIcon(tipo) })
+      .bindPopup(popup);
+    marker.addTo(map);
+    aerogeoProjLayers.push(marker);
   });
 
   // Adicionar camadas de ocorrências — pontos GeoSGB (coloridos por substância)
@@ -1157,6 +1207,20 @@ function setupMapControls(bboxBounds) {
       if (aeroprojVisible) { map.removeLayer(wmsAeroprojetos); this.classList.add('inactive'); }
       else { wmsAeroprojetos.addTo(map); this.classList.remove('inactive'); }
       aeroprojVisible = !aeroprojVisible;
+    };
+  }
+
+  var btnAeroProjData = document.getElementById('btn-aerogeo-proj');
+  if (btnAeroProjData) {
+    btnAeroProjData.onclick = function() {
+      if (aerogeoProjVisible) {
+        aerogeoProjLayers.forEach(function(l) { map.removeLayer(l); });
+        this.classList.add('inactive');
+      } else {
+        aerogeoProjLayers.forEach(function(l) { l.addTo(map); });
+        this.classList.remove('inactive');
+      }
+      aerogeoProjVisible = !aerogeoProjVisible;
     };
   }
 
