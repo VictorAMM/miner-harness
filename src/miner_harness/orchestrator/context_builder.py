@@ -90,9 +90,13 @@ class ContextBuilder:
             *(self._get_service_data(svc, method, bbox, conn) for svc, method, conn in all_services)
         )
 
+        cx = (bbox.lon_min + bbox.lon_max) / 2
+        cy = (bbox.lat_min + bbox.lat_max) / 2
+
         context: dict[str, list[dict[str, Any]]] = {}
         for (service, _, _), features in zip(all_services, results, strict=True):
             if len(features) > max_records_per_service:
+                features = self._sort_by_proximity(features, cx, cy)
                 logger.info(
                     "context_truncated",
                     service=service,
@@ -115,6 +119,31 @@ class ContextBuilder:
             await self._index_features(context)
 
         return context
+
+    @staticmethod
+    def _sort_by_proximity(
+        features: list[dict[str, Any]],
+        cx: float,
+        cy: float,
+    ) -> list[dict[str, Any]]:
+        """Ordena registros por distância ao centróide do bbox (mais próximo primeiro).
+
+        Registros sem coordenadas válidas vão para o final da lista.
+        Usa distância euclidiana ao quadrado (evita sqrt, suficiente para ranking).
+        """
+
+        def _dist2(f: dict[str, Any]) -> float:
+            coord = f.get("coordenada")
+            if not isinstance(coord, dict):
+                return float("inf")
+            try:
+                lon = float(coord["longitude"])
+                lat = float(coord["latitude"])
+            except (KeyError, TypeError, ValueError):
+                return float("inf")
+            return (lon - cx) ** 2 + (lat - cy) ** 2
+
+        return sorted(features, key=_dist2)
 
     async def _index_features(
         self,

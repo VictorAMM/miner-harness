@@ -88,9 +88,10 @@ Summary Display — integrated_summary exibido em caixa destacada nas abas Anál
 Target Dedup — _dedup_targets() mescla alvos sobrepostos (<10 km) via Haversine; re-numera prioridades ✅ CONCLUÍDA (2026-05-20) [v0.5.16]
 Context Window — --ctx-size CLI + num_ctx em OrchestratorConfig + OllamaClient; Modelfile qwen3-64k (65k ctx, KV Q4 em VRAM via OLLAMA_KV_CACHE_TYPE=q4_0) ✅ CONCLUÍDA (2026-05-20) [v0.5.17]
 Data Scale — limites de dados (records, chars, prev) escalados com √(num_ctx/4096): 65k ctx → 200 records, 32k chars, 8k prev ✅ CONCLUÍDA (2026-05-20) [v0.5.18]
+Geo Sort — ContextBuilder ordena registros por distância ao centróide do bbox antes de truncar (mais próximos primeiro; sem coord → fim da lista) ✅ CONCLUÍDA (2026-05-20) [v0.5.19]
 ```
 
-**Status**: v0.5.18 em produção. Próximo entregável: a definir.
+**Status**: v0.5.19 em produção. Próximo entregável: a definir.
 
 ## Grafo de Rastreabilidade
 
