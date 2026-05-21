@@ -230,6 +230,74 @@ class TestContextBuilder:
         assert len(context["usgs"]) == 10
 
 
+class TestFilterByBbox:
+    """Testes de _filter_by_bbox."""
+
+    def test_keeps_records_inside_bbox(self) -> None:
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        features = [
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}},  # dentro
+        ]
+        result = ContextBuilder._filter_by_bbox(features, bbox)
+        assert len(result) == 1
+
+    def test_removes_records_far_outside_bbox(self) -> None:
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        features = [
+            {"coordenada": {"longitude": -48.3, "latitude": -19.0}},  # dentro
+            {"coordenada": {"longitude": -55.8, "latitude": -5.4}},   # Pará — fora
+        ]
+        result = ContextBuilder._filter_by_bbox(features, bbox)
+        assert len(result) == 1
+        assert result[0]["coordenada"]["longitude"] == -48.3
+
+    def test_keeps_records_without_coordenada(self) -> None:
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        features = [
+            {},                       # sem coordenada — preservar
+            {"coordenada": None},     # coordenada nula — preservar
+        ]
+        result = ContextBuilder._filter_by_bbox(features, bbox)
+        assert len(result) == 2
+
+    def test_keeps_records_within_tolerance_buffer(self) -> None:
+        """Registros levemente fora do bbox (dentro do buffer 20%) são mantidos."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        # bbox width=2°, 20% buffer = 0.4° → lon_min efetivo = -51.4
+        features = [
+            {"coordenada": {"longitude": -51.3, "latitude": -6.0}},  # dentro do buffer
+            {"coordenada": {"longitude": -53.0, "latitude": -6.0}},  # fora do buffer
+        ]
+        result = ContextBuilder._filter_by_bbox(features, bbox)
+        assert len(result) == 1
+        assert result[0]["coordenada"]["longitude"] == -51.3
+
+    def test_keeps_records_with_invalid_coord_values(self) -> None:
+        """Coord com valores inválidos não deve ser filtrada (preservar por segurança)."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        features = [
+            {"coordenada": {"longitude": "bad", "latitude": -6.0}},
+        ]
+        result = ContextBuilder._filter_by_bbox(features, bbox)
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_build_filters_out_of_bbox_records(
+        self, mock_connector: MagicMock, cache: CacheManager
+    ) -> None:
+        """build() deve remover registros com coordenadas fora do bbox."""
+        bbox = BoundingBox(lon_min=-49.0, lat_min=-19.5, lon_max=-47.5, lat_max=-18.5)
+        # Um registro dentro do bbox, um fora (Pará)
+        cache.put("aerogeofisica", bbox, [
+            {"objectid": 1, "coordenada": {"longitude": -48.3, "latitude": -19.0}},
+            {"objectid": 2, "coordenada": {"longitude": -55.8, "latitude": -5.4}},
+        ])
+        builder = ContextBuilder(mock_connector, cache)
+        context = await builder.build(bbox)
+        assert len(context["aerogeofisica"]) == 1
+        assert context["aerogeofisica"][0]["objectid"] == 1
+
+
 class TestSortByProximity:
     """Testes de _sort_by_proximity."""
 

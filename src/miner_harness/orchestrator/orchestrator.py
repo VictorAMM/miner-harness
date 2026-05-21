@@ -205,7 +205,8 @@ class Orchestrator:
             step_results.append(result)
 
         # 4. Extrair targets do resultado do Evaluator
-        targets = self._extract_targets(step_results)
+        raw_targets = self._extract_targets(step_results)
+        targets = self._validate_target_coords(raw_targets, bbox)
 
         # 5. Montar relatório
         total_ms = int((time.monotonic() - start) * 1000)
@@ -220,6 +221,7 @@ class Orchestrator:
             data_quality_score=self._compute_quality(step_results, geological_data),
             total_duration_ms=total_ms,
             model_used=self._config.orchestrator.model,
+            missing_sources=[k for k, v in geological_data.items() if not v],
             geological_data=geological_data,
         )
 
@@ -447,6 +449,46 @@ class Orchestrator:
 
         # Re-numerar prioridades
         return [t.model_copy(update={"priority": i + 1}) for i, t in enumerate(kept)]
+
+    @staticmethod
+    def _validate_target_coords(
+        targets: list[MineralTarget],
+        bbox: BoundingBox,
+    ) -> list[MineralTarget]:
+        """Garante que todos os alvos têm coordenadas dentro do bbox.
+
+        Se o LLM retornar coordenadas fora do bbox (contaminação por dados
+        de outra região), o alvo é movido para o centróide do bbox.
+        O rationale é preservado e um aviso é acrescentado.
+        """
+        cx, cy = bbox.center
+        result = []
+        for t in targets:
+            if bbox.contains_point(t.longitude, t.latitude):
+                result.append(t)
+            else:
+                logger.warning(
+                    "target_coord_out_of_bbox",
+                    name=t.name,
+                    lon=t.longitude,
+                    lat=t.latitude,
+                    bbox=bbox.as_tuple(),
+                )
+                updated_rationale = (
+                    f"{t.rationale} "
+                    f"[Coordenadas originais ({t.longitude:.4f}, {t.latitude:.4f}) "
+                    f"fora do bbox — posicionado no centróide da região.]"
+                )
+                result.append(
+                    t.model_copy(
+                        update={
+                            "longitude": cx,
+                            "latitude": cy,
+                            "rationale": updated_rationale,
+                        }
+                    )
+                )
+        return result
 
     @staticmethod
     def _findings_to_targets(evaluator_result: StepResult) -> list[MineralTarget]:

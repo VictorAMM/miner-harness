@@ -299,6 +299,10 @@ class ProspectionReport(BaseModel):
     data_quality_score: float = Field(ge=0, le=1)
     total_duration_ms: int
     model_used: str
+    missing_sources: list[str] = Field(
+        default_factory=list,
+        description="Fontes de dados que não retornaram registros para esta análise",
+    )
     geological_data: dict[str, list[dict[str, Any]]] | None = Field(
         default=None,
         description="Dados brutos usados na análise (opcional, para visualização no dashboard)",

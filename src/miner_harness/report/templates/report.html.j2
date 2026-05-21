@@ -89,6 +89,22 @@ header .quality-badge {
 header .spacer { flex: 1; }
 
 /* ================================================================
+   DATA-COVERAGE BANNER
+================================================================ */
+#coverage-banner {
+  display: none;
+  background: #431407;
+  border-bottom: 1px solid #ea580c;
+  padding: 5px 20px;
+  font-size: 11px;
+  color: #fed7aa;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+#coverage-banner strong { color: #fb923c; }
+
+/* ================================================================
    MAIN LAYOUT
 ================================================================ */
 .layout {
@@ -600,6 +616,12 @@ aside {
   <span class="meta" id="h-model"></span>
 </header>
 
+<!-- Banner de cobertura de dados — visível quando há fontes indisponíveis -->
+<div id="coverage-banner">
+  <strong>⚠ Cobertura parcial:</strong>
+  <span id="coverage-banner-text"></span>
+</div>
+
 <!-- ============================================================
      MAIN: SIDEBAR + MAPA
 ============================================================ -->
@@ -838,6 +860,19 @@ function renderHeader(r) {
   const date = new Date(r.analysis_date).toLocaleString('pt-BR');
   document.getElementById('h-meta').textContent = date;
   document.getElementById('h-model').textContent = '🤖 ' + r.model_used;
+
+  // Banner de cobertura — visível quando há fontes indisponíveis
+  const missing = r.missing_sources || [];
+  const banner = document.getElementById('coverage-banner');
+  if (missing.length > 0) {
+    const total = missing.length + (r.geological_data ? Object.keys(r.geological_data).length : 8);
+    document.getElementById('coverage-banner-text').textContent =
+      missing.length + ' de ' + total + ' fontes indisponíveis: ' + missing.join(', ') +
+      '. Resultados baseados em dados parciais — interpretar com cautela.';
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 // ============================================================
