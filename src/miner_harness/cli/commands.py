@@ -348,7 +348,7 @@ def cmd_index_stats() -> int:
 def _load_user_drillholes(
     csv_path: str | None,
     storage: StorageConfig,
-) -> list[dict]:
+) -> list[dict[str, object]]:
     """Carrega furos de sondagem do usuário de CSV ou da store persistente.
 
     Se csv_path é fornecido, lê diretamente do arquivo (sem persistir).
