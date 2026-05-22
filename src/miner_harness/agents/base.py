@@ -157,6 +157,15 @@ class BaseAgent(ABC):
                     + f"\n\n<geoquimica_normalizada>\n{norm_text}\n</geoquimica_normalizada>"
                 )
 
+        # Injetar score de prospectividade (PRD-002 F3)
+        grid_records = geological_data.get("prospectivity_grid", [])
+        if grid_records:
+            grid_text = grid_records[0].get("text", "")
+            if grid_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<prospectivity_score>\n{grid_text}\n</prospectivity_score>"
+                )
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]

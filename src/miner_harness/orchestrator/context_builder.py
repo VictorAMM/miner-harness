@@ -153,6 +153,20 @@ class ContextBuilder:
                     n_anomalous=len(norm.anomalous_elements),
                 )
 
+        # Score de prospectividade por weighted overlay (PRD-002 F3)
+        from miner_harness.prospectivity import ProspectivityScorer  # noqa: PLC0415
+
+        grid = ProspectivityScorer().score(bbox, context)
+        if grid:
+            context["prospectivity_grid"] = [
+                {"text": grid.format_for_prompt(), "geojson": grid.to_geojson()}
+            ]
+            logger.info(
+                "prospectivity_grid",
+                n_cells=len(grid.cells),
+                max_score=round(max(c.score for c in grid.cells), 1),
+            )
+
         return context
 
     @staticmethod

@@ -673,6 +673,7 @@ aside {
         <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
         <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
         <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos</button>
+        <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
       </div>
       <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
         <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
@@ -952,6 +953,8 @@ let usgsVisible = true;
 let ocorrLayers = [];
 let ocorrVisible = true;
 let ocorrLegend = null;
+let prospectLayers = [];
+let prospectVisible = true;
 
 // Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
 const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
@@ -1069,6 +1072,8 @@ function renderMapForReport(r) {
   if (ocorrLegend) { map.removeControl(ocorrLegend); ocorrLegend = null; }
   aerogeoProjLayers.forEach(function(l) { map.removeLayer(l); });
   aerogeoProjLayers = [];
+  prospectLayers.forEach(function(l) { map.removeLayer(l); });
+  prospectLayers = [];
   litoLayers.forEach(function(l) { map.removeLayer(l); });
   litoLayers = [];
   furosLayers.forEach(function(l) { map.removeLayer(l); });
@@ -1084,6 +1089,7 @@ function renderMapForReport(r) {
   aerogeoProjVisible = true;
   litoVisible = true;
   furosVisible = true;
+  prospectVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
@@ -1091,12 +1097,14 @@ function renderMapForReport(r) {
   var btnAeroProj = document.getElementById('btn-aerogeo-proj');
   var btnLito = document.getElementById('btn-lito');
   var btnFuros = document.getElementById('btn-furos');
+  var btnProspect = document.getElementById('btn-prospect');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
   if (btnAeroProj) btnAeroProj.classList.remove('inactive');
   if (btnLito) btnLito.classList.remove('inactive');
   if (btnFuros) btnFuros.classList.remove('inactive');
+  if (btnProspect) btnProspect.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1263,6 +1271,42 @@ function renderMapForReport(r) {
     furosLayers.push(marker);
   });
 
+  // Heatmap de prospectividade (PRD-002 F3)
+  var prospGrid = geo['prospectivity_grid'];
+  if (prospGrid && prospGrid.length > 0 && prospGrid[0].geojson) {
+    var pgj = prospGrid[0].geojson;
+    pgj.features.forEach(function(feat) {
+      var score = feat.properties.score || 0;
+      // Interpolação verde→amarelo→vermelho para score 0→50→100
+      var r, g, b;
+      if (score <= 50) {
+        r = Math.round(score * 2 * 2.55);
+        g = 200;
+        b = 0;
+      } else {
+        r = 220;
+        g = Math.round((100 - score) * 2 * 2);
+        b = 0;
+      }
+      var color = 'rgb(' + r + ',' + g + ',' + b + ')';
+      var opacity = 0.15 + (score / 100) * 0.45;
+      var coords = feat.geometry.coordinates[0];
+      var latlngs = coords.map(function(c) { return [c[1], c[0]]; });
+      var popup = '<b>Score de Prospectividade</b><br>' +
+        '<b style="font-size:1.1em">' + score.toFixed(1) + ' / 100</b><br>' +
+        'Ocorrências: ' + (feat.properties.occurrence_density * 100).toFixed(0) + '%<br>' +
+        'Bouguer: ' + (feat.properties.bouguer_anomaly * 100).toFixed(0) + '%<br>' +
+        'Geoquímica: ' + (feat.properties.geochemical_anomaly * 100).toFixed(0) + '%<br>' +
+        'Estrutural: ' + (feat.properties.structural_indicator * 100).toFixed(0) + '%';
+      var poly = L.polygon(latlngs, {
+        color: color, fillColor: color, fillOpacity: opacity,
+        weight: 0.3, opacity: 0.4,
+      }).bindPopup(popup);
+      poly.addTo(map);
+      prospectLayers.push(poly);
+    });
+  }
+
   setupMapControls(bboxBounds);
 }
 
@@ -1332,6 +1376,15 @@ function setupMapControls(bboxBounds) {
       if (furosVisible) { furosLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
       else { furosLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
       furosVisible = !furosVisible;
+    };
+  }
+
+  var btnProspect = document.getElementById('btn-prospect');
+  if (btnProspect) {
+    btnProspect.onclick = function() {
+      if (prospectVisible) { prospectLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { prospectLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      prospectVisible = !prospectVisible;
     };
   }
 
