@@ -144,7 +144,11 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- LINEAMENTOS ESTRUTURAIS INFERIDOS = células com HGM acima do limiar (média+1σ):\n"
         "  máximos de gradiente horizontal coincidem com bordas de corpos e falhas\n"
         "- Correlacione os lineamentos gravimétricos com os lineamentos de outros métodos\n"
-        "- HGM elevado sobre ocorrência mineral = contato litológico controlando a mineralização"
+        "- HGM elevado sobre ocorrência mineral = contato litológico controlando a mineralização\n"
+        "Se houver furos do usuário (user_drillholes) no contexto:\n"
+        "- PRIORIDADE MÁXIMA: dados de campo proprietários com litologia e teores reais\n"
+        "- Use as coordenadas X/Y para inferir a orientação espacial das estruturas investigadas\n"
+        "- Litologia e alteração interceptadas revelam o estilo mineralização e controle estrutural"
     ),
     AnalysisStep.MAGMATIC_FERTILITY: (
         "PASSO 3 — FERTILIDADE MAGMÁTICA\n"
@@ -239,7 +243,12 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Mencione o contexto regulatório (fase, titular, substâncias) dos alvos\n"
         "- Concessões ativas elevam prioridade — risco regulatório reduzido\n"
         "Se houver dados sísmicos USGS no contexto:\n"
-        "- Correlacione alvos com clusters sísmicos — indicador de permeabilidade crustal"
+        "- Correlacione alvos com clusters sísmicos — indicador de permeabilidade crustal\n"
+        "Se houver furos do usuário (user_drillholes) no contexto:\n"
+        "- EVIDÊNCIA MAIS DIRETA DISPONÍVEL: teores interceptados confirmam mineralização real\n"
+        "- Priorize OBRIGATORIAMENTE alvos próximos a furos com teores significativos\n"
+        "- Use as coordenadas X/Y dos furos como âncoras geoespaciais para posicionar alvos\n"
+        "- Em recommended_followup inclua: 'Aprofundar sondagem além do intercepto mineralizado'"
     ),
 }
 

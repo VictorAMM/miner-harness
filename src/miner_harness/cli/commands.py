@@ -38,6 +38,7 @@ async def cmd_analyze(
     llm_timeout: int | None = None,
     ctx_size: int | None = None,
     output_gis: str | None = None,
+    drillholes_csv: str | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -107,6 +108,11 @@ async def cmd_analyze(
             )
             return 1
 
+        # Carregar furos de sondagem do usuário (PRD-002 F7)
+        user_drillholes = _load_user_drillholes(drillholes_csv, storage)
+        if user_drillholes:
+            print(f"Furos do usuário: {len(user_drillholes)} trechos carregados", flush=True)
+
         # Run analysis
         orch: Orchestrator
         if profile:
@@ -116,7 +122,7 @@ async def cmd_analyze(
         else:
             orch = Orchestrator(connector, cache, llm, config)
         print("Running analysis pipeline...")
-        report = await orch.analyze_region(bb, region)
+        report = await orch.analyze_region(bb, region, user_drillholes=user_drillholes)
 
         # Validate
         validator = ReportValidator()
@@ -337,6 +343,69 @@ def cmd_index_stats() -> int:
         return 0
     finally:
         store.close()
+
+
+def _load_user_drillholes(
+    csv_path: str | None,
+    storage: StorageConfig,
+) -> list[dict]:
+    """Carrega furos de sondagem do usuário de CSV ou da store persistente.
+
+    Se csv_path é fornecido, lê diretamente do arquivo (sem persistir).
+    Caso contrário, consulta a DrillholeStore permanente em miner_home.
+    Retorna lista vazia se não há furos disponíveis.
+    """
+    from miner_harness.ingestion.drillhole_parser import DrillholeParser  # noqa: PLC0415
+    from miner_harness.ingestion.drillhole_store import DrillholeStore  # noqa: PLC0415
+
+    if csv_path:
+        try:
+            return DrillholeParser.parse(csv_path)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Aviso: não foi possível carregar furos de '{csv_path}': {exc}", file=sys.stderr)
+            return []
+
+    # Tentar store persistente
+    try:
+        with DrillholeStore(storage.miner_home) as store:
+            return store.query_all()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("drillhole_store_load_failed", error=str(exc))
+        return []
+
+
+def cmd_index_drillholes(csv_path: str) -> int:
+    """Index user drillhole CSV into the persistent DrillholeStore.
+
+    Replaces any previously stored drillholes with the contents of the CSV.
+    """
+    from miner_harness.ingestion.drillhole_parser import DrillholeParser  # noqa: PLC0415
+    from miner_harness.ingestion.drillhole_store import DrillholeStore  # noqa: PLC0415
+
+    storage = StorageConfig()
+    storage.ensure_dirs()
+
+    try:
+        records = DrillholeParser.parse(csv_path)
+    except FileNotFoundError:
+        print(f"Error: file not found: {csv_path}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
+        print(f"Error: invalid CSV: {exc}", file=sys.stderr)
+        return 1
+
+    if not records:
+        print("Aviso: CSV não contém registros válidos.")
+        return 0
+
+    with DrillholeStore(storage.miner_home) as store:
+        removed = store.clear()
+        inserted = store.insert_batch(records)
+
+    if removed:
+        print(f"  → {removed} furo(s) anterior(es) removido(s).")
+    print(f"  ✓ {inserted} trecho(s) indexado(s) em {storage.miner_home / 'drillholes.db'}")
+    return 0
 
 
 def _print_report_summary(report: ProspectionReport) -> None:

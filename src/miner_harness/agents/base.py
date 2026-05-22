@@ -175,6 +175,15 @@ class BaseAgent(ABC):
                     geo_data_str + f"\n\n<bouguer_gradient>\n{bgrid_text}\n</bouguer_gradient>"
                 )
 
+        # Injetar furos de sondagem do usuário (PRD-002 F7)
+        user_dh_records = geological_data.get("user_drillholes", [])
+        if user_dh_records:
+            dh_text = user_dh_records[0].get("text", "")
+            if dh_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<user_drillholes>\n{dh_text}\n</user_drillholes>"
+                )
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]

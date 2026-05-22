@@ -20,14 +20,15 @@ from typing import Any
 
 from miner_harness.core.types import AnalysisStep, Confidence
 
-# Chaves "computadas" — produzidas internamente, não contam como
-# fontes de dados brutas para cálculo de volume.
+# Chaves "computadas" — produzidas internamente ou formatadas como meta-registro,
+# não contam como fontes de dados brutas para cálculo de volume.
 _COMPUTED_KEYS: frozenset[str] = frozenset(
     {
         "geoquimica_normalizada",
         "prospectivity_grid",
         "bouguer_gradient",
         "rag_context",
+        "user_drillholes",  # meta-registro formatado (PRD-002 F7)
     }
 )
 

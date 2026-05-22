@@ -71,6 +71,7 @@ class ContextBuilder:
         bbox: BoundingBox,
         *,
         max_records_per_service: int = MAX_RECORDS_PER_SERVICE,
+        user_drillholes: list[dict[str, Any]] | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
         """Coleta dados de todos os serviços para a região em paralelo.
 
@@ -182,6 +183,19 @@ class ContextBuilder:
                     n_source=bgrid.n_source_points,
                     n_lineaments=len(bgrid.lineament_cells),
                 )
+
+        # Furos de sondagem do usuário (PRD-002 F7)
+        if user_drillholes:
+            from miner_harness.ingestion.drillhole_parser import DrillholeParser  # noqa: PLC0415
+
+            dh_text = DrillholeParser.format_for_prompt(user_drillholes)
+            dh_geojson = DrillholeParser.to_geojson(user_drillholes)
+            context["user_drillholes"] = [{"text": dh_text, "geojson": dh_geojson}]
+            logger.info(
+                "user_drillholes_injected",
+                n_records=len(user_drillholes),
+                n_collar_points=len(dh_geojson["features"]),
+            )
 
         return context
 

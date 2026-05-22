@@ -148,6 +148,7 @@ class Orchestrator:
         bbox: BoundingBox,
         region_name: str,
         steps: list[AnalysisStep] | None = None,
+        user_drillholes: list[dict[str, Any]] | None = None,
     ) -> ProspectionReport:
         """Executa análise completa de prospecção mineral.
 
@@ -176,6 +177,7 @@ class Orchestrator:
         geological_data = await self._context_builder.build(
             bbox,
             max_records_per_service=self._config.orchestrator.effective_max_records,
+            user_drillholes=user_drillholes,
         )
         await self._on_data_fetched(geological_data)
 

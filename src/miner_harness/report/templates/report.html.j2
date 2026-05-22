@@ -675,6 +675,7 @@ aside {
         <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos</button>
         <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
         <button class="ctrl-btn" id="btn-bouguer" title="Gradiente horizontal do campo Bouguer — lineamentos gravimétricas (HGM)">🌐 Bouguer HGM</button>
+        <button class="ctrl-btn" id="btn-user-dh" title="Furos de sondagem do usuário (dados proprietários — PRD-002 F7)">🟠 Furos Usuário</button>
       </div>
       <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
         <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
@@ -958,6 +959,8 @@ let prospectLayers = [];
 let prospectVisible = true;
 let bouguerLayers = [];
 let bouguerVisible = true;
+let userDhLayers = [];
+let userDhVisible = true;
 
 // Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
 const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
@@ -1083,6 +1086,8 @@ function renderMapForReport(r) {
   litoLayers = [];
   furosLayers.forEach(function(l) { map.removeLayer(l); });
   furosLayers = [];
+  userDhLayers.forEach(function(l) { map.removeLayer(l); });
+  userDhLayers = [];
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -1096,6 +1101,7 @@ function renderMapForReport(r) {
   furosVisible = true;
   prospectVisible = true;
   bouguerVisible = true;
+  userDhVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
@@ -1105,6 +1111,7 @@ function renderMapForReport(r) {
   var btnFuros = document.getElementById('btn-furos');
   var btnProspect = document.getElementById('btn-prospect');
   var btnBouguer = document.getElementById('btn-bouguer');
+  var btnUserDh = document.getElementById('btn-user-dh');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
@@ -1113,6 +1120,7 @@ function renderMapForReport(r) {
   if (btnFuros) btnFuros.classList.remove('inactive');
   if (btnProspect) btnProspect.classList.remove('inactive');
   if (btnBouguer) btnBouguer.classList.remove('inactive');
+  if (btnUserDh) btnUserDh.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1355,6 +1363,40 @@ function renderMapForReport(r) {
     });
   }
 
+  // Furos de sondagem do usuário — pontos laranja (PRD-002 F7)
+  var userDhGrid = geo['user_drillholes'];
+  if (userDhGrid && userDhGrid.length > 0 && userDhGrid[0].geojson) {
+    var dhjson = userDhGrid[0].geojson;
+    dhjson.features.forEach(function(feat) {
+      var coords = feat.geometry.coordinates;
+      var props = feat.properties || {};
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="width:12px;height:12px;background:#f97316;border:2.5px solid #fff;' +
+              'border-radius:50%;box-shadow:0 0 6px rgba(249,115,22,0.8)"></div>',
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      });
+      var assays = [];
+      Object.keys(props).forEach(function(k) {
+        if (['hole_id','from_m','to_m','lithology','alteration'].indexOf(k) === -1) {
+          if (props[k] != null) assays.push(k.toUpperCase() + '=' + Number(props[k]).toPrecision(3));
+        }
+      });
+      var popup = '<b style="color:#f97316">🟠 Furo do Usuário</b><br>' +
+        (props.hole_id ? '<b>' + props.hole_id + '</b><br>' : '') +
+        (props.lithology ? 'Lito: ' + props.lithology + '<br>' : '') +
+        (props.alteration ? 'Alt: ' + props.alteration + '<br>' : '') +
+        (props.from_m != null && props.to_m != null
+          ? 'Trecho: ' + Number(props.from_m).toFixed(1) + '–' + Number(props.to_m).toFixed(1) + ' m<br>'
+          : '') +
+        (assays.length ? '<span style="color:#ea580c;font-size:.82em">' + assays.join(' ') + '</span>' : '');
+      var marker = L.marker([coords[1], coords[0]], { icon: icon }).bindPopup(popup);
+      marker.addTo(map);
+      userDhLayers.push(marker);
+    });
+  }
+
   setupMapControls(bboxBounds);
 }
 
@@ -1442,6 +1484,16 @@ function setupMapControls(bboxBounds) {
       if (bouguerVisible) { bouguerLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
       else { bouguerLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
       bouguerVisible = !bouguerVisible;
+    };
+  }
+
+  var btnUserDhCtrl = document.getElementById('btn-user-dh');
+  if (btnUserDhCtrl) {
+    if (!userDhLayers.length) btnUserDhCtrl.classList.add('inactive');
+    btnUserDhCtrl.onclick = function() {
+      if (userDhVisible) { userDhLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { userDhLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      userDhVisible = !userDhVisible;
     };
   }
 
@@ -1922,6 +1974,44 @@ function renderDadosTab(r) {
   var usgs = geo['usgs'] || [];
 
   var html = '<div style="padding:1rem">';
+
+  // --- Furos do Usuário (PRD-002 F7) ---
+  var userDhFeats = (geo['user_drillholes'] && geo['user_drillholes'][0] && geo['user_drillholes'][0].geojson)
+    ? geo['user_drillholes'][0].geojson.features : [];
+  html += '<h3 style="margin:0 0 .5rem;color:#ea580c">🟠 Furos de Sondagem do Usuário</h3>';
+  if (!userDhFeats.length) {
+    html += '<p style="color:#6b7280">Sem furos de sondagem do usuário nesta análise. ' +
+      'Use <code>miner-harness index drillholes &lt;csv&gt;</code> para indexação permanente ' +
+      'ou <code>--drillholes &lt;csv&gt;</code> por análise.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + userDhFeats.length + ' furo(s) proprietário(s) (posições collar)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#fff7ed">';
+    ['Furo','Litologia','Alteração','De (m)','Até (m)','Lon, Lat'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #ea580c22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    userDhFeats.slice(0, 100).forEach(function(f, i) {
+      var bg = i % 2 ? '#fff7ed' : '#fff';
+      var p = f.properties || {};
+      var c = f.geometry.coordinates;
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:700;color:#f97316">' + (p.hole_id || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (p.lithology || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (p.alteration || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (p.from_m != null ? Number(p.from_m).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (p.to_m != null ? Number(p.to_m).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + Number(c[0]).toFixed(5) + ', ' + Number(c[1]).toFixed(5) + '</td>';
+      html += '</tr>';
+    });
+    if (userDhFeats.length > 100) {
+      html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' +
+        (userDhFeats.length - 100) + ' furos</td></tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
 
   // --- ANM ---
   html += '<h3 style="margin:0 0 .5rem;color:#7c3aed">🏗️ ANM/SIGMINE — Concessões Minerárias</h3>';
