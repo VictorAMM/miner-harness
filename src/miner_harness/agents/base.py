@@ -166,6 +166,15 @@ class BaseAgent(ABC):
                     geo_data_str + f"\n\n<prospectivity_score>\n{grid_text}\n</prospectivity_score>"
                 )
 
+        # Injetar derivadas gravimétricas Bouguer (PRD-002 F5)
+        bgrid_records = geological_data.get("bouguer_gradient", [])
+        if bgrid_records:
+            bgrid_text = bgrid_records[0].get("text", "")
+            if bgrid_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<bouguer_gradient>\n{bgrid_text}\n</bouguer_gradient>"
+                )
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]

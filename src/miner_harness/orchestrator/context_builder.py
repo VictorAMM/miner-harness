@@ -167,6 +167,22 @@ class ContextBuilder:
                 max_score=round(max(c.score for c in grid.cells), 1),
             )
 
+        # Derivadas gravimétricas Bouguer (PRD-002 F5)
+        grav_records = context.get("gravimetria", [])
+        if grav_records:
+            from miner_harness.geophysics import BouguerProcessor  # noqa: PLC0415
+
+            bgrid = BouguerProcessor().process(grav_records, bbox)
+            if bgrid:
+                context["bouguer_gradient"] = [
+                    {"text": bgrid.format_for_prompt(), "geojson": bgrid.to_geojson()}
+                ]
+                logger.info(
+                    "bouguer_gradient",
+                    n_source=bgrid.n_source_points,
+                    n_lineaments=len(bgrid.lineament_cells),
+                )
+
         return context
 
     @staticmethod

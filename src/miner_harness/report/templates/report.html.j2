@@ -674,6 +674,7 @@ aside {
         <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
         <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos</button>
         <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
+        <button class="ctrl-btn" id="btn-bouguer" title="Gradiente horizontal do campo Bouguer — lineamentos gravimétricas (HGM)">🌐 Bouguer HGM</button>
       </div>
       <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
         <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
@@ -955,6 +956,8 @@ let ocorrVisible = true;
 let ocorrLegend = null;
 let prospectLayers = [];
 let prospectVisible = true;
+let bouguerLayers = [];
+let bouguerVisible = true;
 
 // Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
 const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
@@ -1074,6 +1077,8 @@ function renderMapForReport(r) {
   aerogeoProjLayers = [];
   prospectLayers.forEach(function(l) { map.removeLayer(l); });
   prospectLayers = [];
+  bouguerLayers.forEach(function(l) { map.removeLayer(l); });
+  bouguerLayers = [];
   litoLayers.forEach(function(l) { map.removeLayer(l); });
   litoLayers = [];
   furosLayers.forEach(function(l) { map.removeLayer(l); });
@@ -1090,6 +1095,7 @@ function renderMapForReport(r) {
   litoVisible = true;
   furosVisible = true;
   prospectVisible = true;
+  bouguerVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
@@ -1098,6 +1104,7 @@ function renderMapForReport(r) {
   var btnLito = document.getElementById('btn-lito');
   var btnFuros = document.getElementById('btn-furos');
   var btnProspect = document.getElementById('btn-prospect');
+  var btnBouguer = document.getElementById('btn-bouguer');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
@@ -1105,6 +1112,7 @@ function renderMapForReport(r) {
   if (btnLito) btnLito.classList.remove('inactive');
   if (btnFuros) btnFuros.classList.remove('inactive');
   if (btnProspect) btnProspect.classList.remove('inactive');
+  if (btnBouguer) btnBouguer.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1307,6 +1315,46 @@ function renderMapForReport(r) {
     });
   }
 
+  // Derivadas gravimétricas Bouguer — HGM (PRD-002 F5)
+  var bouguerGrid = geo['bouguer_gradient'];
+  if (bouguerGrid && bouguerGrid.length > 0 && bouguerGrid[0].geojson) {
+    var bgj = bouguerGrid[0].geojson;
+    // Calcular máximo de HGM para normalização
+    var hgmMax = 0;
+    bgj.features.forEach(function(feat) {
+      var h = feat.properties.hgm || 0;
+      if (h > hgmMax) hgmMax = h;
+    });
+    bgj.features.forEach(function(feat) {
+      var hgm = feat.properties.hgm || 0;
+      var bouguer = feat.properties.bouguer || 0;
+      var isLin = feat.properties.is_lineament;
+      // Cor: lineamentos em magenta; gradiente de branco→azul para demais
+      var normHgm = hgmMax > 0 ? hgm / hgmMax : 0;
+      var color, fillOpacity;
+      if (isLin) {
+        color = '#e879f9';   // magenta — lineamento estrutural
+        fillOpacity = 0.50;
+      } else {
+        var intensity = Math.round(normHgm * 180);
+        color = 'rgb(' + (220 - intensity) + ',' + (220 - intensity) + ',255)';
+        fillOpacity = 0.10 + normHgm * 0.30;
+      }
+      var coords = feat.geometry.coordinates[0];
+      var latlngs = coords.map(function(c) { return [c[1], c[0]]; });
+      var popup = '<b>🌐 Gradiente Bouguer (HGM)</b><br>' +
+        'Bouguer: <b>' + bouguer.toFixed(1) + ' mGal</b><br>' +
+        'HGM: <b>' + hgm.toFixed(1) + ' mGal/km</b><br>' +
+        (isLin ? '<span style="color:#e879f9;font-weight:600">⚡ Lineamento estrutural inferido</span>' : '');
+      var poly = L.polygon(latlngs, {
+        color: color, fillColor: color, fillOpacity: fillOpacity,
+        weight: isLin ? 1.2 : 0.3, opacity: isLin ? 0.9 : 0.4,
+      }).bindPopup(popup);
+      poly.addTo(map);
+      bouguerLayers.push(poly);
+    });
+  }
+
   setupMapControls(bboxBounds);
 }
 
@@ -1385,6 +1433,15 @@ function setupMapControls(bboxBounds) {
       if (prospectVisible) { prospectLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
       else { prospectLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
       prospectVisible = !prospectVisible;
+    };
+  }
+
+  var btnBouguer = document.getElementById('btn-bouguer');
+  if (btnBouguer) {
+    btnBouguer.onclick = function() {
+      if (bouguerVisible) { bouguerLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { bouguerLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      bouguerVisible = !bouguerVisible;
     };
   }
 
