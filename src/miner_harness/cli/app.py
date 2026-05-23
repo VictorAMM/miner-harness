@@ -179,6 +179,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "Use 'miner-harness index drillholes <csv>' para indexação permanente."
         ),
     )
+    analyze_parser.add_argument(
+        "--output-docx",
+        default=None,
+        metavar="ARQUIVO",
+        help=(
+            "Exportar relatório técnico em formato DOCX (Word). "
+            "Inclui sumário executivo, tabela de alvos, justificativas e análise por etapa. "
+            "Compatível com due diligence e relatórios JORC-preliminares. "
+            "Ex: --output-docx relatorio.docx"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -292,6 +303,7 @@ def main(argv: list[str] | None = None) -> int:
                     ctx_size=args.ctx_size,
                     output_gis=args.output_gis,
                     drillholes_csv=args.drillholes,
+                    output_docx=args.output_docx,
                 )
             )
         if args.command == "validate":

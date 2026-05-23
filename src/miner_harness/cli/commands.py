@@ -39,6 +39,7 @@ async def cmd_analyze(
     ctx_size: int | None = None,
     output_gis: str | None = None,
     drillholes_csv: str | None = None,
+    output_docx: str | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -151,6 +152,10 @@ async def cmd_analyze(
         if output_gis:
             _export_gis(report, Path(output_gis))
 
+        # Exportação DOCX (PRD-002 F9)
+        if output_docx:
+            _export_docx(report, Path(output_docx))
+
         # Gerar dashboard HTML estático
         if not no_html:
             _render_html_report(report, storage, region)
@@ -161,6 +166,21 @@ async def cmd_analyze(
         # Em modo serve, o DashboardServer fecha o cache no seu próprio cleanup
         if not serve:
             cache.close()
+
+
+def _export_docx(report: ProspectionReport, output_path: Path) -> None:
+    """Exporta relatório para DOCX técnico (PRD-002 F9)."""
+    try:
+        from miner_harness.report import DocxReportExporter  # noqa: PLC0415
+
+        exporter = DocxReportExporter()
+        exporter.export(report, output_path)
+        print(f"\nRelatório DOCX: {output_path}")
+    except ImportError as exc:
+        print(f"Aviso: exportação DOCX requer python-docx: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("docx_export_failed", error=str(exc))
+        print(f"Aviso: falha na exportação DOCX: {exc}", file=sys.stderr)
 
 
 def _export_gis(report: ProspectionReport, output_path: Path) -> None:

@@ -48,6 +48,9 @@ dependencies = [
 
     # Servidor HTTP local (Nova Pesquisa / serve mode)
     "aiohttp>=3.9",
+
+    # Exportação de relatório técnico (PRD-002 F9)
+    "python-docx>=1.0",
 ]
 
 [project.urls]
@@ -116,6 +119,7 @@ module = [
     "fiona.*",
     "shapely.*",
     "sqlite_vec.*",
+    "docx.*",
 ]
 ignore_missing_imports = true
 
