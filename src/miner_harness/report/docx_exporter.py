@@ -76,7 +76,7 @@ class DocxReportExporter:
             ImportError: Se python-docx não estiver instalado.
         """
         try:
-            from docx import Document  # type: ignore[import-untyped]  # noqa: PLC0415
+            from docx import Document  # noqa: PLC0415
         except ImportError as exc:  # pragma: no cover
             msg = (
                 "python-docx é necessário para exportar DOCX. Instale com: pip install python-docx"
@@ -104,7 +104,7 @@ class DocxReportExporter:
 
     def _add_title_block(self, doc: Any, report: ProspectionReport) -> None:
         """Página de título com região, data e metadados."""
-        from docx.shared import Pt, RGBColor  # type: ignore[import-untyped]  # noqa: PLC0415
+        from docx.shared import Pt, RGBColor  # noqa: PLC0415
 
         title = doc.add_heading("RELATÓRIO TÉCNICO DE PROSPECÇÃO MINERAL", level=0)
         title.alignment = 1  # CENTER

@@ -157,7 +157,7 @@ class TestDocxExporterExport:
         self, sample_report: ProspectionReport, tmp_path: Path
     ) -> None:
         """Verifica que o arquivo é um DOCX válido (abrível pelo python-docx)."""
-        from docx import Document  # type: ignore[import-untyped]
+        from docx import Document
 
         path = tmp_path / "relatorio.docx"
         DocxReportExporter().export(sample_report, path)
@@ -179,7 +179,7 @@ class TestDocxExporterExport:
 class TestDocxContent:
     def _get_full_text(self, path: Path) -> str:
         """Extrai todo o texto de um DOCX como string única."""
-        from docx import Document  # type: ignore[import-untyped]
+        from docx import Document
 
         doc = Document(str(path))
         paragraphs: list[str] = []
@@ -360,7 +360,7 @@ class TestDocxContent:
 
 class TestDocxEdgeCases:
     def _get_full_text(self, path: Path) -> str:
-        from docx import Document  # type: ignore[import-untyped]
+        from docx import Document
 
         doc = Document(str(path))
         parts: list[str] = [p.text for p in doc.paragraphs]
