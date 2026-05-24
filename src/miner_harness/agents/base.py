@@ -33,6 +33,7 @@ _SOURCE_LABELS: dict[str, str] = {
     "geocronologia": "GeoSGB/Geocronologia",
     "litoestratigrafia": "GeoSGB/Litoestratigrafia",
     "aerogeofisica": "GeoSGB/Aerogeofísica",
+    "furos": "GeoSGB/Furos de Sondagem Históricos",
     "anm": "ANM/SIGMINE — Concessões Minerárias",
     "usgs": "USGS — Eventos Sísmicos",
 }
@@ -144,6 +145,43 @@ class BaseAgent(ABC):
                 geo_data_str = (
                     geo_data_str
                     + f"\n\n<rag_context note='{_rag_note}'>\n{rag_text}\n</rag_context>"
+                )
+
+        # Injetar análise geoquímica normalizada (PRD-002 F2)
+        norm_records = geological_data.get("geoquimica_normalizada", [])
+        if norm_records:
+            norm_text = norm_records[0].get("text", "")
+            if norm_text:
+                geo_data_str = (
+                    geo_data_str
+                    + f"\n\n<geoquimica_normalizada>\n{norm_text}\n</geoquimica_normalizada>"
+                )
+
+        # Injetar score de prospectividade (PRD-002 F3)
+        grid_records = geological_data.get("prospectivity_grid", [])
+        if grid_records:
+            grid_text = grid_records[0].get("text", "")
+            if grid_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<prospectivity_score>\n{grid_text}\n</prospectivity_score>"
+                )
+
+        # Injetar derivadas gravimétricas Bouguer (PRD-002 F5)
+        bgrid_records = geological_data.get("bouguer_gradient", [])
+        if bgrid_records:
+            bgrid_text = bgrid_records[0].get("text", "")
+            if bgrid_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<bouguer_gradient>\n{bgrid_text}\n</bouguer_gradient>"
+                )
+
+        # Injetar furos de sondagem do usuário (PRD-002 F7)
+        user_dh_records = geological_data.get("user_drillholes", [])
+        if user_dh_records:
+            dh_text = user_dh_records[0].get("text", "")
+            if dh_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<user_drillholes>\n{dh_text}\n</user_drillholes>"
                 )
 
         prev_str = ""

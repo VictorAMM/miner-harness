@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "miner-harness"
-version = "0.5.21"
+version = "1.0.0"
 description = "Sistema de prospeccao mineral inteligente com agentes de IA e LLMs locais"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -48,6 +48,9 @@ dependencies = [
 
     # Servidor HTTP local (Nova Pesquisa / serve mode)
     "aiohttp>=3.9",
+
+    # Exportação de relatório técnico (PRD-002 F9)
+    "python-docx>=1.0",
 ]
 
 [project.urls]
@@ -114,7 +117,9 @@ strict = true
 module = [
     "geopandas.*",
     "fiona.*",
+    "shapely.*",
     "sqlite_vec.*",
+    "docx.*",
 ]
 ignore_missing_imports = true
 

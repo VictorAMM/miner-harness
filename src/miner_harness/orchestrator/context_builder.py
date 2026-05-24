@@ -32,6 +32,7 @@ _SERVICE_METHODS = {
     "geocronologia": "geocronologia",
     "litoestratigrafia": "litoestratigrafia",
     "aerogeofisica": "aerogeofisica",
+    "furos": "furos_sondagem",
 }
 
 # Máximo de registros por serviço no prompt (RFC-002 §7.3)
@@ -70,6 +71,7 @@ class ContextBuilder:
         bbox: BoundingBox,
         *,
         max_records_per_service: int = MAX_RECORDS_PER_SERVICE,
+        user_drillholes: list[dict[str, Any]] | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
         """Coleta dados de todos os serviços para a região em paralelo.
 
@@ -137,6 +139,63 @@ class ContextBuilder:
 
         if self._search_engine is not None:
             await self._index_features(context)
+
+        # Normalização geoquímica regional (PRD-002 F2)
+        geo_records = context.get("geoquimica", [])
+        if geo_records:
+            from miner_harness.geochemistry import GeochemistryNormalizer  # noqa: PLC0415
+
+            norm = GeochemistryNormalizer().normalize(geo_records)
+            if norm and norm.elements:
+                context["geoquimica_normalizada"] = [{"text": norm.format_for_prompt()}]
+                logger.info(
+                    "geoquimica_normalizada",
+                    n_records=norm.n_records,
+                    n_anomalous=len(norm.anomalous_elements),
+                )
+
+        # Score de prospectividade por weighted overlay (PRD-002 F3)
+        from miner_harness.prospectivity import ProspectivityScorer  # noqa: PLC0415
+
+        grid = ProspectivityScorer().score(bbox, context)
+        if grid:
+            context["prospectivity_grid"] = [
+                {"text": grid.format_for_prompt(), "geojson": grid.to_geojson()}
+            ]
+            logger.info(
+                "prospectivity_grid",
+                n_cells=len(grid.cells),
+                max_score=round(max(c.score for c in grid.cells), 1),
+            )
+
+        # Derivadas gravimétricas Bouguer (PRD-002 F5)
+        grav_records = context.get("gravimetria", [])
+        if grav_records:
+            from miner_harness.geophysics import BouguerProcessor  # noqa: PLC0415
+
+            bgrid = BouguerProcessor().process(grav_records, bbox)
+            if bgrid:
+                context["bouguer_gradient"] = [
+                    {"text": bgrid.format_for_prompt(), "geojson": bgrid.to_geojson()}
+                ]
+                logger.info(
+                    "bouguer_gradient",
+                    n_source=bgrid.n_source_points,
+                    n_lineaments=len(bgrid.lineament_cells),
+                )
+
+        # Furos de sondagem do usuário (PRD-002 F7)
+        if user_drillholes:
+            from miner_harness.ingestion.drillhole_parser import DrillholeParser  # noqa: PLC0415
+
+            dh_text = DrillholeParser.format_for_prompt(user_drillholes)
+            dh_geojson = DrillholeParser.to_geojson(user_drillholes)
+            context["user_drillholes"] = [{"text": dh_text, "geojson": dh_geojson}]
+            logger.info(
+                "user_drillholes_injected",
+                n_records=len(user_drillholes),
+                n_collar_points=len(dh_geojson["features"]),
+            )
 
         return context
 

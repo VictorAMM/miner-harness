@@ -115,6 +115,27 @@ _AEROGEOFISICA_MAP: dict[str, str] = {
     "latitude": "latitude",
 }
 
+# Furos de sondagem
+_FUROS_MAP: dict[str, str] = {
+    "objectid": "objectid",
+    "projeto": "projeto",
+    "nome_projeto": "projeto",
+    "tipo_furo": "tipo_furo",
+    "tipo": "tipo_furo",
+    "profundidade_m": "profundidade_m",
+    "profundidade": "profundidade_m",
+    "prof_m": "profundidade_m",
+    "prof_total": "profundidade_m",
+    "azimute": "azimute",
+    "az": "azimute",
+    "mergulho": "mergulho",
+    "dip": "mergulho",
+    "inclinacao": "mergulho",
+    "ano": "ano",
+    "longitude": "longitude",
+    "latitude": "latitude",
+}
+
 # Registro central de mapas por serviço
 SERVICE_ALIAS_MAPS: dict[str, dict[str, str]] = {
     "ocorrencias": _OCORRENCIAS_MAP,
@@ -123,6 +144,7 @@ SERVICE_ALIAS_MAPS: dict[str, dict[str, str]] = {
     "geocronologia": _GEOCRONOLOGIA_MAP,
     "litoestratigrafia": _LITOESTRATIGRAFIA_MAP,
     "aerogeofisica": _AEROGEOFISICA_MAP,
+    "furos": _FUROS_MAP,
 }
 
 

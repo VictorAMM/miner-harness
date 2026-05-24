@@ -1,5 +1,352 @@
 # Changelog
 
+## [1.0.0] — 2026-05-23
+
+### Adicionado
+
+- **F9 — Relatório Técnico DOCX** (`--output-docx relatorio.docx`): exportação de documento Word
+  estruturado compatível com due diligence e JORC-preliminar, com 7 seções — sumário executivo,
+  tabela de alvos, justificativas por alvo com follow-up recomendado, análise por etapa
+  (achados + fontes + lacunas), lacunas de dados consolidadas deduplicas, limitações e ressalvas
+  com aviso JORC, referências de dados. Dependência: `python-docx>=1.0`.
+- **F7 — Furos de Sondagem do Usuário** (`--drillholes furos.csv` / `index drillholes furos.csv`):
+  ingestão de CSV de furos proprietários com suporte a 50+ aliases de colunas (en/pt-BR/acrônimos),
+  separador decimal vírgula, UTF-8-BOM; persistência em SQLite via `DrillholeStore`; injeção
+  automática no contexto dos agentes com prioridade máxima; marcadores laranja no mapa Leaflet;
+  tabela na aba Dados do dashboard.
+- **`ConfidenceCalibrator`**: recalibração de confiança dos steps baseada em cobertura de dados
+  calculados (geoquímica normalizada, gradiente Bouguer, RAG, furos do usuário) — `high` somente
+  quando ≥2 fontes calculadas disponíveis.
+- **Derivadas Gravimétricas Bouguer** (F5 parcial): `BouguerProcessor` calcula Gradiente Horizontal
+  Total (GHT) e campo residual via interpolação IDW; injetado no `GeophysicistAgent` como dado
+  quantitativo.
+
+### Melhorado
+
+- **Contexto para agentes**: dados geoquímicos com Concentration Factor (CF) calculado e flag de
+  anomalia; guia de interpretação geológica por passo no `PromptManager`; rótulo RAG específico
+  por disciplina.
+- **Suite de testes**: 1120 testes passando (vs. 447 na v0.1.0).
+
+---
+
+## [0.6.2] — 2026-05-22
+
+### Adicionado
+
+- **Score de prospectividade por weighted overlay** (PRD-002 F3): `ProspectivityScorer` calcula
+  score 0–100 por alvo com pesos configuráveis por evidência; exibido no dashboard como barra
+  de progresso por alvo.
+
+---
+
+## [0.6.1] — 2026-05-22
+
+### Adicionado
+
+- **Normalização geoquímica regional** (PRD-002 F2): `GeochemistryNormalizer` calcula CF (razão
+  amostra/mediana regional) e flag `is_anomaly` para cada elemento; tabela injetada no
+  `GeochemistAgent`.
+
+---
+
+## [0.6.0] — 2026-05-22
+
+### Adicionado
+
+- **Exportação GIS** (`--output-gis targets.gpkg`): `GisExporter` gera GeoPackage (`.gpkg`) com
+  camadas `targets`, `ocorrencias`, `gravimetria`, `geocronologia`, `aerogeofisica`; ou GeoJSON
+  (`.geojson`) com a camada de alvos apenas. Requer `geopandas`.
+- **Furos de Sondagem GeoSGB** (F4): endpoint `furos_sondagem` integrado ao `GeoSGBConnector`;
+  modelo `FuroSondagem` (6 campos: projeto, tipo, profundidade, azimute, mergulho, ano); marcadores
+  ciano no mapa Leaflet; mencionados pelo `EvaluatorAgent` quando presentes no bbox.
+
+---
+
+## [0.5.23] — 2026-05-21
+
+### Corrigido
+
+- **Dashboard**: nota técnica `[Coordenadas originais...]` removida do campo `rationale` dos alvos;
+  reposicionamento de alvos fora do bbox continua logado internamente como warning.
+
+---
+
+## [0.5.22] — 2026-05-21
+
+### Corrigido
+
+- **Dashboard**: banner de fontes ativas exibia "X de 14" em vez de "X de 8" (serviços reais);
+  popup CSS com overflow; aba Dados distingue fontes bbox-filtradas de indisponíveis.
+
+---
+
+## [0.5.21] — 2026-05-21
+
+### Adicionado
+
+- **Filtro spatial por bbox** (`_filter_by_bbox`): registros com coordenadas fora do bbox (+ buffer
+  de 20%) são removidos antes de enviar ao LLM.
+- **Source Triage**: `bbox_filtered_sources` separa fontes com dados válidos mas fora da área de
+  fontes que falharam ou retornaram vazio.
+- **Validação de coords de alvos**: `_validate_target_coords()` reposiciona alvos cujo LLM gerou
+  coordenadas fora do bbox para o centróide da área.
+
+---
+
+## [0.5.20] — 2026-05-21
+
+### Adicionado
+
+- **Atlas Aerogeofísico**: overlays WMS SGB/CPRM no Leaflet (🧲 Magnetometria Total, 🌈 K-Th-U,
+  ✈️ Pol. Projetos) + marcadores interativos de projetos por tipo de levantamento com popup offline.
+- **Litoestratigrafia no mapa**: marcadores quadrados por hierarquia (Formação/Grupo/etc.) +
+  tabela na aba Dados.
+
+### Corrigido
+
+- **Code Review**: 11 bugs críticos corrigidos (2 HIGH, 6 MED, 3 LOW) incluindo `_extract_json`
+  `ValueError`, coords de fallback silenciosas, `BoundingBox` validação de ordem, `_ctx_scale`
+  floor, path traversal no CLI, `objectid/_safe_int`, `__del__` do `CacheManager`.
+
+---
+
+## [0.5.19] — 2026-05-20
+
+### Melhorado
+
+- **`ContextBuilder`**: registros ordenados por distância ao centróide do bbox antes de truncar
+  (mais próximos primeiro; sem coord → fim da lista).
+
+---
+
+## [0.5.18] — 2026-05-20
+
+### Melhorado
+
+- **Data Scale**: limites de dados (`max_records`, `max_chars`, `prev_results`) escalam com
+  √(num_ctx/4096) — contexto 65k → 200 registros, 32k chars, 8k chars de histórico.
+
+---
+
+## [0.5.17] — 2026-05-20
+
+### Adicionado
+
+- **`--ctx-size TOKENS`**: janela de contexto configurável via CLI; `num_ctx` propagado ao
+  `OllamaClient`; Modelfile `qwen3-64k` para KV-cache Q4 com 65k tokens.
+
+---
+
+## [0.5.16] — 2026-05-20
+
+### Adicionado
+
+- **Deduplicação de Alvos** (`_dedup_targets`): alvos sobrepostos (distância Haversine < 10 km)
+  são mesclados; prioridades renumeradas em sequência.
+
+---
+
+## [0.5.15] — 2026-05-20
+
+### Melhorado
+
+- **Dashboard**: `integrated_summary` exibido em caixa destacada nas abas Análise e Alvos.
+
+---
+
+## [0.5.14] — 2026-05-20
+
+### Melhorado
+
+- **`integrated_summary`**: gerado pelo `EvaluatorAgent` (em vez de concatenação de achados);
+  `_dedup_gaps_semantic` remove lacunas semanticamente duplicadas entre steps.
+
+---
+
+## [0.5.13] — 2026-05-20
+
+### Corrigido
+
+- **`MineralTarget`**: `model_validator` normaliza `mineralization_system` → `mineral_system`
+  evitando perda silenciosa de alvos quando o LLM usa o nome alternativo.
+
+---
+
+## [0.5.12] — 2026-05-20
+
+### Adicionado
+
+- **Widget de Ocorrências**: sidebar com pills coloridas por substância (×N), filtro por confiança
+  e toggles ANM/USGS conectados ao mapa.
+
+---
+
+## [0.5.11] — 2026-05-20
+
+### Adicionado
+
+- **Mapa de Ocorrências**: pontos GeoSGB coloridos por substância no Leaflet com legenda,
+  toggle e tabela na aba Dados.
+
+---
+
+## [0.5.10] — 2026-05-20
+
+### Adicionado
+
+- **Tabela de Sistema Mineral**: referência obrigatória no prompt `total_integration` com
+  critérios de Fertilidade, Arquitetura, Fluido e Trap por sistema (IOCG, Ouro Orogênico, etc.).
+- **Badge de Confiança Baixa**: borda laranja + ícone ⚠ em steps com `confidence=low/insufficient`
+  no dashboard.
+
+---
+
+## [0.5.9] — 2026-05-20
+
+### Adicionado
+
+- **UX Data Fetch**: resumo de fontes ativas/indisponíveis impresso antes do pipeline LLM.
+- **Dedup Data Gaps**: prompt do `EvaluatorAgent` consolida `data_gaps` duplicados entre steps.
+
+### Segurança
+
+- Dependência `ollama` (SDK oficial) removida: 6 CVEs eliminadas. O sistema usava apenas
+  `OllamaClient` próprio via `httpx`.
+
+---
+
+## [0.5.8] — 2026-05-20
+
+### Adicionado
+
+- **`--llm-timeout SECONDS`**: timeout do Ollama configurável via CLI (padrão: 120s).
+- **Extração de Commodities**: `_findings_to_targets` extrai commodities do texto com vocabulário
+  PT-BR/EN (ouro, cobre, ferro, manganês, etc.).
+
+### Corrigido
+
+- Política de event loop async cross-platform (Windows SelectorEventLoop).
+- Coordenadas nulas do GeoSGB tratadas sem crash.
+- Propagação de config `OllamaClient` → agentes.
+
+---
+
+## [0.5.7] — 2026-05-20
+
+### Adicionado
+
+- **TTL Explícito**: 30 dias para ANM/SIGMINE, 7 dias para USGS Earthquakes no `TTLPolicy`.
+- **Cache Evict** (`miner-harness cache evict`): remoção automática de entradas expiradas no
+  startup + comando CLI. `evict_expired()` lê apenas metadados (sem desserializar blobs JSON).
+
+### Corrigido
+
+- Compatibilidade Python 3.10 em testes (`timezone.utc`), `StrEnum` shim no wizard.
+- Skip automático do bug Hypothesis 6.152.x em property tests.
+- Cobertura de testes elevada a 100% nos módulos críticos.
+
+---
+
+## [0.5.6] — 2026-05-20
+
+### Corrigido
+
+- **Cache**: resultados de fetch com falha (erro transitório / serviço indisponível) não são
+  mais armazenados no cache — evita bloquear execuções futuras com dados inválidos.
+
+---
+
+## [0.5.5] — 2026-05-20
+
+### Melhorado
+
+- **Qualidade de Prompts**: guia de interpretação geológica por passo injetado no `PromptManager`;
+  rótulo RAG específico por disciplina evita cruzamento de contexto irrelevante (ex: pH em
+  achados tectônicos).
+
+---
+
+## [0.5.4] — 2026-05-20
+
+### Melhorado
+
+- **`ContextBuilder.build()`**: 6 serviços GeoSGB + ANM + USGS consultados em paralelo via
+  `asyncio.gather()` — tempo de fetch reduzido de ~serial para ~max_individual.
+
+---
+
+## [0.5.3] — 2026-05-20
+
+### Adicionado
+
+- **`--min-sources N`**: mínimo de fontes de dados ativas configurável via CLI (padrão: 3).
+  `InsufficientDataError` agora inclui hint acionável com sugestão de `--min-sources`.
+
+---
+
+## [0.5.2] — 2026-05-19
+
+### Adicionado
+
+- **bbox no EvaluatorAgent** (P0): coordenadas do bbox injetadas no prompt do avaliador para
+  posicionamento correto dos alvos.
+- **Progresso de Fetch** (P1): SSE `data_fetch_progress` emitido por fonte no modo `--serve`.
+- **Logs debug** (P2): logging estruturado de contagem de registros por fonte.
+
+---
+
+## [0.5.1] — 2026-05-20
+
+### Adicionado
+
+- **`--profile`**: `ProfilingRunner` coleta tempos wall-clock e LLM por step; imprime tabela
+  `Pipeline Profile` ao final da análise.
+- **Suite de Benchmarks** (`tests/benchmarks/`): latência de pipeline, cache hit, SSE.
+
+---
+
+## [0.5.0] — 2026-05-19
+
+### Melhorado
+
+- **Paralelização dos Passos 3 e 4**: agentes `MagmaticFertilityAgent` e `IndirectEvidenceAgent`
+  executados em `asyncio.gather()` — latência total reduzida ~30–40% em máquinas com GPU ociosa
+  entre calls.
+- **Merge de Resultados**: `_merge_parallel_results` consolida findings e targets dos dois agentes
+  paralelos com deduplicação.
+
+---
+
+## [0.4.0] — 2026-05-19
+
+### Adicionado
+
+- **ANM/SIGMINE**: concessões minerárias via API REST; modelo `ConcessaoMineira` (fase, titular,
+  substâncias, área); marcadores no mapa com toggle por fase; injetadas no `EvaluatorAgent`.
+- **USGS Earthquake Hazards**: eventos sísmicos via API USGS; modelo `EventoSismico`; círculos
+  no mapa dimensionados por magnitude; injetados no `GeophysicistAgent`.
+- **TTL diferenciado**: ANM 30d, USGS 7d, GeoSGB 7d (padrão).
+- **Dashboard Interativo v2**: layers ANM (vermelho) + USGS (roxo) com toggles independentes;
+  mini-legenda de magnitude sísmica; aba Dados com tabelas por fonte.
+
+---
+
+## [0.3.0] — 2026-05-19
+
+### Adicionado
+
+- **Servidor HTTP local** (`--serve`): `DashboardServer` baseado em `aiohttp` com suporte a
+  WebSocket/SSE para análise interativa — análise nova sem reiniciar o processo.
+- **SSE (Server-Sent Events)**: `SseChannel` emite eventos `data_fetch_start`, `data_fetch_done`,
+  `step_start`, `step_complete`, `complete`, `error` — progresso em tempo real no browser.
+- **`AnalysisRunner`**: subclasse do `Orchestrator` que envia eventos SSE a cada step.
+- **Dashboard Interativo** ("Nova Pesquisa"): painel lateral no HTML com form de nova análise,
+  barra de progresso por step, log de eventos SSE.
+- **`--port`**: porta configurável do servidor (padrão: 8765).
+
+---
+
 ## [0.2.1] — 2026-05-18
 
 ### Adicionado

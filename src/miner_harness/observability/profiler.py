@@ -60,6 +60,7 @@ class ProfilingRunner(AnalysisRunner):
         bbox: BoundingBox,
         region_name: str,
         steps: list[AnalysisStep] | None = None,
+        user_drillholes: list[dict[str, Any]] | None = None,
     ) -> ProspectionReport:
         self._pipeline_start = time.perf_counter()
         self._profile = ProfileReport(
@@ -68,7 +69,9 @@ class ProfilingRunner(AnalysisRunner):
             data_fetch_ms=0.0,
         )
         self._fetch_start = time.perf_counter()
-        report = await super().analyze_region(bbox, region_name, steps)
+        report = await super().analyze_region(
+            bbox, region_name, steps, user_drillholes=user_drillholes
+        )
         self._profile.total_wall_ms = (time.perf_counter() - self._pipeline_start) * 1000
         self._profile.print_summary()
         return report

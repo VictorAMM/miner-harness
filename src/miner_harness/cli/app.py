@@ -27,6 +27,7 @@ from miner_harness.cli.commands import (
     cmd_cache_evict,
     cmd_cache_stats,
     cmd_health,
+    cmd_index_drillholes,
     cmd_index_stats,
     cmd_install,
     cmd_validate,
@@ -158,6 +159,37 @@ def _build_parser() -> argparse.ArgumentParser:
             "Ex: --ctx-size 32768"
         ),
     )
+    analyze_parser.add_argument(
+        "--output-gis",
+        default=None,
+        metavar="ARQUIVO",
+        help=(
+            "Exportar alvos para arquivo GIS. "
+            "Use .gpkg para GeoPackage (QGIS/ArcGIS) ou .geojson para GeoJSON. "
+            "Ex: --output-gis targets.gpkg"
+        ),
+    )
+    analyze_parser.add_argument(
+        "--drillholes",
+        default=None,
+        metavar="CSV",
+        help=(
+            "CSV de furos de sondagem do usuário para injetar na análise. "
+            "Colunas aceitas: hole_id/bhid, x/lon, y/lat, from/to, lithology, alteration + teores. "
+            "Use 'miner-harness index drillholes <csv>' para indexação permanente."
+        ),
+    )
+    analyze_parser.add_argument(
+        "--output-docx",
+        default=None,
+        metavar="ARQUIVO",
+        help=(
+            "Exportar relatório técnico em formato DOCX (Word). "
+            "Inclui sumário executivo, tabela de alvos, justificativas e análise por etapa. "
+            "Compatível com due diligence e relatórios JORC-preliminares. "
+            "Ex: --output-docx relatorio.docx"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -186,6 +218,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     index_sub = index_parser.add_subparsers(dest="index_command")
     index_sub.add_parser("stats", help="Show index statistics")
+    drillholes_parser = index_sub.add_parser(
+        "drillholes",
+        help="Index user drillhole CSV into the persistent store",
+    )
+    drillholes_parser.add_argument(
+        "csv_file",
+        help=(
+            "CSV file with drillhole data. Required column: hole_id (or bhid/sondagem). "
+            "Optional: x/lon, y/lat, z, from/to, lithology, alteration + any assay columns."
+        ),
+    )
 
     # --- health ---
     subparsers.add_parser(
@@ -258,6 +301,9 @@ def main(argv: list[str] | None = None) -> int:
                     min_sources=args.min_sources,
                     llm_timeout=args.llm_timeout,
                     ctx_size=args.ctx_size,
+                    output_gis=args.output_gis,
+                    drillholes_csv=args.drillholes,
+                    output_docx=args.output_docx,
                 )
             )
         if args.command == "validate":
@@ -274,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "index":
             if args.index_command == "stats":
                 return cmd_index_stats()
+            if args.index_command == "drillholes":
+                return cmd_index_drillholes(args.csv_file)
             parser.parse_args(["index", "--help"])  # pragma: no cover
             return 1  # pragma: no cover
         if args.command == "health":

@@ -672,6 +672,10 @@ aside {
         <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
         <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
         <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
+        <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos</button>
+        <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
+        <button class="ctrl-btn" id="btn-bouguer" title="Gradiente horizontal do campo Bouguer — lineamentos gravimétricas (HGM)">🌐 Bouguer HGM</button>
+        <button class="ctrl-btn" id="btn-user-dh" title="Furos de sondagem do usuário (dados proprietários — PRD-002 F7)">🟠 Furos Usuário</button>
       </div>
       <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
         <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
@@ -951,6 +955,12 @@ let usgsVisible = true;
 let ocorrLayers = [];
 let ocorrVisible = true;
 let ocorrLegend = null;
+let prospectLayers = [];
+let prospectVisible = true;
+let bouguerLayers = [];
+let bouguerVisible = true;
+let userDhLayers = [];
+let userDhVisible = true;
 
 // Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
 const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
@@ -971,6 +981,10 @@ let aerogeoProjVisible = true;
 // Marcadores de litoestratigrafia (centróides de polígonos — offline)
 let litoLayers = [];
 let litoVisible = true;
+
+// Furos de sondagem históricos GeoSGB
+let furosLayers = [];
+let furosVisible = true;
 
 const _AEROGEO_TIPO_COLOR = {
   'magnetometria': '#2563eb',
@@ -1064,8 +1078,16 @@ function renderMapForReport(r) {
   if (ocorrLegend) { map.removeControl(ocorrLegend); ocorrLegend = null; }
   aerogeoProjLayers.forEach(function(l) { map.removeLayer(l); });
   aerogeoProjLayers = [];
+  prospectLayers.forEach(function(l) { map.removeLayer(l); });
+  prospectLayers = [];
+  bouguerLayers.forEach(function(l) { map.removeLayer(l); });
+  bouguerLayers = [];
   litoLayers.forEach(function(l) { map.removeLayer(l); });
   litoLayers = [];
+  furosLayers.forEach(function(l) { map.removeLayer(l); });
+  furosLayers = [];
+  userDhLayers.forEach(function(l) { map.removeLayer(l); });
+  userDhLayers = [];
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -1076,17 +1098,29 @@ function renderMapForReport(r) {
   ocorrVisible = true;
   aerogeoProjVisible = true;
   litoVisible = true;
+  furosVisible = true;
+  prospectVisible = true;
+  bouguerVisible = true;
+  userDhVisible = true;
   document.getElementById('btn-bbox').classList.remove('inactive');
   var btnAnm = document.getElementById('btn-anm');
   var btnUsgs = document.getElementById('btn-usgs');
   var btnOcorr = document.getElementById('btn-ocorr');
   var btnAeroProj = document.getElementById('btn-aerogeo-proj');
   var btnLito = document.getElementById('btn-lito');
+  var btnFuros = document.getElementById('btn-furos');
+  var btnProspect = document.getElementById('btn-prospect');
+  var btnBouguer = document.getElementById('btn-bouguer');
+  var btnUserDh = document.getElementById('btn-user-dh');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
   if (btnAeroProj) btnAeroProj.classList.remove('inactive');
   if (btnLito) btnLito.classList.remove('inactive');
+  if (btnFuros) btnFuros.classList.remove('inactive');
+  if (btnProspect) btnProspect.classList.remove('inactive');
+  if (btnBouguer) btnBouguer.classList.remove('inactive');
+  if (btnUserDh) btnUserDh.classList.remove('inactive');
 
   bboxLayer = L.rectangle(bboxBounds, {
     color: '#f59e0b', weight: 2, dashArray: '8 4',
@@ -1229,6 +1263,140 @@ function renderMapForReport(r) {
     litoLayers.push(marker);
   });
 
+  // Furos de sondagem históricos GeoSGB
+  var furosRecords = geo['furos'] || [];
+  furosRecords.forEach(function(f) {
+    var coord = f.coordenada;
+    if (!coord || coord.latitude == null || coord.longitude == null) return;
+    var icon = L.divIcon({
+      className: '',
+      html: '<div style="width:10px;height:10px;background:#a855f7;border:2px solid #fff;border-radius:50%;box-shadow:0 0 4px rgba(168,85,247,0.7)"></div>',
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+    });
+    var popup = '<b style="color:#a855f7">🔩 Furo de Sondagem</b><br>' +
+      (f.projeto ? '<b>' + f.projeto + '</b><br>' : '') +
+      (f.tipo_furo ? 'Tipo: ' + f.tipo_furo + '<br>' : '') +
+      (f.profundidade_m != null ? 'Profundidade: ' + f.profundidade_m + ' m<br>' : '') +
+      (f.azimute != null ? 'Azimute: ' + f.azimute + '°<br>' : '') +
+      (f.mergulho != null ? 'Mergulho: ' + f.mergulho + '°<br>' : '') +
+      (f.ano ? 'Ano: ' + f.ano + '<br>' : '') +
+      '<span style="color:#94a3b8;font-size:0.82em">ID: ' + f.objectid + '</span>';
+    var marker = L.marker([coord.latitude, coord.longitude], { icon: icon }).bindPopup(popup);
+    marker.addTo(map);
+    furosLayers.push(marker);
+  });
+
+  // Heatmap de prospectividade (PRD-002 F3)
+  var prospGrid = geo['prospectivity_grid'];
+  if (prospGrid && prospGrid.length > 0 && prospGrid[0].geojson) {
+    var pgj = prospGrid[0].geojson;
+    pgj.features.forEach(function(feat) {
+      var score = feat.properties.score || 0;
+      // Interpolação verde→amarelo→vermelho para score 0→50→100
+      var r, g, b;
+      if (score <= 50) {
+        r = Math.round(score * 2 * 2.55);
+        g = 200;
+        b = 0;
+      } else {
+        r = 220;
+        g = Math.round((100 - score) * 2 * 2);
+        b = 0;
+      }
+      var color = 'rgb(' + r + ',' + g + ',' + b + ')';
+      var opacity = 0.15 + (score / 100) * 0.45;
+      var coords = feat.geometry.coordinates[0];
+      var latlngs = coords.map(function(c) { return [c[1], c[0]]; });
+      var popup = '<b>Score de Prospectividade</b><br>' +
+        '<b style="font-size:1.1em">' + score.toFixed(1) + ' / 100</b><br>' +
+        'Ocorrências: ' + (feat.properties.occurrence_density * 100).toFixed(0) + '%<br>' +
+        'Bouguer: ' + (feat.properties.bouguer_anomaly * 100).toFixed(0) + '%<br>' +
+        'Geoquímica: ' + (feat.properties.geochemical_anomaly * 100).toFixed(0) + '%<br>' +
+        'Estrutural: ' + (feat.properties.structural_indicator * 100).toFixed(0) + '%';
+      var poly = L.polygon(latlngs, {
+        color: color, fillColor: color, fillOpacity: opacity,
+        weight: 0.3, opacity: 0.4,
+      }).bindPopup(popup);
+      poly.addTo(map);
+      prospectLayers.push(poly);
+    });
+  }
+
+  // Derivadas gravimétricas Bouguer — HGM (PRD-002 F5)
+  var bouguerGrid = geo['bouguer_gradient'];
+  if (bouguerGrid && bouguerGrid.length > 0 && bouguerGrid[0].geojson) {
+    var bgj = bouguerGrid[0].geojson;
+    // Calcular máximo de HGM para normalização
+    var hgmMax = 0;
+    bgj.features.forEach(function(feat) {
+      var h = feat.properties.hgm || 0;
+      if (h > hgmMax) hgmMax = h;
+    });
+    bgj.features.forEach(function(feat) {
+      var hgm = feat.properties.hgm || 0;
+      var bouguer = feat.properties.bouguer || 0;
+      var isLin = feat.properties.is_lineament;
+      // Cor: lineamentos em magenta; gradiente de branco→azul para demais
+      var normHgm = hgmMax > 0 ? hgm / hgmMax : 0;
+      var color, fillOpacity;
+      if (isLin) {
+        color = '#e879f9';   // magenta — lineamento estrutural
+        fillOpacity = 0.50;
+      } else {
+        var intensity = Math.round(normHgm * 180);
+        color = 'rgb(' + (220 - intensity) + ',' + (220 - intensity) + ',255)';
+        fillOpacity = 0.10 + normHgm * 0.30;
+      }
+      var coords = feat.geometry.coordinates[0];
+      var latlngs = coords.map(function(c) { return [c[1], c[0]]; });
+      var popup = '<b>🌐 Gradiente Bouguer (HGM)</b><br>' +
+        'Bouguer: <b>' + bouguer.toFixed(1) + ' mGal</b><br>' +
+        'HGM: <b>' + hgm.toFixed(1) + ' mGal/km</b><br>' +
+        (isLin ? '<span style="color:#e879f9;font-weight:600">⚡ Lineamento estrutural inferido</span>' : '');
+      var poly = L.polygon(latlngs, {
+        color: color, fillColor: color, fillOpacity: fillOpacity,
+        weight: isLin ? 1.2 : 0.3, opacity: isLin ? 0.9 : 0.4,
+      }).bindPopup(popup);
+      poly.addTo(map);
+      bouguerLayers.push(poly);
+    });
+  }
+
+  // Furos de sondagem do usuário — pontos laranja (PRD-002 F7)
+  var userDhGrid = geo['user_drillholes'];
+  if (userDhGrid && userDhGrid.length > 0 && userDhGrid[0].geojson) {
+    var dhjson = userDhGrid[0].geojson;
+    dhjson.features.forEach(function(feat) {
+      var coords = feat.geometry.coordinates;
+      var props = feat.properties || {};
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="width:12px;height:12px;background:#f97316;border:2.5px solid #fff;' +
+              'border-radius:50%;box-shadow:0 0 6px rgba(249,115,22,0.8)"></div>',
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      });
+      var assays = [];
+      Object.keys(props).forEach(function(k) {
+        if (['hole_id','from_m','to_m','lithology','alteration'].indexOf(k) === -1) {
+          if (props[k] != null) assays.push(k.toUpperCase() + '=' + Number(props[k]).toPrecision(3));
+        }
+      });
+      var popup = '<b style="color:#f97316">🟠 Furo do Usuário</b><br>' +
+        (props.hole_id ? '<b>' + props.hole_id + '</b><br>' : '') +
+        (props.lithology ? 'Lito: ' + props.lithology + '<br>' : '') +
+        (props.alteration ? 'Alt: ' + props.alteration + '<br>' : '') +
+        (props.from_m != null && props.to_m != null
+          ? 'Trecho: ' + Number(props.from_m).toFixed(1) + '–' + Number(props.to_m).toFixed(1) + ' m<br>'
+          : '') +
+        (assays.length ? '<span style="color:#ea580c;font-size:.82em">' + assays.join(' ') + '</span>' : '');
+      var marker = L.marker([coords[1], coords[0]], { icon: icon }).bindPopup(popup);
+      marker.addTo(map);
+      userDhLayers.push(marker);
+    });
+  }
+
   setupMapControls(bboxBounds);
 }
 
@@ -1289,6 +1457,43 @@ function setupMapControls(bboxBounds) {
       if (litoVisible) { litoLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
       else { litoLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
       litoVisible = !litoVisible;
+    };
+  }
+
+  var btnFuros = document.getElementById('btn-furos');
+  if (btnFuros) {
+    btnFuros.onclick = function() {
+      if (furosVisible) { furosLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { furosLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      furosVisible = !furosVisible;
+    };
+  }
+
+  var btnProspect = document.getElementById('btn-prospect');
+  if (btnProspect) {
+    btnProspect.onclick = function() {
+      if (prospectVisible) { prospectLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { prospectLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      prospectVisible = !prospectVisible;
+    };
+  }
+
+  var btnBouguer = document.getElementById('btn-bouguer');
+  if (btnBouguer) {
+    btnBouguer.onclick = function() {
+      if (bouguerVisible) { bouguerLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { bouguerLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      bouguerVisible = !bouguerVisible;
+    };
+  }
+
+  var btnUserDhCtrl = document.getElementById('btn-user-dh');
+  if (btnUserDhCtrl) {
+    if (!userDhLayers.length) btnUserDhCtrl.classList.add('inactive');
+    btnUserDhCtrl.onclick = function() {
+      if (userDhVisible) { userDhLayers.forEach(function(l) { map.removeLayer(l); }); this.classList.add('inactive'); }
+      else { userDhLayers.forEach(function(l) { l.addTo(map); }); this.classList.remove('inactive'); }
+      userDhVisible = !userDhVisible;
     };
   }
 
@@ -1769,6 +1974,44 @@ function renderDadosTab(r) {
   var usgs = geo['usgs'] || [];
 
   var html = '<div style="padding:1rem">';
+
+  // --- Furos do Usuário (PRD-002 F7) ---
+  var userDhFeats = (geo['user_drillholes'] && geo['user_drillholes'][0] && geo['user_drillholes'][0].geojson)
+    ? geo['user_drillholes'][0].geojson.features : [];
+  html += '<h3 style="margin:0 0 .5rem;color:#ea580c">🟠 Furos de Sondagem do Usuário</h3>';
+  if (!userDhFeats.length) {
+    html += '<p style="color:#6b7280">Sem furos de sondagem do usuário nesta análise. ' +
+      'Use <code>miner-harness index drillholes &lt;csv&gt;</code> para indexação permanente ' +
+      'ou <code>--drillholes &lt;csv&gt;</code> por análise.</p>';
+  } else {
+    html += '<p style="color:#6b7280;margin:0 0 .5rem">' + userDhFeats.length + ' furo(s) proprietário(s) (posições collar)</p>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+    html += '<thead><tr style="background:#fff7ed">';
+    ['Furo','Litologia','Alteração','De (m)','Até (m)','Lon, Lat'].forEach(function(h) {
+      html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #ea580c22;white-space:nowrap">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    userDhFeats.slice(0, 100).forEach(function(f, i) {
+      var bg = i % 2 ? '#fff7ed' : '#fff';
+      var p = f.properties || {};
+      var c = f.geometry.coordinates;
+      html += '<tr style="background:' + bg + '">';
+      html += '<td style="padding:.3rem .6rem;font-weight:700;color:#f97316">' + (p.hole_id || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (p.lithology || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem">' + (p.alteration || '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (p.from_m != null ? Number(p.from_m).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;text-align:right">' + (p.to_m != null ? Number(p.to_m).toFixed(1) : '—') + '</td>';
+      html += '<td style="padding:.3rem .6rem;font-family:monospace">' + Number(c[0]).toFixed(5) + ', ' + Number(c[1]).toFixed(5) + '</td>';
+      html += '</tr>';
+    });
+    if (userDhFeats.length > 100) {
+      html += '<tr><td colspan="6" style="padding:.4rem .6rem;color:#6b7280">… e mais ' +
+        (userDhFeats.length - 100) + ' furos</td></tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+
+  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
 
   // --- ANM ---
   html += '<h3 style="margin:0 0 .5rem;color:#7c3aed">🏗️ ANM/SIGMINE — Concessões Minerárias</h3>';

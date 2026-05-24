@@ -148,6 +148,7 @@ class Orchestrator:
         bbox: BoundingBox,
         region_name: str,
         steps: list[AnalysisStep] | None = None,
+        user_drillholes: list[dict[str, Any]] | None = None,
     ) -> ProspectionReport:
         """Executa análise completa de prospecção mineral.
 
@@ -176,6 +177,7 @@ class Orchestrator:
         geological_data = await self._context_builder.build(
             bbox,
             max_records_per_service=self._config.orchestrator.effective_max_records,
+            user_drillholes=user_drillholes,
         )
         await self._on_data_fetched(geological_data)
 
@@ -286,6 +288,27 @@ class Orchestrator:
                 )
             )
             result = self._merge_step_results(list(results))
+
+        # Recalibrar confiança com base na cobertura real de dados (PRD-002 v0.7.2)
+        from miner_harness.orchestrator.confidence_calibrator import (  # noqa: PLC0415
+            ConfidenceCalibrator,
+        )
+
+        original_conf = result.confidence
+        calibrated_conf, calib_note = ConfidenceCalibrator().calibrate(
+            step, result.confidence, effective_data
+        )
+        if calibrated_conf != original_conf:
+            gaps = list(result.data_gaps)
+            if calib_note:
+                gaps.append(calib_note)
+            result = result.model_copy(update={"confidence": calibrated_conf, "data_gaps": gaps})
+            logger.info(
+                "confidence_calibrated",
+                step=step.value,
+                original=original_conf.value,
+                calibrated=calibrated_conf.value,
+            )
 
         logger.info(
             "step_complete",

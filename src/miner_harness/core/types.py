@@ -175,6 +175,30 @@ class ProjetoAerogeofisico(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# GeoSGB — Furos de sondagem
+# ---------------------------------------------------------------------------
+
+
+class FuroSondagem(BaseModel):
+    """Furo de sondagem do GeoSGB (endpoint furos_sondagem).
+
+    Dados históricos de sondagem publicados pelo SGB — a evidência
+    mais direta de mineralização disponível em fontes públicas.
+    """
+
+    objectid: int
+    projeto: str | None = Field(default=None, description="Nome do projeto de pesquisa")
+    tipo_furo: str | None = Field(default=None, description='Ex: "Diamantada", "Rotativa", "RC"')
+    profundidade_m: float | None = Field(default=None, description="Profundidade total em metros")
+    azimute: float | None = Field(default=None, description="Azimute em graus (0–360)")
+    mergulho: float | None = Field(
+        default=None, description="Mergulho em graus (negativo = abaixo da horizontal)"
+    )
+    ano: int | None = Field(default=None, description="Ano de execução do furo")
+    coordenada: Coordenada
+
+
+# ---------------------------------------------------------------------------
 # ANM SIGMINE — Concessões minerárias
 # ---------------------------------------------------------------------------
 

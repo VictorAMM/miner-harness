@@ -95,9 +95,18 @@ Lito Centroid — UnidadeLitoestratigrafica ganha coordenada opcional via centr�
 Bbox Filter + Source Triage — _filter_by_bbox() remove registros com coords fora da área (buffer 20%); bbox_filtered_sources separa "fora do escopo" de "falhou/vazio"; _validate_target_coords() reposiciona alvos do LLM fora do bbox; banner de cobertura corrigido ✅ CONCLUÍDA (2026-05-21) [v0.5.21]
 Dashboard UX — 3 bugs corrigidos em teste visual: banner "X de 14"→"X de 8", popup CSS overflow, aba Dados distingue bbox-filtrado de indisponível via bbox_filtered_sources ✅ CONCLUÍDA (2026-05-21) [v0.5.22]
 Popup Rationale — nota técnica "[Coordenadas originais...]" removida do rationale do alvo; reposicionamento continua logado como warning estruturado ✅ CONCLUÍDA (2026-05-21) [v0.5.23]
+GeoPackage Export — GisExporter gera .gpkg (5 camadas: targets, ocorrencias, gravimetria, geocronologia, aerogeofisica) e .geojson; --output-gis CLI ✅ CONCLUÍDA (2026-05-22) [v0.6.0]
+GeoSGB Furos — endpoint furos_sondagem integrado; modelo FuroSondagem; marcadores ciano no mapa; EvaluatorAgent ciente ✅ CONCLUÍDA (2026-05-22) [v0.6.0]
+GeochemNorm — GeochemistryNormalizer calcula CF + flag anomalia; tabela injetada no GeochemistAgent ✅ CONCLUÍDA (2026-05-22) [v0.6.1]
+ProspectivityScore — ProspectivityScorer weighted overlay 0–100; barras por alvo no dashboard ✅ CONCLUÍDA (2026-05-22) [v0.6.2]
+BouguerProcessor — derivadas gravimétricas IDW+GHT; injetadas no GeophysicistAgent como dado quantitativo ✅ CONCLUÍDA (2026-05-22) [v0.7.0]
+ConfidenceCalibrator — recalibração de confiança por cobertura de dados calculados (geoquimica_normalizada, bouguer_gradient, rag, user_drillholes) ✅ CONCLUÍDA (2026-05-22) [v0.7.2]
+F7 Drillholes — DrillholeParser (50+ aliases en/pt-BR) + DrillholeStore SQLite + injeção no contexto LLM + marcadores laranja Leaflet + tabela Dados + CLI --drillholes / index drillholes ✅ CONCLUÍDA (2026-05-22) [v0.9.0]
+F9 DOCX — DocxReportExporter gera relatório Word 7 seções (sumário, tabela alvos, justificativas, análise por etapa, lacunas, ressalvas JORC, referências); --output-docx CLI ✅ CONCLUÍDA (2026-05-23) [v1.0.0]
+Documentação v1.0.0 — CHANGELOG completo v0.3.0→v1.0.0, README atualizado, pyproject.toml 1.0.0 ✅ CONCLUÍDA (2026-05-23) [v1.0.0]
 ```
 
-**Status**: v0.5.23 em produção. Próximo entregável: a definir.
+**Status**: v1.0.0 em produção. PRD-002 concluído (F1–F5 parcial, F7, F9). Bloqueados: F6 (Sentinel-2), F8 (Random Forest ML) — `[NEEDS CLARIFICATION]`.
 
 ## Grafo de Rastreabilidade
 

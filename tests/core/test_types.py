@@ -9,6 +9,7 @@ from miner_harness.core.types import (
     BoundingBox,
     Confidence,
     Coordenada,
+    FuroSondagem,
     MineralTarget,
     OcorrenciaMineral,
     StepResult,
@@ -201,3 +202,45 @@ class TestMineralTargetAliasValidator:
         """Dados nao-dict (ex: string) sao passados adiante sem modificacao."""
         result = MineralTarget._normalize_field_aliases("not a dict")
         assert result == "not a dict"
+
+
+class TestFuroSondagem:
+    """Testes para FuroSondagem."""
+
+    def test_valid_furo(self) -> None:
+        furo = FuroSondagem(
+            objectid=1,
+            projeto="CARAJAS",
+            tipo_furo="Diamantada",
+            profundidade_m=350.0,
+            azimute=90.0,
+            mergulho=-60.0,
+            ano=1985,
+            coordenada=Coordenada(longitude=-50.0, latitude=-6.0),
+        )
+        assert furo.objectid == 1
+        assert furo.projeto == "CARAJAS"
+        assert furo.profundidade_m == 350.0
+
+    def test_optional_fields_default_none(self) -> None:
+        furo = FuroSondagem(
+            objectid=2,
+            coordenada=Coordenada(longitude=-50.1, latitude=-6.1),
+        )
+        assert furo.projeto is None
+        assert furo.tipo_furo is None
+        assert furo.profundidade_m is None
+        assert furo.azimute is None
+        assert furo.mergulho is None
+        assert furo.ano is None
+
+    def test_serialization_roundtrip(self) -> None:
+        furo = FuroSondagem(
+            objectid=3,
+            projeto="TEST",
+            profundidade_m=100.0,
+            coordenada=Coordenada(longitude=-49.9, latitude=-6.07),
+        )
+        data = furo.model_dump()
+        restored = FuroSondagem.model_validate(data)
+        assert restored == furo

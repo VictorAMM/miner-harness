@@ -28,13 +28,16 @@ class AnalysisRunner(Orchestrator):
         bbox: BoundingBox,
         region_name: str,
         steps: list[AnalysisStep] | None = None,
+        user_drillholes: list[dict[str, Any]] | None = None,
     ) -> ProspectionReport:
         ch = getattr(self, "_sse_channel", None)
         if ch is not None:
             ch.send("data_fetch_start", {"msg": "Coletando dados GeoSGB..."})
 
         try:
-            report = await super().analyze_region(bbox, region_name, steps)
+            report = await super().analyze_region(
+                bbox, region_name, steps, user_drillholes=user_drillholes
+            )
         except Exception as exc:
             if ch is not None:
                 ch.send("error", {"msg": str(exc), "type": type(exc).__name__})

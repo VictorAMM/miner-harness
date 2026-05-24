@@ -416,6 +416,7 @@ class TestServices:
             "geocronologia",
             "litoestratigrafia",
             "aerogeofisica",
+            "furos",
         }
         assert set(SERVICE_REGISTRY.keys()) == expected
 
@@ -722,5 +723,79 @@ class TestExtractViaIdentify:
         ):
             mock_get.side_effect = GeoSGBConnectionError("identify failed")
             results = await connector._extract_via_identify("fake_map", bbox_small)
+        assert results == []
+        await connector.close()
+
+
+class TestParseFuro:
+    """Testes do _parse_furo estático."""
+
+    def test_valid_furo(self) -> None:
+        data = {
+            "objectid": 1,
+            "projeto": "CARAJAS",
+            "tipo_furo": "Diamantada",
+            "profundidade_m": 350.0,
+            "azimute": 90.0,
+            "mergulho": -60.0,
+            "ano": 1985,
+            "longitude": -50.0,
+            "latitude": -6.0,
+        }
+        result = GeoSGBConnector._parse_furo(data)
+        assert result is not None
+        assert result.projeto == "CARAJAS"
+        assert result.profundidade_m == 350.0
+        assert result.coordenada.longitude == -50.0
+
+    def test_no_coord_returns_none(self) -> None:
+        data = {"objectid": 2, "projeto": "X"}
+        assert GeoSGBConnector._parse_furo(data) is None
+
+    def test_optional_fields_none(self) -> None:
+        data = {"objectid": 3, "longitude": -50.0, "latitude": -6.0}
+        result = GeoSGBConnector._parse_furo(data)
+        assert result is not None
+        assert result.projeto is None
+        assert result.profundidade_m is None
+
+
+class TestFurosSondagemMethod:
+    """Testes do método furos_sondagem do GeoSGBConnector."""
+
+    @pytest.mark.asyncio
+    async def test_furos_sondagem_returns_list(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        connector = GeoSGBConnector(fast_config)
+        resp = _make_query_response(
+            [
+                {
+                    "objectid": 1,
+                    "projeto": "CARAJAS",
+                    "profundidade_m": 250.0,
+                    "longitude": -50.05,
+                    "latitude": -6.05,
+                }
+            ]
+        )
+        with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = resp
+            results = await connector.furos_sondagem(bbox_small)
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert results[0].projeto == "CARAJAS"
+        await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_furos_sondagem_endpoint_unavailable_returns_empty(
+        self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
+    ) -> None:
+        """Quando endpoint falha com qualquer exceção, retorna [] (degradação segura)."""
+        connector = GeoSGBConnector(fast_config)
+        with patch.object(
+            connector._client, "get", new_callable=AsyncMock, side_effect=Exception("timeout")
+        ):
+            results = await connector.furos_sondagem(bbox_small)
         assert results == []
         await connector.close()

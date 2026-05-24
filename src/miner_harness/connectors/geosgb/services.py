@@ -99,6 +99,17 @@ AEROGEOFISICA = ServiceEndpoint(
     supports_query=True,
 )
 
+# Furos de sondagem históricos — evidência direta de mineralização
+# ADR-002: "furos_sondagem: MapServer/identify | MapServer only"
+# Tentativa via FeatureServer primeiro; fallback para MapServer/identify no connector.
+FUROS_SONDAGEM = ServiceEndpoint(
+    name="furos",
+    path="geologia/furos_sondagem",
+    server_type="FeatureServer",
+    default_layers=[0],
+    supports_query=True,
+)
+
 # Registry indexado por nome
 SERVICE_REGISTRY: dict[str, ServiceEndpoint] = {
     ep.name: ep
@@ -109,5 +120,6 @@ SERVICE_REGISTRY: dict[str, ServiceEndpoint] = {
         GEOCRONOLOGIA,
         LITOESTRATIGRAFIA,
         AEROGEOFISICA,
+        FUROS_SONDAGEM,
     ]
 }

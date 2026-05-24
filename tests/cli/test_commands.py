@@ -19,6 +19,7 @@ import pytest
 
 from miner_harness.cli.app import main
 from miner_harness.cli.commands import (
+    _export_gis,
     _print_report_summary,
     _render_html_report,
     _serve_dashboard,
@@ -1109,3 +1110,120 @@ class TestLlmTimeoutFlag:
         passed_config = call_args[0][0] if call_args[0] else call_args[1].get("config")
         assert isinstance(passed_config, OrchestratorConfig)
         assert passed_config.ollama_timeout_s == 300
+
+
+class TestExportGis:
+    """Testes de _export_gis e flag --output-gis."""
+
+    def test_export_gis_gpkg_calls_exporter(self, tmp_path: Path) -> None:
+        """_export_gis com extensão .gpkg chama exporter.export()."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "targets.gpkg"
+
+        mock_exporter = MagicMock()
+        with patch("miner_harness.export.GisExporter", return_value=mock_exporter):
+            _export_gis(report, out)
+
+        mock_exporter.export.assert_called_once_with(report, out)
+        mock_exporter.export_geojson.assert_not_called()
+
+    def test_export_gis_geojson_calls_exporter_geojson(self, tmp_path: Path) -> None:
+        """_export_gis com extensão .geojson chama exporter.export_geojson()."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "targets.geojson"
+
+        mock_exporter = MagicMock()
+        with patch("miner_harness.export.GisExporter", return_value=mock_exporter):
+            _export_gis(report, out)
+
+        mock_exporter.export_geojson.assert_called_once_with(report, out)
+        mock_exporter.export.assert_not_called()
+
+    def test_export_gis_import_error_prints_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """ImportError em _export_gis não propaga (aviso no stderr)."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "targets.gpkg"
+
+        with patch(
+            "miner_harness.export.GisExporter",
+            side_effect=ImportError("geopandas not installed"),
+        ):
+            _export_gis(report, out)
+
+        captured = capsys.readouterr()
+        assert "geopandas" in captured.err
+
+    def test_export_gis_runtime_error_prints_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Exceção genérica em _export_gis não propaga (aviso no stderr)."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "targets.gpkg"
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.side_effect = RuntimeError("disk full")
+        with patch("miner_harness.export.GisExporter", return_value=mock_exporter):
+            _export_gis(report, out)
+
+        captured = capsys.readouterr()
+        assert "falha" in captured.err.lower() or "gis" in captured.err.lower()
+
+    def test_output_gis_flag_in_argparse(self) -> None:
+        """Flag --output-gis deve ser reconhecida pelo parser."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(
+            ["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5", "--output-gis", "out.gpkg"]
+        )
+        assert args.output_gis == "out.gpkg"
+
+    def test_output_gis_default_is_none(self) -> None:
+        """--output-gis deve ser None por padrão."""
+        from miner_harness.cli.app import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["analyze", "carajas", "--bbox", "-51", "-7", "-49", "-5"])
+        assert args.output_gis is None
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_output_gis_calls_export(self, tmp_path: Path) -> None:
+        """cmd_analyze com output_gis= chama _export_gis."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        out_gis = str(tmp_path / "targets.gpkg")
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+            patch("miner_harness.cli.commands._export_gis") as mock_export,
+        ):
+            mock_cfg.return_value.storage = storage
+            mock_cfg.return_value.orchestrator.model = "qwen3:8b"
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=report)
+            mock_orch_cls.return_value = mock_orch
+
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                output_gis=out_gis,
+                no_html=True,
+            )
+
+        assert result == 0
+        mock_export.assert_called_once()
