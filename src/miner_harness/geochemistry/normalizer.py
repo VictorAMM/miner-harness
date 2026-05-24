@@ -215,8 +215,9 @@ class GeochemistryNormalizer:
 
         # Pathfinder hits (apenas sistemas com ao menos 1 pathfinder anômalo)
         pf_hits: dict[str, list[str]] = {}
+        anomalous_set = set(anomalous)
         for system, pf_list in _PATHFINDERS.items():
-            hits = [p for p in pf_list if p in {e: True for e in anomalous}]
+            hits = [p for p in pf_list if p in anomalous_set]
             if hits:
                 pf_hits[system] = hits
 
