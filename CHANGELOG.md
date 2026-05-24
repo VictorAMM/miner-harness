@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.1.0] — 2026-05-24
+
+### Adicionado
+
+- **F6 — Índices Espectrais Sentinel-2 via CDSE** (`--s2-max-cloud PCT` / `--s2-days DIAS`):
+  integração com o Copernicus Data Space Ecosystem (CDSE) via Statistics API — sem download
+  de rasters. Autentica com OAuth2 `client_credentials` (registro gratuito em
+  dataspace.copernicus.eu) e obtém estatísticas JSON de 4 índices espectrais sobre L2A
+  Surface Reflectance a ~60m:
+  - **NDVI** = (B08−B04)/(B08+B04): vegetação; anomalia < 0.2 = solo alterado/mineralizado
+  - **BSI** (Bare Soil Index) = ((B11+B04)−(B08+B02))/soma: solo/rocha exposta; anomalia > 0.1
+  - **Clay Index** = B11/B12: argilominerais SWIR (sericita, caolinita, alunita); anomalia > 1.5
+  - **Iron Oxide** = B04/B02: óxidos de ferro (gossã, cap ferrugíneo); anomalia > 2.0
+  Cada índice reporta `mean`, `std`, `max`, `p90` e `area_anomalous_pct` (% pixels anômalos
+  via máscara binária no evalscript). SCL usado para máscara de nuvens.
+  Ativação: definir `MINER_COPERNICUS__CLIENT_ID` + `MINER_COPERNICUS__CLIENT_SECRET`.
+  Sem credenciais, a feature é silenciosamente ignorada (retrocompatível).
+
+### Melhorado
+
+- **`RemoteSensingAgent`** / passo INDIRECT_EVIDENCE: guia de interpretação geológica para
+  cada índice Sentinel-2 no `PromptManager` (NDVI → halo de alteração, Iron Oxide → gossã,
+  Clay → sericítico/argílico, BSI → exposição rochosa).
+- **Passo TOTAL_INTEGRATION** (`EvaluatorAgent`): guia para correlação de anomalias espectrais
+  multi-índice com alvos de prospecção.
+- **`ConfidenceCalibrator`**: `sentinel2_indices` adicionado a `_COMPUTED_KEYS` (não conta como
+  dado bruto no cálculo de volume).
+- **Cache**: TTL de 30 dias para `sentinel2` em `TTLPolicy`.
+- **Suite de testes**: 1164 testes (42 novos para `CopernicusConnector` + `SentinelIndexProcessor`).
+
 ## [1.0.0] — 2026-05-23
 
 ### Adicionado
