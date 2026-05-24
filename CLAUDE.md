@@ -104,9 +104,10 @@ ConfidenceCalibrator — recalibração de confiança por cobertura de dados cal
 F7 Drillholes — DrillholeParser (50+ aliases en/pt-BR) + DrillholeStore SQLite + injeção no contexto LLM + marcadores laranja Leaflet + tabela Dados + CLI --drillholes / index drillholes ✅ CONCLUÍDA (2026-05-22) [v0.9.0]
 F9 DOCX — DocxReportExporter gera relatório Word 7 seções (sumário, tabela alvos, justificativas, análise por etapa, lacunas, ressalvas JORC, referências); --output-docx CLI ✅ CONCLUÍDA (2026-05-23) [v1.0.0]
 Documentação v1.0.0 — CHANGELOG completo v0.3.0→v1.0.0, README atualizado, pyproject.toml 1.0.0 ✅ CONCLUÍDA (2026-05-23) [v1.0.0]
+F6 Sentinel-2 — CopernicusConnector OAuth2 + Statistics API (sem rasters); NDVI/BSI/Clay/Iron + área anômala%; injeção prompt + guia geológico; --s2-max-cloud/--s2-days CLI; TTL 30d; 42 testes ✅ CONCLUÍDA (2026-05-24) [v1.1.0]
 ```
 
-**Status**: v1.0.0 em produção. PRD-002 concluído (F1–F5 parcial, F7, F9). Bloqueados: F6 (Sentinel-2), F8 (Random Forest ML) — `[NEEDS CLARIFICATION]`.
+**Status**: v1.0.0 em produção. PRD-002 F6 (Sentinel-2) entregue. Pendente: F8 (Random Forest ML) — `[NEEDS CLARIFICATION]`.
 
 ## Grafo de Rastreabilidade
 
