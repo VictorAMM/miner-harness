@@ -16,6 +16,7 @@ import structlog
 if TYPE_CHECKING:
     from miner_harness.cache.manager import CacheManager
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
+    from miner_harness.connectors.sentinel2.connector import CopernicusConnector
     from miner_harness.core.types import BoundingBox
     from miner_harness.index.search_engine import SearchEngine
 
@@ -57,11 +58,13 @@ class ContextBuilder:
         cache: CacheManager,
         search_engine: SearchEngine | None = None,
         extra_sources: ExtraSourcesMap | None = None,
+        copernicus: CopernicusConnector | None = None,
     ) -> None:
         self._connector = connector
         self._cache = cache
         self._search_engine = search_engine
         self._extra_sources: ExtraSourcesMap = extra_sources or {}
+        self._copernicus = copernicus
         # Serviços filtrados pelo bbox na última chamada a build()
         # (dados obtidos, mas todos os registros estavam fora do bbox)
         self.bbox_filtered_sources: list[str] = []
@@ -197,6 +200,19 @@ class ContextBuilder:
                 n_collar_points=len(dh_geojson["features"]),
             )
 
+        # Índices espectrais Sentinel-2 via CDSE (PRD-002 F6)
+        if self._copernicus is not None:
+            s2_result = await self._get_sentinel2_indices(bbox)
+            if s2_result is not None:
+                context["sentinel2_indices"] = [
+                    {"text": s2_result.format_for_prompt(), "stats": s2_result.to_dict()}
+                ]
+                logger.info(
+                    "sentinel2_indices_injected",
+                    cloud_free_pct=round(s2_result.cloud_free_pct, 1),
+                    available=len(s2_result.available_indices),
+                )
+
         return context
 
     @staticmethod
@@ -298,6 +314,58 @@ class ContextBuilder:
             logger.info("context_indexed", documents=total)
         except Exception:
             logger.warning("context_index_failed", exc_info=True)
+
+    async def _get_sentinel2_indices(
+        self,
+        bbox: BoundingBox,
+    ) -> Any:
+        """Obtém índices Sentinel-2 via CDSE, usando cache quando possível.
+
+        Returns:
+            Sentinel2Indices ou None se indisponível/erro.
+        """
+        from miner_harness.connectors.sentinel2.processor import (  # noqa: PLC0415
+            Sentinel2Indices,
+            SentinelIndexProcessor,
+        )
+
+        # 1. Tentar cache
+        cached = self._cache.get("sentinel2", bbox)
+        if cached is not None and cached:
+            logger.debug("sentinel2_cache_hit")
+            try:
+                return Sentinel2Indices.from_dict(cached[0])
+            except Exception:
+                logger.warning("sentinel2_cache_deserialize_failed", exc_info=True)
+
+        # 2. Buscar do conector
+        copernicus = self._copernicus  # narrowing
+        assert copernicus is not None
+        print("  → sentinel2: buscando índices espectrais...", flush=True)
+        try:
+            raw = await copernicus.statistics(bbox)
+            if not raw:
+                print("  ✗ sentinel2: sem dados disponíveis", flush=True)
+                return None
+
+            result = SentinelIndexProcessor().process(raw)
+            if result is None:
+                print("  ✗ sentinel2: resposta sem outputs válidos", flush=True)
+                return None
+
+            # 3. Salvar no cache
+            self._cache.put("sentinel2", bbox, [result.to_dict()], "statistics")
+            print(
+                f"  ✓ sentinel2: {len(result.available_indices)} índices"
+                f" ({result.cloud_free_pct:.0f}% livre de nuvens)",
+                flush=True,
+            )
+            return result
+
+        except Exception:
+            logger.warning("sentinel2_fetch_failed", exc_info=True)
+            print("  ✗ sentinel2: falhou (tentará na próxima execução)", flush=True)
+            return None
 
     async def _get_service_data(
         self,

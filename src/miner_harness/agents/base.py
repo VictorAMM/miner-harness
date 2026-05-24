@@ -184,6 +184,15 @@ class BaseAgent(ABC):
                     geo_data_str + f"\n\n<user_drillholes>\n{dh_text}\n</user_drillholes>"
                 )
 
+        # Injetar índices espectrais Sentinel-2 (PRD-002 F6)
+        s2_records = geological_data.get("sentinel2_indices", [])
+        if s2_records:
+            s2_text = s2_records[0].get("text", "")
+            if s2_text:
+                geo_data_str = (
+                    geo_data_str + f"\n\n<sentinel2_indices>\n{s2_text}\n</sentinel2_indices>"
+                )
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]

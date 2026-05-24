@@ -29,6 +29,7 @@ _COMPUTED_KEYS: frozenset[str] = frozenset(
         "bouguer_gradient",
         "rag_context",
         "user_drillholes",  # meta-registro formatado (PRD-002 F7)
+        "sentinel2_indices",  # índices espectrais CDSE (PRD-002 F6)
     }
 )
 

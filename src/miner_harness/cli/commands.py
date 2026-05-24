@@ -45,6 +45,8 @@ async def cmd_analyze(
     output_gis: str | None = None,
     drillholes_csv: str | None = None,
     output_docx: str | None = None,
+    s2_max_cloud: float | None = None,
+    s2_days: int | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -60,6 +62,10 @@ async def cmd_analyze(
         config.orchestrator.ollama_timeout_s = llm_timeout
     if ctx_size is not None:
         config.orchestrator.num_ctx = ctx_size
+    if s2_max_cloud is not None:
+        config.copernicus.max_cloud_pct = s2_max_cloud
+    if s2_days is not None:
+        config.copernicus.days_back = s2_days
 
     storage = config.storage
     storage.ensure_dirs()
