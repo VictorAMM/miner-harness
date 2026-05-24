@@ -135,7 +135,15 @@ class DrillholeStore:
                 "lithology": row["lithology"],
                 "alteration": row["alteration"],
             }
-            extras: dict[str, Any] = json.loads(row["extra_json"])
+            try:
+                extras: dict[str, Any] = json.loads(row["extra_json"])
+            except (json.JSONDecodeError, ValueError):
+                extras = {}
+                logger.warning(
+                    "drillhole_store_extra_json_invalid",
+                    hole_id=row["hole_id"],
+                    raw=row["extra_json"][:80],
+                )
             rec.update(extras)
             result.append(rec)
         return result
