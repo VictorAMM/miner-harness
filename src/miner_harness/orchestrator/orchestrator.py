@@ -127,7 +127,10 @@ class Orchestrator:
                 logger.warning("rag_init_failed", exc_info=True)
 
         extra_sources = self._build_extra_sources()
-        self._context_builder = ContextBuilder(connector, cache, self._search_engine, extra_sources)
+        copernicus = self._build_copernicus()
+        self._context_builder = ContextBuilder(
+            connector, cache, self._search_engine, extra_sources, copernicus
+        )
 
         # Inicializar agentes com limites de dados escalados com num_ctx
         _agent_kwargs = dict(
@@ -387,6 +390,22 @@ class Orchestrator:
         except Exception:
             logger.warning("usgs_connector_init_failed", exc_info=True)
         return sources
+
+    def _build_copernicus(self) -> Any:
+        """Instancia CopernicusConnector quando credenciais estão disponíveis."""
+        if not self._config.copernicus.enabled:
+            return None
+        if not self._config.copernicus.client_id:
+            return None
+        try:
+            from miner_harness.connectors.sentinel2.connector import (  # noqa: PLC0415
+                CopernicusConnector,
+            )
+
+            return CopernicusConnector(self._config.copernicus)
+        except Exception:
+            logger.warning("copernicus_connector_init_failed", exc_info=True)
+            return None
 
     def get_agent_for_step(self, step: AnalysisStep) -> BaseAgent:
         """Retorna o agente principal para um passo."""

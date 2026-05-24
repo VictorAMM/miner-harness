@@ -176,6 +176,27 @@ class USGSConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Copernicus Data Space Ecosystem (Sentinel-2)
+# ---------------------------------------------------------------------------
+
+
+class CopernicusConfig(BaseModel):
+    """Configuração do conector Sentinel-2 via CDSE Statistics API.
+
+    Credenciais obtidas em https://dataspace.copernicus.eu/ (registro gratuito).
+    Defina via env: MINER_COPERNICUS__CLIENT_ID e MINER_COPERNICUS__CLIENT_SECRET.
+    """
+
+    enabled: bool = True
+    client_id: str = ""
+    client_secret: str = ""
+    max_cloud_pct: float = Field(default=20.0, ge=0.0, le=100.0)
+    days_back: int = Field(default=90, ge=1, le=365)
+    timeout_s: int = 60
+    ttl_days: int = 30
+
+
+# ---------------------------------------------------------------------------
 # Config raiz
 # ---------------------------------------------------------------------------
 
@@ -188,3 +209,4 @@ class MinerHarnessConfig(BaseModel):
     geosgb: GeoSGBConfig = Field(default_factory=GeoSGBConfig)
     anm: ANMConfig = Field(default_factory=ANMConfig)
     usgs: USGSConfig = Field(default_factory=USGSConfig)
+    copernicus: CopernicusConfig = Field(default_factory=CopernicusConfig)

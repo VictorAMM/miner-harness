@@ -33,6 +33,7 @@ class TTLPolicy:
         # Fontes externas adicionais
         "anm": 30,  # Concessões ANM — atualização mensal
         "usgs": 7,  # Eventos sísmicos USGS — mais voláteis (diário)
+        "sentinel2": 30,  # Índices Sentinel-2 via CDSE — cenas novas a cada ~5 dias
         # Metadados voláteis
         "count": 7,
         "service_info": 30,

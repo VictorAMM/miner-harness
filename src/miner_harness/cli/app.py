@@ -190,6 +190,28 @@ def _build_parser() -> argparse.ArgumentParser:
             "Ex: --output-docx relatorio.docx"
         ),
     )
+    analyze_parser.add_argument(
+        "--s2-max-cloud",
+        type=float,
+        default=None,
+        metavar="PCT",
+        help=(
+            "Cobertura máxima de nuvens para Sentinel-2 (%%); padrão: 20. "
+            "Requer MINER_COPERNICUS__CLIENT_ID e MINER_COPERNICUS__CLIENT_SECRET. "
+            "Ex: --s2-max-cloud 30"
+        ),
+    )
+    analyze_parser.add_argument(
+        "--s2-days",
+        type=int,
+        default=None,
+        metavar="DIAS",
+        help=(
+            "Janela temporal em dias para busca de imagens Sentinel-2; padrão: 90. "
+            "Valores menores = imagens mais recentes, porém maior risco de nuvens. "
+            "Ex: --s2-days 60"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -304,6 +326,8 @@ def main(argv: list[str] | None = None) -> int:
                     output_gis=args.output_gis,
                     drillholes_csv=args.drillholes,
                     output_docx=args.output_docx,
+                    s2_max_cloud=args.s2_max_cloud,
+                    s2_days=args.s2_days,
                 )
             )
         if args.command == "validate":
