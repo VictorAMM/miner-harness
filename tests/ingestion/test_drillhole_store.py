@@ -202,3 +202,31 @@ class TestContextManager:
         with DrillholeStore(miner_home) as s:
             rows = s.query_all()
         assert rows[0]["hole_id"] == "PERSIST"
+
+
+# ---------------------------------------------------------------------------
+# TestQueryAllRobustness
+# ---------------------------------------------------------------------------
+
+
+class TestQueryAllRobustness:
+    def test_corrupted_extra_json_falls_back_to_empty(self, tmp_path: Path) -> None:
+        """query_all() retorna registro sem extras quando extra_json está corrompido."""
+        canonical = {"hole_id", "x", "y", "z", "from_m", "to_m", "lithology", "alteration"}
+
+        miner_home = tmp_path / ".miner-harness"
+        with DrillholeStore(miner_home) as s:
+            s.insert_batch([_make_record("CORRUPT")])
+            # corrompe o extra_json diretamente no SQLite
+            s._conn.execute(
+                "UPDATE drillholes SET extra_json = ? WHERE hole_id = ?",
+                ("NOT-VALID-JSON{{{", "CORRUPT"),
+            )
+            s._conn.commit()
+            rows = s.query_all()
+
+        assert len(rows) == 1
+        assert rows[0]["hole_id"] == "CORRUPT"
+        # nenhuma chave extra deve ter vazado (fallback para {})
+        extra_keys = set(rows[0]) - canonical
+        assert extra_keys == set()

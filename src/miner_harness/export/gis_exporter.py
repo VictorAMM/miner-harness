@@ -20,6 +20,7 @@ Ref: PRD-002 F1
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -61,8 +62,6 @@ def _target_to_buffer_feature(target: Any) -> dict[str, Any]:
     Usa buffer circular em coordenadas geográficas. Para exportações
     profissionais, reprojetar para UTM antes de calcular buffer em metros.
     """
-    import math
-
     lon, lat = target.longitude, target.latitude
     r_deg = target.radius_km * _KM_TO_DEG
     # Polígono de 36 pontos (círculo aproximado)

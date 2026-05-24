@@ -421,3 +421,18 @@ class TestToGeoJSON:
             ring = feat["geometry"]["coordinates"][0]
             assert len(ring) == 5
             assert ring[0] == ring[-1]  # fechado
+
+
+# ---------------------------------------------------------------------------
+# TestComputeHgmEdgeCases
+# ---------------------------------------------------------------------------
+
+
+class TestComputeHgmEdgeCases:
+    def test_polar_latitude_no_zero_division(self) -> None:
+        """_compute_hgm não deve lançar ZeroDivisionError com lat_center ≈ 90°."""
+        # lat_center = 89.9° → cos ≈ 0.00175 → sem proteção causaria /0 com step muito pequeno
+        grid = [1.0, 2.0, 3.0, 4.0]
+        hgm = _compute_hgm(grid, ncols=2, nrows=2, step_lon=0.01, step_lat=0.01, lat_center=89.9)
+        assert len(hgm) == 4
+        assert all(h >= 0 for h in hgm)

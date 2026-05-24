@@ -328,7 +328,8 @@ def _compute_hgm(
     Usa diferenças finitas centrais no interior e diferenças
     avançadas/recuadas nas bordas. Unidade: mGal/km.
     """
-    km_per_lon = step_lon * 111.0 * math.cos(math.radians(lat_center))
+    # Proteção contra latitudes polares (cos → 0) que causariam ZeroDivisionError.
+    km_per_lon = max(step_lon * 111.0 * math.cos(math.radians(lat_center)), 1e-9)
     km_per_lat = step_lat * 111.0
 
     hgm: list[float] = []
