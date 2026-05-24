@@ -286,13 +286,15 @@ class ContextBuilder:
         if not documents:
             return
 
+        search_engine = self._search_engine  # narrowing: caller garante não-None
+        assert search_engine is not None
         try:
             # Processar em chunks respeitando o limite do DocumentStore
             chunk_size = 500
             total = 0
             for i in range(0, len(documents), chunk_size):
                 chunk = documents[i : i + chunk_size]
-                total += await self._search_engine.index_batch(chunk)  # type: ignore[union-attr]
+                total += await search_engine.index_batch(chunk)
             logger.info("context_indexed", documents=total)
         except Exception:
             logger.warning("context_index_failed", exc_info=True)

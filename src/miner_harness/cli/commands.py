@@ -13,6 +13,7 @@ import sys
 import webbrowser
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -21,6 +22,10 @@ from miner_harness.core.config import MinerHarnessConfig, StorageConfig
 from miner_harness.core.types import BoundingBox, ProspectionReport
 from miner_harness.index.document_store import DocumentStore
 from miner_harness.orchestrator.report_validator import ReportValidator
+
+if TYPE_CHECKING:
+    from miner_harness.connectors.geosgb.connector import GeoSGBConnector
+    from miner_harness.connectors.ollama.client import OllamaClient
 
 logger = structlog.get_logger(__name__)
 
@@ -225,9 +230,9 @@ def _render_html_report(
 
 async def _serve_dashboard(
     report: ProspectionReport,
-    connector: object,
-    cache: object,
-    llm: object,
+    connector: GeoSGBConnector,
+    cache: CacheManager,
+    llm: OllamaClient,
     config: MinerHarnessConfig,
     port: int,
 ) -> None:
@@ -236,9 +241,9 @@ async def _serve_dashboard(
 
     server = DashboardServer(
         initial_report=report,
-        connector=connector,  # type: ignore[arg-type]
-        cache=cache,  # type: ignore[arg-type]
-        llm=llm,  # type: ignore[arg-type]
+        connector=connector,
+        cache=cache,
+        llm=llm,
         config=config,
         port=port,
     )
