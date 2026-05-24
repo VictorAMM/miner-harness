@@ -273,9 +273,8 @@ class ProspectivityScorer:
                 pass
         return pts
 
-    @classmethod
+    @staticmethod
     def _extract_geochem(
-        cls,
         records: list[dict[str, Any]],
     ) -> list[tuple[float, float, bool]]:
         """Extrai (lon, lat, is_anomalous) de registros geoquímicos.
