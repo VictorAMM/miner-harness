@@ -277,8 +277,9 @@ def _extract_band_stats(
     if mean is None:
         return None
 
-    p_vals: dict[str, Any] = band_stats.get("percentileValues") or {}
-    # percentileValues pode ter chave "90.0" (float) ou 90 (int)
+    # p_vals typed as Any to allow both string "90.0" and integer 90 keys
+    # (CDSE uses "90.0", but some mock/test responses may use integer keys)
+    p_vals: Any = band_stats.get("percentileValues") or {}
     p90_raw = p_vals.get("90.0") or p_vals.get(90)
     p90 = float(p90_raw) if p90_raw is not None else float(band_stats.get("max", mean))
 
