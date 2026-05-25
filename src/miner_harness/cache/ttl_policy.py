@@ -34,6 +34,7 @@ class TTLPolicy:
         "anm": 30,  # Concessões ANM — atualização mensal
         "usgs": 7,  # Eventos sísmicos USGS — mais voláteis (diário)
         "sentinel2": 30,  # Índices Sentinel-2 via CDSE — cenas novas a cada ~5 dias
+        "aeromag_grid": 30,  # TMA do Atlas Aerogeofísico SGB — grid regional estável
         # Metadados voláteis
         "count": 7,
         "service_info": 30,

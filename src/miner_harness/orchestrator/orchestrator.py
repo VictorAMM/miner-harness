@@ -79,6 +79,7 @@ _DERIVED_CONTEXT_KEYS: frozenset[str] = frozenset(
         "user_drillholes",
         "sentinel2_indices",
         "ml_prospectivity",  # PRD-002 F8
+        "aeromag_grid",  # PRD-003 F10
     }
 )
 
@@ -146,6 +147,7 @@ class Orchestrator:
 
         extra_sources = self._build_extra_sources()
         copernicus = self._build_copernicus()
+        aeromag = self._build_aeromag()
         self._context_builder = ContextBuilder(
             connector,
             cache,
@@ -154,6 +156,7 @@ class Orchestrator:
             copernicus,
             ml_model_path=self._config.ml.model_path,
             ml_enabled=self._config.ml.enabled,
+            aeromag=aeromag,
         )
 
         # Inicializar agentes com limites de dados escalados com num_ctx
@@ -457,6 +460,24 @@ class Orchestrator:
             return CopernicusConnector(self._config.copernicus)
         except Exception:
             logger.warning("copernicus_connector_init_failed", exc_info=True)
+            return None
+
+    def _build_aeromag(self) -> Any:
+        """Instancia AeromagConnector quando habilitado na configuração."""
+        if not self._config.aeromag.enabled:
+            return None
+        try:
+            from miner_harness.connectors.geosgb.aeromag_connector import (  # noqa: PLC0415
+                AeromagConnector,
+            )
+
+            return AeromagConnector(
+                timeout_s=self._config.aeromag.timeout_s,
+                min_delay_ms=self._config.aeromag.min_delay_ms,
+                grid_n=self._config.aeromag.grid_n,
+            )
+        except Exception:
+            logger.warning("aeromag_connector_init_failed", exc_info=True)
             return None
 
     def get_agent_for_step(self, step: AnalysisStep) -> BaseAgent:

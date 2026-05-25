@@ -82,6 +82,8 @@ async def cmd_analyze(
     s2_max_cloud: float | None = None,
     s2_days: int | None = None,
     rf_model: str | None = None,
+    no_aeromag: bool = False,
+    aeromag_grid_n: int | None = None,
     verbose: bool = False,
 ) -> int:
     """Run full analysis pipeline on a region."""
@@ -104,6 +106,10 @@ async def cmd_analyze(
         config.copernicus.days_back = s2_days
     if rf_model is not None:
         config.ml.model_path = rf_model
+    if no_aeromag:
+        config.aeromag.enabled = False
+    if aeromag_grid_n is not None:
+        config.aeromag.grid_n = aeromag_grid_n
 
     storage = config.storage
     storage.ensure_dirs()

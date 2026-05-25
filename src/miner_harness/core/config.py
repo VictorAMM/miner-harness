@@ -219,6 +219,37 @@ class MLConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Aeromagnética — Atlas Aerogeofísico SGB (PRD-003 F10)
+# ---------------------------------------------------------------------------
+
+
+class AeromagConfig(BaseModel):
+    """Configuração do conector de Anomalia Magnética Total (Atlas SGB).
+
+    O Atlas Aerogeofísico SGB expõe dados raster de TMA (1:1.000.000)
+    via MapServer/identify — sem autenticação, gratuito, baseado em CPRM.
+
+    Use ``enabled=False`` (ou ``--no-aeromag`` na CLI) para pular a
+    amostragem quando a conexão com o portal SGB for lenta.
+    """
+
+    enabled: bool = True
+    timeout_s: int = Field(default=30, ge=5, description="Timeout por request ao geoportal SGB")
+    min_delay_ms: int = Field(
+        default=300,
+        ge=100,
+        description="Delay mínimo entre requests (ms) — throttle conservador",
+    )
+    grid_n: int = Field(
+        default=6,
+        ge=2,
+        le=12,
+        description="Pontos por dimensão do grid de amostragem (N×N total)",
+    )
+    ttl_days: int = Field(default=30, ge=1, description="TTL do cache em dias")
+
+
+# ---------------------------------------------------------------------------
 # Config raiz
 # ---------------------------------------------------------------------------
 
@@ -233,3 +264,4 @@ class MinerHarnessConfig(BaseModel):
     usgs: USGSConfig = Field(default_factory=USGSConfig)
     copernicus: CopernicusConfig = Field(default_factory=CopernicusConfig)
     ml: MLConfig = Field(default_factory=MLConfig)
+    aeromag: AeromagConfig = Field(default_factory=AeromagConfig)

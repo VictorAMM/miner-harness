@@ -15,6 +15,7 @@ import structlog
 
 if TYPE_CHECKING:
     from miner_harness.cache.manager import CacheManager
+    from miner_harness.connectors.geosgb.aeromag_connector import AeromagConnector
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
     from miner_harness.connectors.sentinel2.connector import CopernicusConnector
     from miner_harness.core.types import BoundingBox
@@ -61,6 +62,7 @@ class ContextBuilder:
         copernicus: CopernicusConnector | None = None,
         ml_model_path: str = "",
         ml_enabled: bool = True,
+        aeromag: AeromagConnector | None = None,
     ) -> None:
         self._connector = connector
         self._cache = cache
@@ -69,6 +71,7 @@ class ContextBuilder:
         self._copernicus = copernicus
         self._ml_model_path: str = ml_model_path
         self._ml_enabled: bool = ml_enabled
+        self._aeromag = aeromag
         # Serviços filtrados pelo bbox na última chamada a build()
         # (dados obtidos, mas todos os registros estavam fora do bbox)
         self.bbox_filtered_sources: list[str] = []
@@ -240,6 +243,29 @@ class ContextBuilder:
                     )
             except Exception:
                 logger.warning("ml_prospectivity_failed", exc_info=True)
+
+        # Anomalia Magnética Total via Atlas Aerogeofísico SGB (PRD-003 F10)
+        if self._aeromag is not None:
+            try:
+                from miner_harness.geophysics.aeromag_processor import (  # noqa: PLC0415
+                    AeromagProcessor,
+                )
+
+                aeromag_points = await self._aeromag.sample_tma(bbox)
+                if aeromag_points:
+                    amgrid = AeromagProcessor().process(aeromag_points, bbox)
+                    if amgrid is not None:
+                        context["aeromag_grid"] = [
+                            {"text": amgrid.format_for_prompt(), "geojson": amgrid.to_geojson()}
+                        ]
+                        logger.info(
+                            "aeromag_grid_injected",
+                            n_cells=amgrid.n_source_points,
+                            tma_mean=round(amgrid.tma_mean, 1),
+                            n_anomalies=len(amgrid.anomaly_cells),
+                        )
+            except Exception:
+                logger.warning("aeromag_grid_failed", exc_info=True)
 
         return context
 

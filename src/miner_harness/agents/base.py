@@ -36,6 +36,7 @@ _SOURCE_LABELS: dict[str, str] = {
     "furos": "GeoSGB/Furos de Sondagem Históricos",
     "anm": "ANM/SIGMINE — Concessões Minerárias",
     "usgs": "USGS — Eventos Sísmicos",
+    "aeromag_grid": "Atlas Aerogeofísico SGB — Anomalia Magnética Total",
 }
 
 # Mapa reverso: rótulo humanizado → chave canônica (para normalização pós-parse)
@@ -87,6 +88,13 @@ _SOURCE_ALIASES: dict[str, str] = {
     "rag_context": "rag_context",
     "rag": "rag_context",
     "contexto rag": "rag_context",
+    "aeromag_grid": "aeromag_grid",
+    "anomalia magnética": "aeromag_grid",
+    "anomalia magnetica": "aeromag_grid",
+    "tma": "aeromag_grid",
+    "atlas aerogeofísico": "aeromag_grid",
+    "atlas aerogeofisico": "aeromag_grid",
+    "magnetometria total": "aeromag_grid",
 }
 
 

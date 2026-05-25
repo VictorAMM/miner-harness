@@ -232,6 +232,26 @@ def _build_parser() -> argparse.ArgumentParser:
             "Ex: --rf-model meu_modelo.joblib"
         ),
     )
+    analyze_parser.add_argument(
+        "--no-aeromag",
+        action="store_true",
+        default=False,
+        help=(
+            "Pular amostragem de Anomalia Magnética Total do Atlas Aerogeofísico SGB"
+            " (PRD-003 F10). Use quando o portal geoportal.sgb.gov.br estiver lento"
+            " ou indisponível."
+        ),
+    )
+    analyze_parser.add_argument(
+        "--aeromag-grid-n",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Número de pontos por dimensão do grid de amostragem TMA (N×N; padrão: 6). "
+            "Valores maiores = mais amostras, mais tempo. Ex: --aeromag-grid-n 8"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -352,6 +372,8 @@ def main(argv: list[str] | None = None) -> int:
                     s2_max_cloud=args.s2_max_cloud,
                     s2_days=args.s2_days,
                     rf_model=args.rf_model,
+                    no_aeromag=args.no_aeromag,
+                    aeromag_grid_n=args.aeromag_grid_n,
                     verbose=args.verbose,
                 )
             )
