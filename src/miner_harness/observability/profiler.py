@@ -14,6 +14,8 @@ from miner_harness.core.types import AnalysisStep, StepResult  # noqa: TC001
 from miner_harness.server.analysis_runner import AnalysisRunner
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from miner_harness.core.types import BoundingBox, ProspectionReport
 
 
@@ -61,6 +63,7 @@ class ProfilingRunner(AnalysisRunner):
         region_name: str,
         steps: list[AnalysisStep] | None = None,
         user_drillholes: list[dict[str, Any]] | None = None,
+        on_step_complete: Callable[[AnalysisStep, int, int, str], None] | None = None,
     ) -> ProspectionReport:
         self._pipeline_start = time.perf_counter()
         self._profile = ProfileReport(
@@ -70,7 +73,11 @@ class ProfilingRunner(AnalysisRunner):
         )
         self._fetch_start = time.perf_counter()
         report = await super().analyze_region(
-            bbox, region_name, steps, user_drillholes=user_drillholes
+            bbox,
+            region_name,
+            steps,
+            user_drillholes=user_drillholes,
+            on_step_complete=on_step_complete,
         )
         self._profile.total_wall_ms = (time.perf_counter() - self._pipeline_start) * 1000
         self._profile.print_summary()

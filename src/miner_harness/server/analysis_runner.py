@@ -11,6 +11,8 @@ from miner_harness.orchestrator.orchestrator import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from miner_harness.core.types import BoundingBox
     from miner_harness.server.sse import SseChannel
 
@@ -29,6 +31,7 @@ class AnalysisRunner(Orchestrator):
         region_name: str,
         steps: list[AnalysisStep] | None = None,
         user_drillholes: list[dict[str, Any]] | None = None,
+        on_step_complete: Callable[[AnalysisStep, int, int, str], None] | None = None,
     ) -> ProspectionReport:
         ch = getattr(self, "_sse_channel", None)
         if ch is not None:
@@ -36,7 +39,11 @@ class AnalysisRunner(Orchestrator):
 
         try:
             report = await super().analyze_region(
-                bbox, region_name, steps, user_drillholes=user_drillholes
+                bbox,
+                region_name,
+                steps,
+                user_drillholes=user_drillholes,
+                on_step_complete=on_step_complete,
             )
         except Exception as exc:
             if ch is not None:
