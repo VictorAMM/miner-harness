@@ -109,9 +109,10 @@ F8 Random Forest ML — ProspectivityMLScorer RF pré-treinado (15 features: geo
 UX Audit — 19 melhorias identificadas e implementadas: CLI PT-BR completo (_print_report_summary, progresso, cabeçalho), strip <think> do reasoning, seções por agente, legenda mapa colapsável, dark tables Dados, popup rationale 500 chars, print stylesheet, font sizes, nomeação geográfica de alvos (Q5), normalização data_sources_used 40+ aliases (Q6), aba "📋 Exportar", hint --min-sources no banner de cobertura ✅ CONCLUÍDA (2026-05-25) [v1.3.0]
 Coverage 100% — 19 branches descobertas pós-UX-audit cobertas (8 módulos); fix mypy: on_step_complete em AnalysisRunner + ProfilingRunner; 1 295 testes, 0 missing statements ✅ CONCLUÍDA (2026-05-25) [v1.3.0]
 F10 Aeromagnética Real — AeromagConnector (MapServer/identify; N×N grid; graceful fallback) + AeromagProcessor (HGM diferenças finitas, anomalias 2σ, format_for_prompt, to_geojson); AeromagConfig + TTL 30d; --no-aeromag/--aeromag-grid-n CLI; aeromag_grid no GeophysicistAgent + guia TMA/HGM no prompt; _COMPUTED_KEYS (sem penalidade HIGH); 56 novos testes; 1 351 testes no total ✅ CONCLUÍDA (2026-05-25) [v1.4.0]
+Coverage 100% pós-F10 — 5 gaps cobertos (pragma no cover no guard defensivo, grade esparsa HGM, 3 paths aeromag no ContextBuilder, exception path em _build_aeromag); 1 356 testes no total ✅ CONCLUÍDA (2026-05-25) [v1.4.0]
 ```
 
-**Status**: v1.4.0 em produção. PRD-003 F10 (Aeromagnética Real) entregue — TMA quantitativo do Atlas Aerogeofísico SGB injetado no GeophysicistAgent. 1 351 testes, cobertura 100%.
+**Status**: v1.4.0 em produção. PRD-003 F10 (Aeromagnética Real) entregue. Cobertura 100% restaurada — 1 356 testes, 0 missing statements.
 
 ## Grafo de Rastreabilidade
 
