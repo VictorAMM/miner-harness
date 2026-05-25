@@ -11,6 +11,7 @@ from miner_harness.cache.manager import CacheManager
 from miner_harness.core.config import (
     ANMConfig,
     MinerHarnessConfig,
+    MLConfig,
     OrchestratorConfig,
     StorageConfig,
     USGSConfig,
@@ -73,6 +74,8 @@ def bench_config() -> MinerHarnessConfig:
         # Disable extra connectors to prevent real HTTP requests in benchmarks
         anm=ANMConfig(enabled=False),
         usgs=USGSConfig(enabled=False),
+        # Disable ML scorer so benchmark measures LLM step count, not RF overhead
+        ml=MLConfig(enabled=False),
     )
 
 

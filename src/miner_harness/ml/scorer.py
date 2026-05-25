@@ -201,7 +201,7 @@ class ProspectivityMLScorer:
             return
         self._loaded = True
         try:
-            import joblib  # noqa: PLC0415  # type: ignore[import-untyped]
+            import joblib  # type: ignore[import-untyped]  # noqa: PLC0415
 
             if not self._model_path.exists():
                 self._load_error = f"Modelo não encontrado: {self._model_path}"
