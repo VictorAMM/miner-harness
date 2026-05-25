@@ -43,16 +43,18 @@ class ServiceEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# Serviços — caminhos verificados via catalog REST em 2026-05-17
-# Todos migrados para FeatureServer (mais estável que MapServer/identify)
+# Serviços — caminhos verificados em 2026-05-17.
+# FeatureServer removido do servidor para ocorrencias/geocronologia/litoestratigrafia:
+# esses 3 usam MapServer/identify. gravimetria/geoquimica/aerogeofisica/furos
+# continuam via FeatureServer/query.
 # ---------------------------------------------------------------------------
 
 OCORRENCIAS = ServiceEndpoint(
     name="ocorrencias",
     path="geologia/ocorrencias",
-    server_type="FeatureServer",
+    server_type="MapServer",
     default_layers=[0],  # "Ocorrências minerais"
-    supports_query=True,
+    supports_query=False,
 )
 
 GRAVIMETRIA = ServiceEndpoint(
@@ -76,18 +78,18 @@ GEOQUIMICA = ServiceEndpoint(
 GEOCRONOLOGIA = ServiceEndpoint(
     name="geocronologia",
     path="geologia/geocronologia",
-    server_type="FeatureServer",
+    server_type="MapServer",
     default_layers=[0],  # "Datações geocronológicas"
-    supports_query=True,
+    supports_query=False,
 )
 
 # Escala 1:1.000.000 — adequada para análise regional de prospecção
 LITOESTRATIGRAFIA = ServiceEndpoint(
     name="litoestratigrafia",
     path="geologia/litoestratigrafia_1000000",
-    server_type="FeatureServer",
+    server_type="MapServer",
     default_layers=[0],  # "Unidades litoestratigráficas - 1:1.000.000 [2004]"
-    supports_query=True,
+    supports_query=False,
 )
 
 # 4 séries históricas de levantamentos aerogeofísicos

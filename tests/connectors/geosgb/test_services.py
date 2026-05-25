@@ -34,8 +34,14 @@ class TestServiceEndpoint:
         assert ep.identify_url.endswith("/identify")
 
     def test_identify_url_on_featureserver_raises(self) -> None:
+        ep = ServiceEndpoint(
+            name="test_fs",
+            path="geologia/test_fs",
+            server_type="FeatureServer",
+            supports_query=True,
+        )
         with pytest.raises(ValueError, match="identify not available"):
-            _ = OCORRENCIAS.identify_url
+            _ = ep.identify_url
 
     def test_query_url(self) -> None:
         assert OCORRENCIAS.query_url(0).endswith("/0/query")

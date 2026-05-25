@@ -37,11 +37,8 @@ from .grid_extractor import (
 from .services import (
     AEROGEOFISICA,
     FUROS_SONDAGEM,
-    GEOCRONOLOGIA,
     GEOQUIMICA,
     GRAVIMETRIA,
-    LITOESTRATIGRAFIA,
-    OCORRENCIAS,
     SERVICE_REGISTRY,
     ServiceEndpoint,
 )
@@ -54,8 +51,8 @@ class GeoSGBConnector:
     """Interface pública do connector GeoSGB.
 
     Provê métodos tipados para cada serviço, abstraindo:
-    - MapServer/identify (grid + dedup) para a maioria dos serviços
-    - FeatureServer/query para gravimetria
+    - MapServer/identify (grid + dedup) para ocorrencias, geocronologia, litoestratigrafia
+    - FeatureServer/query para gravimetria, geoquimica, aerogeofisica, furos
     - Alias mapping para normalizar campos
     - Rate limiting via ThrottledClient
 
@@ -92,8 +89,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[OcorrenciaMineral]:
-        """Extrai ocorrências minerais da região via FeatureServer/query."""
-        raw = await self._query_features(OCORRENCIAS, bbox=bbox)
+        """Extrai ocorrências minerais da região via MapServer/identify."""
+        raw = await self._extract_via_identify("ocorrencias", bbox, density=density)
         mapper = AliasMapper("ocorrencias")
         mapped = mapper.map_records(raw)
         return [f for r in mapped if (f := self._parse_ocorrencia(r)) is not None]
@@ -124,8 +121,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[DatacaoGeocronologica]:
-        """Extrai datações geocronológicas da região via FeatureServer/query."""
-        raw = await self._query_features(GEOCRONOLOGIA, bbox=bbox)
+        """Extrai datações geocronológicas da região via MapServer/identify."""
+        raw = await self._extract_via_identify("geocronologia", bbox, density=density)
         mapper = AliasMapper("geocronologia")
         mapped = mapper.map_records(raw)
         return [f for r in mapped if (f := self._parse_geocronologia(r)) is not None]
@@ -135,8 +132,8 @@ class GeoSGBConnector:
         bbox: BoundingBox,
         density: GridDensity = GridDensity.MEDIUM,
     ) -> list[UnidadeLitoestratigrafica]:
-        """Extrai unidades litoestratigráficas (1:1.000.000) via FeatureServer/query."""
-        raw = await self._query_features(LITOESTRATIGRAFIA, bbox=bbox)
+        """Extrai unidades litoestratigráficas (1:1.000.000) via MapServer/identify."""
+        raw = await self._extract_via_identify("litoestratigrafia", bbox, density=density)
         mapper = AliasMapper("litoestratigrafia")
         mapped = mapper.map_records(raw)
         return [self._parse_litoestratigrafia(r) for r in mapped]

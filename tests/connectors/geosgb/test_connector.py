@@ -273,16 +273,16 @@ class TestConnectorExtraction:
     async def test_ocorrencias_extraction(
         self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
     ) -> None:
-        """ocorrencias usa FeatureServer/query (não mais MapServer/identify)."""
+        """ocorrencias usa MapServer/identify — resposta identify retornada por mock."""
         connector = GeoSGBConnector(fast_config)
 
-        query_resp = _make_query_response(
+        identify_resp = _make_identify_response(
             [
                 {
-                    "OBJECTID": 1,
-                    "Substancias minerais": "Cobre",
-                    "Municipio": "Parauapebas",
-                    "UF": "PA",
+                    "objectid": 1,
+                    "substancias_minerais": "Cobre",
+                    "municipio": "Parauapebas",
+                    "uf": "PA",
                     "longitude": -50.05,
                     "latitude": -6.05,
                 },
@@ -290,7 +290,7 @@ class TestConnectorExtraction:
         )
 
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = query_resp
+            mock_get.return_value = identify_resp
             results = await connector.ocorrencias(bbox_small)
 
         assert len(results) >= 1
@@ -326,7 +326,7 @@ class TestConnectorExtraction:
     async def test_http_500_raises_geosgb_query_error(
         self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
     ) -> None:
-        """HTTP 500 from FeatureServer/query é convertido em GeoSGBQueryError."""
+        """HTTP 500 from FeatureServer/query é convertido em GeoSGBQueryError (gravimetria)."""
         connector = GeoSGBConnector(fast_config)
 
         mock_response = MagicMock(spec=httpx.Response)
@@ -336,7 +336,7 @@ class TestConnectorExtraction:
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = http_error
             with pytest.raises(GeoSGBQueryError):
-                await connector.ocorrencias(bbox_small)
+                await connector.gravimetria(bbox_small)
 
         await connector.close()
 
@@ -367,22 +367,24 @@ class TestConnectorExtraction:
         error_resp = {
             "error": {"code": 400, "message": "Unable to complete operation.", "details": []}
         }
-        ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [93362, 93363]}
+        ids_resp = {"objectIdFieldName": "OBJECTID", "objectIds": [1, 2]}
         attrs_resp = _make_query_response(
             [
                 {
-                    "OBJECTID": 93362,
-                    "Substancias minerais": "Ferro",
-                    "Municipio": "Parauapebas",
-                    "UF": "PA",
+                    "objectid": 1,
+                    "altitude_ortometrica": 250.0,
+                    "gravidade": 978050.0,
+                    "anomalia_ar_livre": -12.5,
+                    "anomalia_bouguer": -45.2,
                     "longitude": -50.05,
                     "latitude": -6.05,
                 },
                 {
-                    "OBJECTID": 93363,
-                    "Substancias minerais": "Ouro",
-                    "Municipio": "Parauapebas",
-                    "UF": "PA",
+                    "objectid": 2,
+                    "altitude_ortometrica": 300.0,
+                    "gravidade": 978060.0,
+                    "anomalia_ar_livre": -11.5,
+                    "anomalia_bouguer": -44.2,
                     "longitude": -50.06,
                     "latitude": -6.06,
                 },
@@ -391,11 +393,11 @@ class TestConnectorExtraction:
 
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = [error_resp, ids_resp, attrs_resp]
-            results = await connector.ocorrencias(bbox_small)
+            results = await connector.gravimetria(bbox_small)
 
         assert len(results) == 2
-        assert results[0].substancias == "Ferro"
-        assert results[1].substancias == "Ouro"
+        assert results[0].anomalia_bouguer == -45.2
+        assert results[1].anomalia_bouguer == -44.2
         await connector.close()
 
     async def test_context_manager(self, fast_config: GeoSGBConfig) -> None:
@@ -421,16 +423,21 @@ class TestServices:
         assert set(SERVICE_REGISTRY.keys()) == expected
 
     def test_all_services_support_query(self) -> None:
+        """FeatureServer endpoints têm supports_query=True; MapServer têm False."""
         from miner_harness.connectors.geosgb.services import SERVICE_REGISTRY
 
         for name, ep in SERVICE_REGISTRY.items():
-            assert ep.supports_query is True, f"{name} should support FeatureServer/query"
+            expected = ep.server_type == "FeatureServer"
+            assert ep.supports_query is expected, (
+                f"{name}: supports_query={ep.supports_query} mas server_type={ep.server_type}"
+            )
 
     def test_service_urls(self) -> None:
-        from miner_harness.connectors.geosgb.services import OCORRENCIAS
+        from miner_harness.connectors.geosgb.services import GRAVIMETRIA, OCORRENCIAS
 
         assert "geoportal.sgb.gov.br" in OCORRENCIAS.url
-        assert OCORRENCIAS.url.endswith("/FeatureServer")
+        assert OCORRENCIAS.url.endswith("/MapServer")  # migrado de FeatureServer
+        assert GRAVIMETRIA.url.endswith("/FeatureServer")  # permanece FeatureServer
 
     def test_geoquimica_multi_layer(self) -> None:
         from miner_harness.connectors.geosgb.services import GEOQUIMICA
@@ -448,28 +455,40 @@ class TestConnectorServiceMethods:
 
     @pytest.mark.asyncio
     async def test_geocronologia(self, fast_config: GeoSGBConfig, bbox_small: BoundingBox) -> None:
+        """geocronologia usa MapServer/identify; dedup por objectid garante 1 resultado."""
         connector = GeoSGBConnector(fast_config)
-        resp = _make_query_response(
-            [{"objectid": 1, "idade_minima": 2100.0, "idade_maxima": 2200.0, "metodo": "U-Pb"}]
+        resp = _make_identify_response(
+            [
+                {
+                    "objectid": 1,
+                    "metodo": "U-Pb",
+                    "idade_ma": 2750.0,
+                    "longitude": -50.0,
+                    "latitude": -6.0,
+                }
+            ]
         )
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = resp
             results = await connector.geocronologia(bbox_small)
         assert len(results) == 1
+        assert results[0].metodo == "U-Pb"
         await connector.close()
 
     @pytest.mark.asyncio
     async def test_litoestratigrafia(
         self, fast_config: GeoSGBConfig, bbox_small: BoundingBox
     ) -> None:
+        """litoestratigrafia usa MapServer/identify; dedup por objectid garante 1 resultado."""
         connector = GeoSGBConnector(fast_config)
-        resp = _make_query_response(
-            [{"objectid": 1, "sigla": "Xbj", "nome": "Formação Carajás", "era": "Arqueano"}]
+        resp = _make_identify_response(
+            [{"objectid": 1, "sigla": "Xbj", "nome": "Formação Carajás", "hierarquia": "Grupo"}]
         )
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = resp
             results = await connector.litoestratigrafia(bbox_small)
         assert len(results) == 1
+        assert results[0].sigla == "Xbj"
         await connector.close()
 
     @pytest.mark.asyncio
@@ -628,9 +647,9 @@ class TestConnectorQueryEdgeCases:
         connector = GeoSGBConnector(fast_config)
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = page1
-            from miner_harness.connectors.geosgb.services import OCORRENCIAS
+            from miner_harness.connectors.geosgb.services import GRAVIMETRIA
 
-            result = await connector._query_features(OCORRENCIAS, limit=500)
+            result = await connector._query_features(GRAVIMETRIA, limit=500)
         assert len(result) >= 500  # noqa: PLR2004
         await connector.close()
 
@@ -654,9 +673,9 @@ class TestConnectorQueryEdgeCases:
         connector = GeoSGBConnector(fast_config)
         with patch.object(connector._client, "get", new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = [page1, page2]
-            from miner_harness.connectors.geosgb.services import OCORRENCIAS
+            from miner_harness.connectors.geosgb.services import GRAVIMETRIA
 
-            result = await connector._query_features(OCORRENCIAS)
+            result = await connector._query_features(GRAVIMETRIA)
         assert len(result) == page_size + 1
         await connector.close()
 
