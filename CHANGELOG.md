@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.3.0] — 2026-05-25
+
+### Melhorado — UX Audit (19 melhorias)
+
+#### CLI
+
+- **PT-BR completo**: cabeçalho de análise (`Região`, `BBox`, `Modelo`), progresso dos passos com
+  nomes em português (`Hist. Tectônica`, `Arq. Estrutural`, `Fertil. Magmática`, `Evid. Indiretas`,
+  `Integração Total`) e ícones de confiança (`✓ alta`, `~ média`, `⚠ baixa`, `✗ insuficiente`).
+- **`_print_report_summary` reescrito**: síntese integrada do LLM exibida em caixa destacada;
+  passos com ícone + nome PT-BR + nível de confiança; alvos com sistema mineral, commodities e
+  confiança; ressalvas listadas; totalmente em português.
+- **Flag `--verbose`** agora propaga `num_ctx`, `min_sources` e `timeout` no cabeçalho.
+- **Separador visual** (`──────`) antes do pipeline LLM no orquestrador.
+
+#### Dashboard HTML
+
+- **D1 — Strip `<think>`**: `stripThinking()` remove blocos `<think>…</think>` dos modelos qwen3
+  antes de exibir o reasoning — geólogos veem apenas o conteúdo analítico final.
+- **D2 — Reasoning por agente**: seções de reasoning separadas com o nome real de cada agente
+  (ex: "Geoquímico", "Geofísico") nos passos de execução paralela (steps 3 e 4).
+- **D3 — Popup de alvo**: trecho do rationale ampliado de 200 → 500 caracteres; rótulo
+  corrigido para "Raio de interesse:".
+- **D4 — Legenda do mapa colapsável**: controle Leaflet no canto inferior esquerdo com todos os
+  overlays e marcadores — evita sobreposição com o mapa.
+- **D5 — Print stylesheet**: `@media print` com margens, font-size 12px, remoção de controles e
+  fundo colorido — dashboard imprimível diretamente do browser.
+- **D6 — Tamanho de fonte**: `body` 13 → 14px; `.section-title` 10 → 11px; `.section-chevron`
+  8 → 9px — maior legibilidade no painel de análise.
+- **D7 — Dark theme consistente nas tabelas Dados**: todas as tabelas da aba Dados (ocorrências,
+  gravimetria, geocronologia, litoestratigrafia, furos, ANM, USGS) agora usam dark theme
+  (`#1e293b` / `#263348`) em vez de fundos coloridos claros — consistência visual com o resto
+  do dashboard.
+- **D8 — Aba "📋 Exportar"**: aba de exportação renomeada de `{ } JSON` para `📋 Exportar`,
+  mais acessível para usuários não-técnicos.
+- **D9 — Hint acionável no banner de cobertura**: quando fontes GeoSGB estão indisponíveis, o
+  banner exibe a dica `💡 Dica: re-execute o comando ou use --min-sources N para aceitar estes
+  dados parciais.` com `N` calculado automaticamente (fontes disponíveis na execução atual).
+
+#### Qualidade de dados
+
+- **Q5 — Nomeação geográfica de alvos**: `PromptManager` instrui o LLM a combinar referência
+  geográfica real (serra, cinturão, bacia) com o sistema mineral identificado para nomear alvos
+  (ex: `Serra do Rabo — Ouro Orogênico`). Proibido: `Alvo 1`, `Prospecto A`, `Target Norte`.
+- **Q6 — Normalização de `data_sources_used`**: `BaseAgent._normalize_sources()` mapeia 40+
+  aliases gerados pelo LLM para as chaves canônicas do sistema (ex: `"GeoSGB Ocorrências"` →
+  `"ocorrencias_minerais"`), garantindo consistência nos relatórios e no dashboard.
+
 ## [1.2.0] — 2026-05-24
 
 ### Adicionado
