@@ -976,6 +976,35 @@ function esc(s) {
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// D1: Remove blocos <think>...</think> do reasoning (qwen3 thinking mode)
+function stripThinking(text) {
+  if (!text) return '';
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^\s+/, '').trim();
+}
+
+// D6: Rótulos humanos para chaves de fontes internas
+const SOURCE_LABELS_HUMAN = {
+  ocorrencias:           'Ocorrências Minerais (GeoSGB)',
+  gravimetria:           'Gravimetria (GeoSGB)',
+  geoquimica:            'Geoquímica (GeoSGB)',
+  geocronologia:         'Geocronologia (GeoSGB)',
+  litoestratigrafia:     'Litoestratigrafia (GeoSGB)',
+  aerogeofisica:         'Aerogeofísica (GeoSGB)',
+  furos:                 'Furos de Sondagem Históricos (GeoSGB)',
+  anm:                   'ANM/SIGMINE — Concessões Minerárias',
+  usgs:                  'USGS — Eventos Sísmicos',
+  rag_context:           'RAG — Contexto Semântico',
+  geoquimica_normalizada:'Geoquímica Normalizada (CF)',
+  prospectivity_grid:    'Score de Prospectividade',
+  bouguer_gradient:      'Gradiente Bouguer (HGM)',
+  user_drillholes:       'Furos do Usuário (Proprietários)',
+  sentinel2_indices:     'Sentinel-2 — Índices Espectrais',
+  ml_prospectivity:      'ML — RandomForest (Experimental)',
+};
+function humanSource(key) {
+  return SOURCE_LABELS_HUMAN[key] || key;
+}
+
 // ============================================================
 // HEADER
 // ============================================================
@@ -1198,18 +1227,18 @@ function buildPopup(t) {
   const cLabel = CONF_LABELS[t.confidence] || t.confidence;
   const comms = (t.commodities || []).join(', ');
   const followup = (t.recommended_followup || []).slice(0, 3).join(' · ');
-  const rationale = (t.rationale || '').slice(0, 200);
+  const rationale = (t.rationale || '').slice(0, 500);
   return `<div>
     <div class="popup-title" style="color:${color}">P${t.priority} — ${t.name}</div>
     <div class="popup-row"><span class="popup-label">Sistema:</span><span class="popup-val">${t.mineral_system}</span></div>
     <div class="popup-row"><span class="popup-label">Commodities:</span><span class="popup-val">${comms}</span></div>
-    <div class="popup-row"><span class="popup-label">Raio:</span><span class="popup-val">${t.radius_km} km</span></div>
+    <div class="popup-row"><span class="popup-label">Raio de interesse:</span><span class="popup-val">${t.radius_km} km</span></div>
     <div class="popup-row"><span class="popup-label">Confiança:</span>
       <span class="popup-val t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span></div>
     <div class="popup-row"><span class="popup-label">Coord:</span>
       <span class="popup-val">${t.latitude.toFixed(4)}, ${t.longitude.toFixed(4)}</span></div>
     ${followup ? `<div class="popup-row"><span class="popup-label">Follow-up:</span><span class="popup-val">${followup}</span></div>` : ''}
-    ${rationale ? `<div class="popup-rationale">${rationale}${t.rationale && t.rationale.length > 200 ? '…' : ''}</div>` : ''}
+    ${rationale ? `<div class="popup-rationale">${esc(rationale)}${t.rationale && t.rationale.length > 500 ? '…' : ''}</div>` : ''}
   </div>`;
 }
 
@@ -1703,6 +1732,59 @@ function setupMapControls(bboxBounds) {
       if (sliderVal) sliderVal.textContent = this.value + '%';
     };
   }
+
+  // D4: Legenda persistente do mapa (canto inferior esquerdo)
+  if (!map._mhLegendAdded) {
+    map._mhLegendAdded = true;
+    var mapLegend = L.control({ position: 'bottomleft' });
+    mapLegend.onAdd = function() {
+      var div = L.DomUtil.create('div', '');
+      div.style.cssText = [
+        'background:rgba(15,23,42,0.92)',
+        'border:1px solid #334155',
+        'border-radius:8px',
+        'padding:8px 10px',
+        'font-size:11px',
+        'color:#f1f5f9',
+        'line-height:1.8',
+        'min-width:170px',
+        'max-width:220px',
+        'box-shadow:0 2px 8px rgba(0,0,0,.4)',
+        'cursor:pointer',
+      ].join(';');
+
+      var collapsed = true;
+      function render() {
+        if (collapsed) {
+          div.innerHTML = '<span style="color:#f59e0b;font-weight:700">⛏ Legenda</span> <span style="color:#94a3b8;font-size:10px">▲ expandir</span>';
+        } else {
+          div.innerHTML = [
+            '<div style="font-weight:700;color:#f59e0b;margin-bottom:5px">⛏ Legenda do Mapa <span style="color:#94a3b8;font-size:10px;font-weight:400">▼ recolher</span></div>',
+            '<div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Alvos de Prospecção</div>',
+            '<div><span style="display:inline-block;width:10px;height:14px;background:#ef4444;border-radius:2px;margin-right:5px;vertical-align:middle"></span>P1 — Alta prioridade</div>',
+            '<div><span style="display:inline-block;width:10px;height:14px;background:#f97316;border-radius:2px;margin-right:5px;vertical-align:middle"></span>P2</div>',
+            '<div><span style="display:inline-block;width:10px;height:14px;background:#eab308;border-radius:2px;margin-right:5px;vertical-align:middle"></span>P3</div>',
+            '<div><span style="display:inline-block;width:10px;height:14px;background:#3b82f6;border-radius:2px;margin-right:5px;vertical-align:middle"></span>P4–P5</div>',
+            '<div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">Dados GeoSGB</div>',
+            '<div><span style="display:inline-block;width:10px;height:10px;background:#a855f7;border-radius:50%;border:1.5px solid #fff;margin-right:5px;vertical-align:middle"></span>Furos de Sondagem</div>',
+            '<div><span style="display:inline-block;width:10px;height:10px;background:#0ea5e9;border-radius:2px;border:1.5px solid #fff;margin-right:5px;vertical-align:middle"></span>Litoestratigrafia</div>',
+            '<div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">Fontes Externas</div>',
+            '<div><span style="display:inline-block;width:10px;height:10px;background:#7c3aed;border-radius:50%;margin-right:5px;vertical-align:middle"></span>ANM/SIGMINE</div>',
+            '<div><span style="display:inline-block;width:10px;height:10px;background:#ea580c;border-radius:50%;margin-right:5px;vertical-align:middle"></span>USGS — Sismos</div>',
+            '<div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">Dados do Usuário</div>',
+            '<div><span style="display:inline-block;width:10px;height:10px;background:#f97316;border-radius:50%;box-shadow:0 0 4px rgba(249,115,22,.7);margin-right:5px;vertical-align:middle"></span>Furos Proprietários</div>',
+            '<div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">Análise Espacial</div>',
+            '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px"><div style="width:48px;height:8px;background:linear-gradient(to right,#00c800,#dc6000,#dc0000);border-radius:2px"></div><span style="font-size:10px">Prospectividade 0→100</span></div>',
+            '<div style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;background:#e879f9;border-radius:2px;margin-right:-2px;vertical-align:middle"></span> <span style="font-size:10px">Lineamento Bouguer</span></div>',
+          ].join('');
+        }
+      }
+      render();
+      L.DomEvent.on(div, 'click', function() { collapsed = !collapsed; render(); });
+      return div;
+    };
+    mapLegend.addTo(map);
+  }
 }
 
 // flyTo reutiliza targetLayers, que é reconstruído por renderMapForReport
@@ -1840,10 +1922,13 @@ function renderAnaliseTab(r) {
     const dur = durFmt(step.duration_ms || 0);
 
     const findings = (step.findings || []).slice(0, 10);
-    const sources = (step.data_sources_used || []).join(', ') || '—';
+    // D6: usar rótulos humanos para as fontes de dados
+    const sourcesArr = (step.data_sources_used || []).map(humanSource);
+    const sources = sourcesArr.join(', ') || '—';
     const gaps = (step.data_gaps || []).join(', ') || '—';
-    // Q3: separar raciocínio multi-agente pelo delimitador " | " e renderizar por agente
+    // D1+D2: strip de <think> tokens; separar por agente usando step.agent
     const rawReasoning = step.raw_reasoning || '';
+    const agentNames = (step.agent || '').split(' + ').map(function(s) { return s.trim(); });
     const reasoningParts = rawReasoning.split(' | ').filter(Boolean);
 
     const findingsHtml = findings.length
@@ -1877,18 +1962,21 @@ function renderAnaliseTab(r) {
           </div>
         </div>
         ${reasoningParts.length > 0 ? `
-          <div class="reasoning-toggle" data-si="${si}">▶ Raciocínio completo ${reasoningParts.length > 1 ? '(' + reasoningParts.length + ' agentes)' : 'do agente'}</div>
+          <div class="reasoning-toggle" data-si="${si}" data-count="${reasoningParts.length}" data-multi="${agentNames.length > 1}">▶ Raciocínio ${reasoningParts.length > 1 ? '(' + agentNames.join(' + ') + ')' : 'do agente'}</div>
           <div class="reasoning-text" data-si="${si}">${
             reasoningParts.length > 1
               ? reasoningParts.map(function(p, pi) {
-                  // Tentar extrair nome do agente do campo "summary" do JSON
-                  var agentMatch = p.match(/"summary"\s*:\s*"([^"]{0,40})/);
-                  var label = 'Agente ' + (pi + 1);
-                  return '<div style="margin-bottom:6px;padding:4px 6px;background:rgba(245,158,11,0.06);border-left:2px solid var(--accent)">' +
-                    '<div style="font-size:9px;font-weight:700;color:var(--accent);margin-bottom:3px;text-transform:uppercase">' + label + '</div>' +
-                    esc(p.slice(0, 800)) + (p.length > 800 ? '…' : '') + '</div>';
+                  var label = agentNames[pi] || ('agente ' + (pi + 1));
+                  var cleaned = esc(stripThinking(p).slice(0, 1200));
+                  var overflow = stripThinking(p).length > 1200;
+                  return '<div style="margin-bottom:8px;padding:5px 8px;background:rgba(245,158,11,0.06);border-left:2px solid var(--accent);border-radius:0 4px 4px 0">' +
+                    '<div style="font-size:9px;font-weight:700;color:var(--accent);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">🔬 ' + label + '</div>' +
+                    cleaned + (overflow ? '<span style="color:#94a3b8">…</span>' : '') + '</div>';
                 }).join('')
-              : esc(reasoningParts[0].slice(0, 2000)) + (reasoningParts[0].length > 2000 ? '…' : '')
+              : (function() {
+                  var cleaned = stripThinking(reasoningParts[0]);
+                  return esc(cleaned.slice(0, 2000)) + (cleaned.length > 2000 ? '<span style="color:#94a3b8">…</span>' : '');
+                })()
           }</div>
         ` : ''}
       </div>
@@ -1911,7 +1999,13 @@ function renderAnaliseTab(r) {
       const rt = pane.querySelector('.reasoning-text[data-si="' + si + '"]');
       const open = rt.style.display === 'block';
       rt.style.display = open ? 'none' : 'block';
-      rtoggle.textContent = (open ? '▶' : '▼') + ' Raciocínio completo do agente';
+      const count = parseInt(rtoggle.dataset.count || '1');
+      const multi = rtoggle.dataset.multi === 'true';
+      // Reconstruir label preservando nomes dos agentes
+      const agentLabel = multi
+        ? rtoggle.textContent.replace(/^[▶▼] Raciocínio /, '')
+        : 'do agente';
+      rtoggle.textContent = (open ? '▶' : '▼') + ' Raciocínio ' + agentLabel;
     }
   });
 
@@ -2148,13 +2242,13 @@ function renderDadosTab(r) {
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + userDhFeats.length + ' furo(s) proprietário(s) (posições collar)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
-    html += '<thead><tr style="background:#fff7ed">';
+    html += '<thead><tr style="background:#1e293b">';
     ['Furo','Litologia','Alteração','De (m)','Até (m)','Lon, Lat'].forEach(function(h) {
       html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #ea580c22;white-space:nowrap">' + h + '</th>';
     });
     html += '</tr></thead><tbody>';
     userDhFeats.slice(0, 100).forEach(function(f, i) {
-      var bg = i % 2 ? '#fff7ed' : '#fff';
+      var bg = i % 2 ? '#263348' : '#1e293b';
       var p = f.properties || {};
       var c = f.geometry.coordinates;
       html += '<tr style="background:' + bg + '">';
@@ -2173,7 +2267,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- ANM ---
   html += '<h3 style="margin:0 0 .5rem;color:#7c3aed">🏗️ ANM/SIGMINE — Concessões Minerárias</h3>';
@@ -2182,13 +2276,13 @@ function renderDadosTab(r) {
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + anm.length + ' concessão(ões) encontrada(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
-    html += '<thead><tr style="background:#f3f0ff">';
+    html += '<thead><tr style="background:#1e293b">';
     ['Processo','Fase','Titular','Substâncias','UF','Área (ha)','Ano'].forEach(function(h) {
       html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #7c3aed22;white-space:nowrap">' + h + '</th>';
     });
     html += '</tr></thead><tbody>';
     anm.slice(0, 50).forEach(function(c, i) {
-      var bg = i % 2 ? '#f9f7ff' : '#fff';
+      var bg = i % 2 ? '#263348' : '#1e293b';
       html += '<tr style="background:' + bg + '">';
       html += '<td style="padding:.3rem .6rem">' + (c.processo || '—') + '</td>';
       html += '<td style="padding:.3rem .6rem">' + (c.fase || '—') + '</td>';
@@ -2203,7 +2297,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- Ocorrências GeoSGB ---
   var ocorr = geo['ocorrencias'] || [];
@@ -2213,13 +2307,13 @@ function renderDadosTab(r) {
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + ocorr.length + ' ocorrência(s) encontrada(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
-    html += '<thead><tr style="background:#f0fdf4">';
+    html += '<thead><tr style="background:#1e293b">';
     ['Substância','Município/UF','Status Econômico','Rocha Hospedeira','Morfologia','Coord (lat, lon)'].forEach(function(h) {
       html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #15803d22;white-space:nowrap">' + h + '</th>';
     });
     html += '</tr></thead><tbody>';
     ocorr.slice(0, 100).forEach(function(o, i) {
-      var bg = i % 2 ? '#f0fdf4' : '#fff';
+      var bg = i % 2 ? '#263348' : '#1e293b';
       var coord = o.coordenada || {};
       var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
       var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
@@ -2238,7 +2332,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- Aerogeofísica ---
   var aerogeo = geo['aerogeofisica'] || [];
@@ -2252,13 +2346,13 @@ function renderDadosTab(r) {
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + aerogeo.length + ' projeto(s) encontrado(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
-    html += '<thead><tr style="background:#eff6ff">';
+    html += '<thead><tr style="background:#1e293b">';
     ['Nome do Projeto','Ano','Tipo de Levantamento','Área (km²)','Coord (lat, lon)'].forEach(function(h) {
       html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #2563eb22;white-space:nowrap">' + h + '</th>';
     });
     html += '</tr></thead><tbody>';
     aerogeo.slice(0, 100).forEach(function(p, i) {
-      var bg = i % 2 ? '#eff6ff' : '#fff';
+      var bg = i % 2 ? '#263348' : '#1e293b';
       var coord = p.coordenada || {};
       var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
       var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
@@ -2276,7 +2370,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- Geocronologia ---
   var geocron = geo['geocronologia'] || [];
@@ -2286,13 +2380,13 @@ function renderDadosTab(r) {
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + geocron.length + ' datação(ões) encontrada(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
-    html += '<thead><tr style="background:#fffbeb">';
+    html += '<thead><tr style="background:#1e293b">';
     ['Método','Idade (Ma)','Erro (Ma)','Material','Unidade Geológica','Coord (lat, lon)'].forEach(function(h) {
       html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #b4530922;white-space:nowrap">' + h + '</th>';
     });
     html += '</tr></thead><tbody>';
     geocron.slice(0, 100).forEach(function(d, i) {
-      var bg = i % 2 ? '#fffbeb' : '#fff';
+      var bg = i % 2 ? '#263348' : '#1e293b';
       var coord = d.coordenada || {};
       var lat = coord.latitude != null ? Number(coord.latitude).toFixed(4) : '?';
       var lon = coord.longitude != null ? Number(coord.longitude).toFixed(4) : '?';
@@ -2309,7 +2403,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- Gravimetria ---
   var grav = geo['gravimetria'] || [];
@@ -2341,7 +2435,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- Geoquímica ---
   var geoquim = geo['geoquimica'] || [];
@@ -2375,7 +2469,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- Litoestratigrafia ---
   var lito = geo['litoestratigrafia'] || [];
@@ -2415,7 +2509,7 @@ function renderDadosTab(r) {
     html += '</tbody></table></div>';
   }
 
-  html += '<hr style="margin:1.2rem 0;border-color:#e5e7eb">';
+  html += '<hr style="margin:1.2rem 0;border-color:#334155">';
 
   // --- USGS ---
   html += '<h3 style="margin:0 0 .5rem;color:#ea580c">🌋 USGS — Eventos Sísmicos</h3>';
@@ -2424,7 +2518,7 @@ function renderDadosTab(r) {
   } else {
     html += '<p style="color:#6b7280;margin:0 0 .5rem">' + usgs.length + ' evento(s) sísmico(s) encontrado(s)</p>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">';
-    html += '<thead><tr style="background:#fff7ed">';
+    html += '<thead><tr style="background:#1e293b">';
     ['Magnitude','Profundidade (km)','Local','Coord (lat, lon)'].forEach(function(h) {
       html += '<th style="padding:.4rem .6rem;text-align:left;border-bottom:2px solid #ea580c22;white-space:nowrap">' + h + '</th>';
     });

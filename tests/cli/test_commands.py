@@ -283,8 +283,8 @@ class TestPrintReportSummary:
         report = _make_report(bbox)
         _print_report_summary(report)
         captured = capsys.readouterr()
-        assert "MINERAL PROSPECTION REPORT" in captured.out
-        assert "Carajas" in captured.out
+        assert "RELATÓRIO DE PROSPECÇÃO MINERAL" in captured.out
+        assert "CARAJAS" in captured.out
         assert "Target Alpha" in captured.out
         assert "Low geocron coverage" in captured.out
 
@@ -295,9 +295,9 @@ class TestPrintReportSummary:
         report.caveats = []
         _print_report_summary(report)
         captured = capsys.readouterr()
-        assert "MINERAL PROSPECTION REPORT" in captured.out
-        assert "TARGETS" not in captured.out
-        assert "CAVEATS" not in captured.out
+        assert "RELATÓRIO DE PROSPECÇÃO MINERAL" in captured.out
+        assert "ALVOS IDENTIFICADOS" not in captured.out
+        assert "RESSALVAS" not in captured.out
 
 
 class TestMainCLI:

@@ -37,6 +37,32 @@ def _fmt_ms(ms: int) -> str:
     return f"{ms // 60_000}m {(ms % 60_000) // 1000}s"
 
 
+# Nomes legíveis dos passos de análise (PT-BR)
+_STEP_NAMES_PTBR: dict[str, str] = {
+    "tectonic_history": "Hist. Tectônica",
+    "structural_architecture": "Arq. Estrutural",
+    "magmatic_fertility": "Fertil. Magmática",
+    "indirect_evidence": "Evid. Indiretas",
+    "total_integration": "Integração Total",
+}
+
+# Rótulos de confiança PT-BR
+_CONF_LABELS_PTBR: dict[str, str] = {
+    "high": "alta",
+    "medium": "média",
+    "low": "baixa",
+    "insufficient": "insuficiente",
+}
+
+# Ícones de confiança unificados
+_CONF_ICON: dict[str, str] = {
+    "high": "✓",
+    "medium": "~",
+    "low": "⚠",
+    "insufficient": "✗",
+}
+
+
 async def cmd_analyze(
     region: str,
     bbox: tuple[float, float, float, float],
@@ -56,6 +82,7 @@ async def cmd_analyze(
     s2_max_cloud: float | None = None,
     s2_days: int | None = None,
     rf_model: str | None = None,
+    verbose: bool = False,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -105,15 +132,16 @@ async def cmd_analyze(
     if port != 8765 and not serve:
         print("Warning: --port is ignored without --serve", file=sys.stderr)
 
-    print(f"Analyzing region: {region}")
+    print(f"Região: {region}")
     print(f"BBox: {bb.as_tuple()}")
-    print(f"Model: {config.orchestrator.model}")
-    print(
-        f"Context: {config.orchestrator.num_ctx} tokens  "
-        f"(records/svc: {config.orchestrator.effective_max_records}, "
-        f"chars/dataset: {config.orchestrator.effective_max_chars})"
-    )
-    print(f"Min sources: {config.orchestrator.min_data_sources}")
+    print(f"Modelo: {config.orchestrator.model}")
+    if verbose:
+        print(
+            f"Contexto: {config.orchestrator.num_ctx} tokens  "
+            f"(registros/serviço: {config.orchestrator.effective_max_records}, "
+            f"chars/dataset: {config.orchestrator.effective_max_chars})"
+        )
+        print(f"Fontes mínimas: {config.orchestrator.min_data_sources}")
     print()
 
     # Initialize components
@@ -123,10 +151,10 @@ async def cmd_analyze(
 
     try:
         # Check LLM connectivity
-        print("Checking Ollama connectivity...")
+        print("Verificando conexão com Ollama...")
         if not await llm.health():
             print(
-                "Error: Ollama not available. Make sure Ollama is running.",
+                "Erro: Ollama não disponível. Verifique se o Ollama está rodando.",
                 file=sys.stderr,
             )
             return 1
@@ -144,14 +172,13 @@ async def cmd_analyze(
             orch = ProfilingRunner(connector, cache, llm, config)
         else:
             orch = Orchestrator(connector, cache, llm, config)
-        print("Running analysis pipeline...")
-
-        _conf_icon = {"high": "✓", "medium": "~", "low": "⚠", "insufficient": "✗"}
 
         def _on_step(step: object, current: int, total: int, confidence: str) -> None:
-            icon = _conf_icon.get(confidence, "?")
+            icon = _CONF_ICON.get(confidence, "?")
             step_val = getattr(step, "value", str(step))
-            print(f"  [{current}/{total}] {step_val}  {icon} ({confidence})", flush=True)
+            step_name = _STEP_NAMES_PTBR.get(step_val, step_val)
+            conf_label = _CONF_LABELS_PTBR.get(confidence, confidence)
+            print(f"  [{current}/{total}] {step_name}  {icon} ({conf_label})", flush=True)
 
         report = await orch.analyze_region(
             bb, region, user_drillholes=user_drillholes, on_step_complete=_on_step
@@ -252,8 +279,8 @@ def _render_html_report(
             html_path = storage.exports_dir / "reports" / f"{safe_region}_{ts}.html"
         renderer = HtmlReportRenderer()
         renderer.render_to_file(report, html_path)
-        print(f"\nDashboard HTML: {html_path}")
         webbrowser.open(html_path.as_uri())
+        print(f"\n✓ Dashboard aberto no navegador: {html_path}")
     except Exception as exc:  # noqa: BLE001
         logger.warning("html_report_failed", error=str(exc))
         print(f"Aviso: não foi possível gerar dashboard HTML: {exc}", file=sys.stderr)
@@ -465,42 +492,60 @@ def cmd_index_drillholes(csv_path: str) -> int:
 
 
 def _print_report_summary(report: ProspectionReport) -> None:
-    """Print a human-readable report summary."""
-    print(f"\n{'=' * 60}")
-    print(f"  MINERAL PROSPECTION REPORT: {report.region_name}")
-    print(f"{'=' * 60}")
-    print(f"  Date:     {report.analysis_date}")
-    print(f"  Model:    {report.model_used}")
-    print(f"  Quality:  {report.data_quality_score:.2f}")
-    print(f"  Duration: {_fmt_ms(report.total_duration_ms)}")
+    """Exibe resumo legível do relatório de prospecção no terminal."""
+    sep = "=" * 62
+    print(f"\n{sep}")
+    print(f"  RELATÓRIO DE PROSPECÇÃO MINERAL — {report.region_name.upper()}")
+    print(sep)
+    date_str = report.analysis_date.strftime("%d/%m/%Y %H:%M UTC")
+    print(f"  Data:       {date_str}")
+    print(f"  Modelo:     {report.model_used}")
+    qual_pct = f"{report.data_quality_score * 100:.0f}%"
+    print(f"  Qualidade:  {qual_pct}")
+    print(f"  Duração:    {_fmt_ms(report.total_duration_ms)}")
     print()
 
-    print("  ANALYSIS STEPS:")
+    # Síntese integrada — output mais valioso da análise
+    if report.integrated_summary:
+        print("  ─── SÍNTESE INTEGRADA ──────────────────────────────────")
+        # Quebrar em linhas de ≤56 chars para caber no terminal
+        words = report.integrated_summary.split()
+        line: list[str] = []
+        for word in words:
+            if sum(len(w) + 1 for w in line) + len(word) > 56:
+                print(f"  {' '.join(line)}")
+                line = [word]
+            else:
+                line.append(word)
+        if line:
+            print(f"  {' '.join(line)}")
+        print()
+
+    print("  ─── PASSOS DE ANÁLISE ──────────────────────────────────")
     for step in report.steps:
-        conf_icon = {
-            "high": "+",
-            "medium": "~",
-            "low": "-",
-            "insufficient": "!",
-        }.get(step.confidence.value, "?")
+        icon = _CONF_ICON.get(step.confidence.value, "?")
+        conf_label = _CONF_LABELS_PTBR.get(step.confidence.value, step.confidence.value)
+        step_name = _STEP_NAMES_PTBR.get(step.step.value, step.step.value)
         summary = step.summary
-        if len(summary) > 100:
-            summary = summary[:97] + "..."
-        print(f"    [{conf_icon}] {step.step.value}: {summary}")
+        if len(summary) > 90:
+            summary = summary[:87] + "..."
+        print(f"    {icon} {step_name} ({conf_label}): {summary}")
 
     if report.targets:
-        print(f"\n  TARGETS ({len(report.targets)}):")
+        print(f"\n  ─── ALVOS IDENTIFICADOS ({len(report.targets)}) ──────────────────")
         for t in report.targets:
-            print(
-                f"    P{t.priority} | {t.name} | {', '.join(t.commodities)} | {t.confidence.value}"
-            )
+            conf_label = _CONF_LABELS_PTBR.get(t.confidence.value, t.confidence.value)
+            commodities = ", ".join(t.commodities)
+            print(f"    P{t.priority} {t.name}")
+            print(f"       {t.mineral_system} · {commodities} · confiança {conf_label}")
 
     if report.caveats:
-        print(f"\n  CAVEATS ({len(report.caveats)}):")
+        print(f"\n  ─── RESSALVAS ({len(report.caveats)}) ─────────────────────────────")
         for c in report.caveats:
-            print(f"    - {c}")
+            caveat = c if len(c) <= 56 else c[:53] + "..."
+            print(f"    ⚠ {caveat}")
 
-    print(f"\n{'=' * 60}")
+    print(f"\n{sep}")
 
 
 def cmd_install(

@@ -352,6 +352,7 @@ def main(argv: list[str] | None = None) -> int:
                     s2_max_cloud=args.s2_max_cloud,
                     s2_days=args.s2_days,
                     rf_model=args.rf_model,
+                    verbose=args.verbose,
                 )
             )
         if args.command == "validate":

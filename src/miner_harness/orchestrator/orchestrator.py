@@ -253,7 +253,9 @@ class Orchestrator:
                 flush=True,
             )
 
-        print(f"Iniciando pipeline LLM — {len(steps)} passos...\n", flush=True)
+        print(f"\n{'─' * 50}", flush=True)
+        print(f"Iniciando pipeline LLM — {len(steps)} passos...", flush=True)
+        print(f"{'─' * 50}\n", flush=True)
 
         # 3. Executar passos sequencialmente
         step_results: list[StepResult] = []
