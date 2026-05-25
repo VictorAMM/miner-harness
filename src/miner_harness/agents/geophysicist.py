@@ -20,7 +20,23 @@ class GeophysicistAgent(BaseAgent):
     ]
 
     def _get_relevant_data_keys(self, step: AnalysisStep) -> list[str]:
-        # usgs: sismicidade correlaciona com anomalias gravimétricas e atividade magmática
+        # aeromag_grid: derivadas TMA do Atlas Aerogeofísico SGB (PRD-003 F10)
+        # bouguer_gradient: derivadas gravimétricas (PRD-002 F5)
+        # usgs: sismicidade correlaciona com anomalias geofísicas e atividade magmática
         if step == AnalysisStep.MAGMATIC_FERTILITY:
-            return ["gravimetria", "aerogeofisica", "ocorrencias", "usgs"]
-        return ["gravimetria", "aerogeofisica", "ocorrencias", "usgs"]
+            return [
+                "gravimetria",
+                "bouguer_gradient",
+                "aeromag_grid",
+                "aerogeofisica",
+                "ocorrencias",
+                "usgs",
+            ]
+        return [
+            "gravimetria",
+            "bouguer_gradient",
+            "aeromag_grid",
+            "aerogeofisica",
+            "ocorrencias",
+            "usgs",
+        ]

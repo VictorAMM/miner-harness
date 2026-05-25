@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path  # noqa: TC003
 from unittest.mock import AsyncMock, MagicMock
 
@@ -9,6 +10,7 @@ import pytest
 
 from miner_harness.cache.manager import CacheManager
 from miner_harness.core.config import (
+    AeromagConfig,
     ANMConfig,
     MinerHarnessConfig,
     MLConfig,
@@ -33,13 +35,16 @@ BBOX_SMALL = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.
 def mock_llm() -> MagicMock:
     llm = MagicMock()
     llm.health = AsyncMock(return_value=True)
-    llm.chat = AsyncMock(
-        return_value=MagicMock(
-            content=_LLM_RESPONSE,
-            prompt_eval_count=100,
-            eval_count=200,
-        )
-    )
+
+    _response = MagicMock(content=_LLM_RESPONSE, prompt_eval_count=100, eval_count=200)
+
+    async def _chat(*args: object, **kwargs: object) -> MagicMock:
+        # Simulate 5 ms of "inference" so step-count differences are observable
+        # in wall-clock timing assertions (e.g. test_two_step_pipeline_faster_than_full).
+        await asyncio.sleep(0.005)
+        return _response
+
+    llm.chat = AsyncMock(side_effect=_chat)
     return llm
 
 
@@ -74,6 +79,8 @@ def bench_config() -> MinerHarnessConfig:
         # Disable extra connectors to prevent real HTTP requests in benchmarks
         anm=ANMConfig(enabled=False),
         usgs=USGSConfig(enabled=False),
+        # Disable aeromag sampling to prevent real HTTP requests to SGB portal
+        aeromag=AeromagConfig(enabled=False),
         # Disable ML scorer so benchmark measures LLM step count, not RF overhead
         ml=MLConfig(enabled=False),
     )

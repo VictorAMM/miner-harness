@@ -31,6 +31,7 @@ _COMPUTED_KEYS: frozenset[str] = frozenset(
         "user_drillholes",  # meta-registro formatado (PRD-002 F7)
         "sentinel2_indices",  # índices espectrais CDSE (PRD-002 F6)
         "ml_prospectivity",  # score RandomForest (PRD-002 F8)
+        "aeromag_grid",  # TMA Atlas Aerogeofísico SGB (PRD-003 F10)
     }
 )
 
@@ -124,7 +125,14 @@ class ConfidenceCalibrator:
         step: AnalysisStep,
         geological_data: dict[str, list[dict[str, Any]]],
     ) -> Confidence:
-        """Teto baseado em dados calculados (bouguer + geochem normalizado)."""
+        """Teto baseado em dados calculados (bouguer + geochem normalizado + aeromag).
+
+        Critério atualizado (PRD-003 F10):
+        - HIGH: bouguer_gradient E geoquimica_normalizada presentes
+          (aeromag_grid não exigido, pois é condicional ao portal SGB estar disponível)
+        - MEDIUM: bouguer_gradient OU geoquimica_normalizada presentes
+        - LOW: nenhum dos dois presente
+        """
         if step not in _QUANTITATIVE_STEPS:
             return Confidence.HIGH  # passos 1 e 2 sem restrição de dados computados
 
