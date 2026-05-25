@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.2.0] — 2026-05-24
+
+### Adicionado
+
+- **F8 — RandomForest de Prospectividade** (`--rf-model PATH`): modelo de Machine Learning
+  pré-treinado que substitui o weighted overlay (ProspectivityScorer) e adiciona um novo
+  bloco `<ml_prospectivity_score>` no contexto de todos os agentes LLM:
+  - **`ProspectivityMLScorer`** (`src/miner_harness/ml/scorer.py`): carrega
+    `rf_prospectivity_v1.joblib` (200 árvores, `max_depth=8`, `class_weight=balanced`) e
+    computa `P(mineralizado)` = `predict_proba(X)[0][1]` para a região de análise.
+  - **`MLFeatureBuilder`** (`src/miner_harness/ml/feature_builder.py`): extrai vetor de 15
+    features do contexto geológico — geoquímica (CF médio/máx, n_anomalias),
+    gravimetria (HGM médio/std/máx), Sentinel-2 (4 × anom_pct), ocorrências (densidade/km²,
+    n_substâncias) e bbox_area_km2.
+  - **Modelo semente** (`src/miner_harness/ml/model/rf_prospectivity_v1.joblib`): treinado
+    em 4000 amostras sintéticas (positivos: alta densidade de ocorrências + CF elevado +
+    gradiente Bouguer + anomalias S2; negativos: background geológico). CV ROC-AUC ≈ 1.000
+    nos dados sintéticos (separabilidade perfeita nos padrões de treinamento).
+  - **Script de treino** (`scripts/train_rf_seed.py`): gera novo modelo com
+    `--output <path>` para substituição com dados reais.
+  - **Graceful fallback**: sem sklearn/joblib → heurística baseada nos 4 grupos de features
+    (pesos domínio-geológico); sem dados suficientes → `context["ml_prospectivity"]` não adicionado.
+  - **Integração no pipeline**: `context["ml_prospectivity"]` injetado após Sentinel-2 no
+    ContextBuilder; injetado como `<ml_prospectivity_score>` em todos os agentes via `base.py`.
+  - **EvaluatorAgent ciente**: guia em `prompt_manager.py` instrui a usar RF score ≥ 70/100
+    para elevar prioridade de alvos, citar top-3 variáveis preditoras e interpretar score vs.
+    evidências geológicas qualitativas.
+  - **`MLConfig`** em `MinerHarnessConfig`: `enabled: bool = True`, `model_path: str = ""`.
+  - **CLI `--rf-model PATH`**: substitui o modelo embutido por um `.joblib` personalizado.
+  - **`_DERIVED_CONTEXT_KEYS`** no Orchestrator: exclui chaves computadas (incluindo
+    `ml_prospectivity`) da contagem de `active_sources` para o limiar `min_data_sources`.
+  - **Dependências opcionais** (`[ml]`): `scikit-learn>=1.4`, `joblib>=1.3` — graceful fallback
+    se não instalados.
+  - **57 testes novos** em `tests/ml/`: `test_feature_builder.py` (30 testes),
+    `test_scorer.py` (27 testes).
+
 ## [1.1.0] — 2026-05-24
 
 ### Adicionado

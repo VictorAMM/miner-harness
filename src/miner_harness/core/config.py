@@ -197,6 +197,28 @@ class CopernicusConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# ML — RandomForest de prospectividade (PRD-002 F8)
+# ---------------------------------------------------------------------------
+
+
+class MLConfig(BaseModel):
+    """Configuração do modelo de Machine Learning de prospectividade.
+
+    Por padrão usa o modelo pré-treinado incluído no pacote.
+    Defina model_path para substituir por um modelo treinado com dados próprios.
+    """
+
+    enabled: bool = True
+    model_path: str = Field(
+        default="",
+        description=(
+            "Caminho para modelo .joblib alternativo. "
+            "Vazio = usa rf_prospectivity_v1.joblib incluído no pacote."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Config raiz
 # ---------------------------------------------------------------------------
 
@@ -210,3 +232,4 @@ class MinerHarnessConfig(BaseModel):
     anm: ANMConfig = Field(default_factory=ANMConfig)
     usgs: USGSConfig = Field(default_factory=USGSConfig)
     copernicus: CopernicusConfig = Field(default_factory=CopernicusConfig)
+    ml: MLConfig = Field(default_factory=MLConfig)

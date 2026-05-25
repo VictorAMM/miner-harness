@@ -64,6 +64,22 @@ _STEP_RAG_QUERIES: dict[AnalysisStep, str] = {
     ),
 }
 
+# Chaves derivadas/computadas — não contam como fontes de dados brutas.
+# Devem ser ignoradas ao calcular active_sources para o limiar min_data_sources.
+# Espelha _COMPUTED_KEYS de confidence_calibrator (definido aqui para evitar
+# importação circular).
+_DERIVED_CONTEXT_KEYS: frozenset[str] = frozenset(
+    {
+        "geoquimica_normalizada",
+        "prospectivity_grid",
+        "bouguer_gradient",
+        "rag_context",
+        "user_drillholes",
+        "sentinel2_indices",
+        "ml_prospectivity",  # PRD-002 F8
+    }
+)
+
 # Mapeamento passo → agentes (RFC-002 §3)
 _STEP_AGENTS: dict[AnalysisStep, list[str]] = {
     AnalysisStep.TECTONIC_HISTORY: ["structural_geologist"],
@@ -129,7 +145,13 @@ class Orchestrator:
         extra_sources = self._build_extra_sources()
         copernicus = self._build_copernicus()
         self._context_builder = ContextBuilder(
-            connector, cache, self._search_engine, extra_sources, copernicus
+            connector,
+            cache,
+            self._search_engine,
+            extra_sources,
+            copernicus,
+            ml_model_path=self._config.ml.model_path,
+            ml_enabled=self._config.ml.enabled,
         )
 
         # Inicializar agentes com limites de dados escalados com num_ctx
@@ -184,11 +206,15 @@ class Orchestrator:
         )
         await self._on_data_fetched(geological_data)
 
-        # 2. Validar dados mínimos
+        # 2. Validar dados mínimos (somente fontes brutas — excluir chaves derivadas)
         bbox_filtered = self._context_builder.bbox_filtered_sources
         min_sources = self._config.orchestrator.min_data_sources
-        active_sources = [k for k, v in geological_data.items() if v]
-        unavailable = [k for k, v in geological_data.items() if not v]
+        active_sources = [
+            k for k, v in geological_data.items() if v and k not in _DERIVED_CONTEXT_KEYS
+        ]
+        unavailable = [
+            k for k, v in geological_data.items() if not v and k not in _DERIVED_CONTEXT_KEYS
+        ]
         if len(active_sources) < min_sources:
             raise InsufficientDataError(
                 agent="orchestrator",
