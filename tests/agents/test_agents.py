@@ -429,8 +429,8 @@ class TestNormalizeSources:
         result = agent._normalize_sources(["GeoSGB/Ocorrências Minerais"])
         assert result == ["ocorrencias"]
 
-    def test_geosgb_prefix_stripped(self) -> None:
-        """Prefixo 'GeoSGB/' é removido para obter chave canônica."""
+    def test_geosgb_accented_aliases_mapped(self) -> None:
+        """Alias com prefixo 'GeoSGB/' + acentuação é mapeado via _SOURCE_ALIASES."""
         agent = self._make_agent()
         result = agent._normalize_sources(["GeoSGB/Geoquímica", "GeoSGB/Aerogeofísica"])
         assert result == ["geoquimica", "aerogeofisica"]
@@ -479,3 +479,73 @@ class TestNormalizeSources:
         # Nenhum rótulo humanizado deve restar
         assert "GeoSGB/Geoquímica" not in result.data_sources_used
         assert "ANM/SIGMINE" not in result.data_sources_used
+
+    def test_geosgb_prefix_stripped(self) -> None:
+        """Prefixo 'geosgb/' sem alias → stripped → chave canônica (linhas 352-353).
+
+        'geosgb/furos' não está em _SOURCE_ALIASES mas 'furos' está em _SOURCE_LABELS.
+        """
+        agent = self._make_agent()
+        result = agent._normalize_sources(["geosgb/furos"])
+        assert result == ["furos"]
+
+
+class TestBuildPromptEnrichment:
+    """Cobre injeção de dados enriquecidos em build_prompt.
+
+    Testa base.py linhas 204-206, 214-216, 223-225, 232-234, 241-243.
+    """
+
+    def _make_agent(self) -> StructuralGeoAgent:
+        mock_llm = AsyncMock(spec=OllamaClient)
+        return StructuralGeoAgent(llm=mock_llm)
+
+    def test_geoquimica_normalizada_injected(self) -> None:
+        """geo_data com geoquimica_normalizada não-vazia → texto injetado."""
+        agent = self._make_agent()
+        geo_data = dict(_sample_geo_data())
+        geo_data["geoquimica_normalizada"] = [{"text": "CF(Cu)=12.5 — anomalia"}]
+        messages = agent.build_prompt(AnalysisStep.TECTONIC_HISTORY, geo_data)
+        user_content = next(m.content for m in messages if m.role == "user")
+        assert "geoquimica_normalizada" in user_content
+        assert "CF(Cu)=12.5" in user_content
+
+    def test_prospectivity_grid_injected(self) -> None:
+        """geo_data com prospectivity_grid não-vazio → texto injetado."""
+        agent = self._make_agent()
+        geo_data = dict(_sample_geo_data())
+        geo_data["prospectivity_grid"] = [{"text": "Score máximo: 87.3"}]
+        messages = agent.build_prompt(AnalysisStep.TECTONIC_HISTORY, geo_data)
+        user_content = next(m.content for m in messages if m.role == "user")
+        assert "prospectivity_score" in user_content
+        assert "Score máximo" in user_content
+
+    def test_bouguer_gradient_injected(self) -> None:
+        """geo_data com bouguer_gradient não-vazio → texto injetado."""
+        agent = self._make_agent()
+        geo_data = dict(_sample_geo_data())
+        geo_data["bouguer_gradient"] = [{"text": "Gradiente Bouguer: 2.5 mGal/km"}]
+        messages = agent.build_prompt(AnalysisStep.TECTONIC_HISTORY, geo_data)
+        user_content = next(m.content for m in messages if m.role == "user")
+        assert "bouguer_gradient" in user_content
+        assert "Gradiente Bouguer" in user_content
+
+    def test_user_drillholes_injected(self) -> None:
+        """geo_data com user_drillholes não-vazio → texto injetado."""
+        agent = self._make_agent()
+        geo_data = dict(_sample_geo_data())
+        geo_data["user_drillholes"] = [{"text": "Furo FUR-001: 250m, Au=3.2 g/t"}]
+        messages = agent.build_prompt(AnalysisStep.TECTONIC_HISTORY, geo_data)
+        user_content = next(m.content for m in messages if m.role == "user")
+        assert "user_drillholes" in user_content
+        assert "FUR-001" in user_content
+
+    def test_sentinel2_indices_injected(self) -> None:
+        """geo_data com sentinel2_indices não-vazio → texto injetado."""
+        agent = self._make_agent()
+        geo_data = dict(_sample_geo_data())
+        geo_data["sentinel2_indices"] = [{"text": "NDVI=0.42, BSI=-0.12"}]
+        messages = agent.build_prompt(AnalysisStep.TECTONIC_HISTORY, geo_data)
+        user_content = next(m.content for m in messages if m.role == "user")
+        assert "sentinel2_indices" in user_content
+        assert "NDVI=0.42" in user_content

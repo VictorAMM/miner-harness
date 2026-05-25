@@ -104,6 +104,11 @@ class TestExtractBandStats:
         outputs = {"ndvi": {"bands": {"B0": {"stats": {}}}}}
         assert _extract_band_stats(outputs, "ndvi") is None
 
+    def test_present_stats_without_mean_returns_none(self) -> None:
+        """Linha 277-278: band_stats não-vazio mas sem 'mean' → return None."""
+        outputs = {"ndvi": {"bands": {"B0": {"stats": {"stDev": 0.1, "max": 0.8}}}}}
+        assert _extract_band_stats(outputs, "ndvi") is None
+
     def test_percentile_int_key_fallback(self) -> None:
         """Aceita chave inteira 90 além de string '90.0'."""
         outputs = {
@@ -193,6 +198,22 @@ class TestSentinelIndexProcessorProcess:
 
     def test_returns_none_for_missing_outputs(self) -> None:
         result = self.proc.process({"data": [{"interval": {}, "outputs": {}}]})
+        assert result is None
+
+    def test_returns_none_when_no_valid_band_outputs(self) -> None:
+        """Linha 244-245: outputs não-vazio mas sem ndvi/bsi/clay/iron → indices={} → None."""
+        raw = {
+            "data": [
+                {
+                    "interval": {"from": "2024-01-01", "to": "2024-04-01"},
+                    "outputs": {
+                        # Banda desconhecida — não é ndvi/bsi/clay/iron
+                        "unknown_band": {"bands": {"B0": {"stats": {"mean": 0.5}}}},
+                    },
+                }
+            ]
+        }
+        result = self.proc.process(raw)
         assert result is None
 
     def test_basic_parse(self) -> None:
