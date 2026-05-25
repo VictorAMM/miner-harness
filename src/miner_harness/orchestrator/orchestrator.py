@@ -806,10 +806,11 @@ class Orchestrator:
         if not step_results:
             return 0.0
 
-        # Cobertura de serviços
+        # Cobertura de serviços (geological_data pode conter chaves derivadas além
+        # dos 6 serviços GeoSGB → cap em 1.0 para evitar score > 1)
         total_services = 6
         active = sum(1 for v in geological_data.values() if v)
-        coverage_score = active / total_services
+        coverage_score = min(1.0, active / total_services)
 
         # Confiança média
         confidence_map = {
@@ -827,4 +828,4 @@ class Orchestrator:
         volume_score = min(1.0, total_records / 100)
 
         quality = coverage_score * 0.4 + avg_confidence * 0.4 + volume_score * 0.2
-        return round(quality, 3)
+        return min(1.0, round(quality, 3))

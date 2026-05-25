@@ -445,6 +445,60 @@ class TestOrchestratorHelpers:
         assert targets[1].commodities == ["Indeterminado"]
 
 
+class TestComputeQuality:
+    """Testes de _compute_quality — capping em 1.0."""
+
+    def _make_step(self, confidence: Confidence) -> StepResult:
+        return StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="test",
+            summary="",
+            findings=[],
+            confidence=confidence,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+
+    def test_score_never_exceeds_1_with_derived_keys(self) -> None:
+        """geological_data com chaves derivadas (>6) não deve elevar o score acima de 1.0."""
+        # 8 chaves preenchidas → active/total_services = 8/6 > 1 antes do fix
+        geo_data: dict[str, list[dict]] = {
+            "ocorrencias": [{}] * 50,
+            "gravimetria": [{}] * 10,
+            "geoquimica": [{}] * 50,
+            "geocronologia": [{}] * 38,
+            "litoestratigrafia": [{}] * 50,
+            "aerogeofisica": [{}],
+            "geoquimica_normalizada": [{}] * 50,  # chave derivada
+            "ml_prospectivity": [{}],  # chave derivada
+        }
+        steps = [self._make_step(Confidence.MEDIUM)] * 5
+        score = Orchestrator._compute_quality(steps, geo_data)
+        assert score <= 1.0, f"data_quality_score={score} deve ser ≤ 1.0"
+        assert score >= 0.0
+
+    def test_score_with_all_6_services_high_confidence(self) -> None:
+        geo_data: dict[str, list[dict]] = {
+            svc: [{}] * 20
+            for svc in [
+                "ocorrencias",
+                "gravimetria",
+                "geoquimica",
+                "geocronologia",
+                "litoestratigrafia",
+                "aerogeofisica",
+            ]
+        }
+        steps = [self._make_step(Confidence.HIGH)] * 5
+        score = Orchestrator._compute_quality(steps, geo_data)
+        assert 0.0 <= score <= 1.0
+
+    def test_score_empty_data_returns_zero(self) -> None:
+        assert Orchestrator._compute_quality([], {}) == 0.0
+
+
 class TestExtractCommodities:
     """Testes de _extract_commodities."""
 
