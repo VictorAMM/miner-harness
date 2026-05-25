@@ -742,6 +742,7 @@ aside {
 <div id="coverage-banner">
   <strong>⚠ Cobertura parcial:</strong>
   <span id="coverage-banner-text"></span>
+  <span id="coverage-banner-hint" style="margin-left:14px;opacity:.75;font-style:italic;"></span>
 </div>
 
 <!-- ============================================================
@@ -889,7 +890,7 @@ aside {
     <button class="tab-btn" data-tab="alvos">🎯 Alvos</button>
     <button class="tab-btn" data-tab="qualidade">📈 Qualidade</button>
     <button class="tab-btn" data-tab="dados">🗂️ Dados</button>
-    <button class="tab-btn" data-tab="json">{ } JSON</button>
+    <button class="tab-btn" data-tab="json">📋 Exportar</button>
   </div>
   <div class="tab-contents">
     <div class="tab-pane active" id="tab-analise"></div>
@@ -1033,9 +1034,13 @@ function renderHeader(r) {
   if (missing.length > 0) {
     // D3: usar total fixo (serviços GeoSGB conhecidos), não Object.keys() que inclui derivados
     const total = KNOWN_GEO_SOURCES.length;
+    const available = total - missing.length;
     document.getElementById('coverage-banner-text').textContent =
       missing.length + ' de ' + total + ' fontes indisponíveis: ' + missing.join(', ') +
       '. Resultados baseados em dados parciais — interpretar com cautela.';
+    document.getElementById('coverage-banner-hint').textContent =
+      '💡 Dica: re-execute o comando ou use --min-sources ' + available +
+      ' para aceitar estes dados parciais.';
     banner.style.display = 'flex';
   } else {
     banner.style.display = 'none';
