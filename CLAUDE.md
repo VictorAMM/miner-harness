@@ -107,9 +107,10 @@ Documentação v1.0.0 — CHANGELOG completo v0.3.0→v1.0.0, README atualizado,
 F6 Sentinel-2 — CopernicusConnector OAuth2 + Statistics API (sem rasters); NDVI/BSI/Clay/Iron + área anômala%; injeção prompt + guia geológico; --s2-max-cloud/--s2-days CLI; TTL 30d; 42 testes ✅ CONCLUÍDA (2026-05-24) [v1.1.0]
 F8 Random Forest ML — ProspectivityMLScorer RF pré-treinado (15 features: geoquímica CF, Bouguer HGM, Sentinel-2 anomalias, densidade ocorrências); MLFeatureBuilder; modelo semente rf_prospectivity_v1.joblib (4000 amostras sintéticas); fallback heurístico gracioso; MLConfig + --rf-model CLI; injeção ml_prospectivity no contexto LLM; _DERIVED_CONTEXT_KEYS no orquestrador; 57 testes ✅ CONCLUÍDA (2026-05-24) [v1.2.0]
 UX Audit — 19 melhorias identificadas e implementadas: CLI PT-BR completo (_print_report_summary, progresso, cabeçalho), strip <think> do reasoning, seções por agente, legenda mapa colapsável, dark tables Dados, popup rationale 500 chars, print stylesheet, font sizes, nomeação geográfica de alvos (Q5), normalização data_sources_used 40+ aliases (Q6), aba "📋 Exportar", hint --min-sources no banner de cobertura ✅ CONCLUÍDA (2026-05-25) [v1.3.0]
+Coverage 100% — 19 branches descobertas pós-UX-audit cobertas (8 módulos); fix mypy: on_step_complete em AnalysisRunner + ProfilingRunner; 1 295 testes, 0 missing statements ✅ CONCLUÍDA (2026-05-25) [v1.3.0]
 ```
 
-**Status**: v1.3.0 em produção. PRD-002 F6 (Sentinel-2) + F8 (Random Forest ML) entregues. UX Audit completo (19 melhorias).
+**Status**: v1.3.0 em produção. PRD-002 F6 (Sentinel-2) + F8 (Random Forest ML) entregues. UX Audit completo (19 melhorias). Cobertura 100% restaurada (1 295 testes).
 
 ## Grafo de Rastreabilidade
 
