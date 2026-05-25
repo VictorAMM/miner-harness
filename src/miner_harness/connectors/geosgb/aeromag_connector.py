@@ -109,7 +109,7 @@ class AeromagConnector:
             Lista vazia se o serviço não estiver disponível ou não retornar valores.
         """
         grid = self._generate_grid(bbox)
-        if not grid:
+        if not grid:  # pragma: no cover — _generate_grid sempre retorna ≥ 4 pontos
             return []
 
         client = self._client or httpx.AsyncClient(timeout=self._timeout_s)

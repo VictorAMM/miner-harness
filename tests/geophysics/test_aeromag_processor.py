@@ -126,6 +126,28 @@ class TestComputeHgm:
         for v in hgm.values():
             assert v == pytest.approx(0.0)
 
+    def test_sparse_grid_skips_missing_combinations(self) -> None:
+        """Grade esparsa (nem todos (lon,lat) têm dado) → continue no loop interno."""
+        bbox = _make_bbox()
+        # 2 lons × 2 lats = 4 combinações possíveis, mas apenas 4 pontos reais
+        # em diagonal — (lon0,lat0), (lon0,lat1), (lon1,lat0), (lon1,lat1) presentes
+        # adicionamos um 5º ponto em lon extra sem contrapartida lat extra
+        pts = [
+            {"lon": -51.5, "lat": -6.5, "tma_nt": 10.0},
+            {"lon": -51.5, "lat": -5.5, "tma_nt": 20.0},
+            {"lon": -50.5, "lat": -6.5, "tma_nt": 30.0},
+            {"lon": -50.5, "lat": -5.5, "tma_nt": 40.0},
+            # Ponto extra: lon=-49.5 existe, lat=-6.5 existe na lista,
+            # mas (-49.5, -5.5) NÃO existe → tma_index miss → continue (linha 296)
+            {"lon": -49.5, "lat": -6.5, "tma_nt": 50.0},
+        ]
+        hgm = _compute_hgm(pts, bbox)
+        # Deve retornar valores para os pontos presentes; não falhar
+        assert len(hgm) == 5
+        for v in hgm.values():
+            assert math.isfinite(v)
+            assert v >= 0.0
+
     def test_single_row_dy_zero(self) -> None:
         """Somente 1 linha de pontos (N_lat=1) → gradiente-y = 0."""
         bbox = _make_bbox()

@@ -1534,3 +1534,25 @@ class TestBboxFilteredPrint:
         await orch.analyze_region(bbox, "Carajas")
         captured = capsys.readouterr()
         assert "filtrada" in captured.out.lower() or "bbox" in captured.out.lower()
+
+
+class TestBuildAeromag:
+    """Linhas 479-481: _build_aeromag() captura exceção e retorna None."""
+
+    def test_exception_during_init_returns_none(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+    ) -> None:
+        """Patch de AeromagConnector para lançar exceção → except → return None."""
+        from unittest.mock import patch
+
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        with patch(
+            "miner_harness.connectors.geosgb.aeromag_connector.AeromagConnector",
+            side_effect=RuntimeError("Connector unavailable"),
+        ):
+            result = orch._build_aeromag()
+        assert result is None

@@ -684,3 +684,68 @@ class TestGetSentinel2Indices:
 
         assert result is not None
         assert cache.contains("sentinel2", bbox)
+
+
+# ---------------------------------------------------------------------------
+# Aeromag integration paths (linhas 255-268 context_builder.py)
+# ---------------------------------------------------------------------------
+
+
+class TestContextBuilderAeromag:
+    """Cobre o bloco aeromag do ContextBuilder.build() — linhas 255-268."""
+
+    @pytest.mark.asyncio
+    async def test_valid_points_inject_aeromag_grid(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 256-266: amostras válidas → AeromagProcessor → context['aeromag_grid']."""
+        aeromag_pts = [
+            {"lon": -51.5, "lat": -6.5, "tma_nt": 100.0},
+            {"lon": -50.5, "lat": -6.5, "tma_nt": 120.0},
+            {"lon": -51.5, "lat": -5.5, "tma_nt": 110.0},
+            {"lon": -50.5, "lat": -5.5, "tma_nt": 130.0},
+            {"lon": -50.0, "lat": -6.0, "tma_nt": 115.0},
+        ]
+        mock_aeromag = AsyncMock()
+        mock_aeromag.sample_tma = AsyncMock(return_value=aeromag_pts)
+        builder = ContextBuilder(mock_connector, cache, aeromag=mock_aeromag)
+        context = await builder.build(bbox)
+        assert "aeromag_grid" in context
+        entry = context["aeromag_grid"][0]
+        assert "text" in entry
+        assert "═══" in entry["text"]
+
+    @pytest.mark.asyncio
+    async def test_insufficient_points_no_injection(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linha 257 (False): < 3 pontos válidos → AeromagProcessor retorna None → sem injeção."""
+        aeromag_pts = [
+            {"lon": -51.5, "lat": -6.5, "tma_nt": 100.0},
+            {"lon": -50.5, "lat": -6.5, "tma_nt": 120.0},
+        ]
+        mock_aeromag = AsyncMock()
+        mock_aeromag.sample_tma = AsyncMock(return_value=aeromag_pts)
+        builder = ContextBuilder(mock_connector, cache, aeromag=mock_aeromag)
+        context = await builder.build(bbox)
+        assert "aeromag_grid" not in context
+
+    @pytest.mark.asyncio
+    async def test_exception_in_sample_tma_does_not_propagate(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 267-268: exceção em sample_tma capturada pelo except → sem crash."""
+        mock_aeromag = AsyncMock()
+        mock_aeromag.sample_tma = AsyncMock(side_effect=RuntimeError("Portal down"))
+        builder = ContextBuilder(mock_connector, cache, aeromag=mock_aeromag)
+        context = await builder.build(bbox)
+        assert "aeromag_grid" not in context
