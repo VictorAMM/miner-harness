@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>miner-harness — Relatório de Prospecção</title>
+<!-- D4: Título dinâmico definido por JS após carga do relatório -->
 
 <!-- Leaflet CSS embutido -->
 <style>{{ leaflet_css }}</style>
@@ -140,7 +141,22 @@ aside {
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
 }
+.section-title:hover { color: var(--accent); }
+.section-chevron {
+  font-size: 8px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.section-chevron.collapsed { transform: rotate(-90deg); }
+.section-body { overflow: hidden; transition: max-height 0.25s ease; }
+.section-body.collapsed { max-height: 0 !important; }
 
 /* Quality card */
 .quality-card {
@@ -329,15 +345,36 @@ aside {
 .leaflet-control-attribution a { color: var(--accent) !important; }
 
 /* ================================================================
+   DRAG HANDLE (entre mapa e painel inferior)
+================================================================ */
+.drag-handle {
+  flex: 0 0 6px;
+  background: var(--border);
+  cursor: ns-resize;
+  position: relative;
+  transition: background 0.15s;
+}
+.drag-handle:hover, .drag-handle.dragging { background: var(--accent); }
+.drag-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px; height: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.25);
+}
+
+/* ================================================================
    BOTTOM PANEL
 ================================================================ */
 .bottom-panel {
   flex: 0 0 var(--bottom-h);
   background: var(--bg-card);
-  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 80px;
 }
 
 .tab-bar {
@@ -623,9 +660,10 @@ aside {
 </div>
 
 <!-- ============================================================
-     MAIN: SIDEBAR + MAPA
+     MAIN: SIDEBAR + MAPA + DRAG HANDLE + BOTTOM PANEL
+     Usamos um container vertical para o mapa + drag + painel.
 ============================================================ -->
-<div class="layout">
+<div class="layout" style="flex-direction:row">
 
   <!-- SIDEBAR -->
   <aside>
@@ -733,11 +771,13 @@ aside {
     {% endif %}
   </aside>
 
+  <!-- MAP COLUMN: mapa + drag handle + painel inferior -->
+  <div id="map-col" style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0">
+
   <!-- MAPA -->
-  <div id="map-wrapper">
-    <div id="map"></div>
+  <div id="map-wrapper" style="flex:1;position:relative;min-height:0">
+    <div id="map" style="position:absolute;inset:0;background:#1a2332"></div>
   </div>
-</div>
 
 {% if serve_mode %}
 <!-- Progress overlay -->
@@ -754,10 +794,11 @@ aside {
 </div>
 {% endif %}
 
-<!-- ============================================================
-     BOTTOM PANEL — TABS
-============================================================ -->
-<div class="bottom-panel">
+  <!-- DRAG HANDLE -->
+  <div class="drag-handle" id="drag-handle" title="Arraste para redimensionar"></div>
+
+  <!-- BOTTOM PANEL — TABS -->
+  <div class="bottom-panel" id="bottom-panel">
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="analise">📊 Análise</button>
     <button class="tab-btn" data-tab="alvos">🎯 Alvos</button>
@@ -772,7 +813,9 @@ aside {
     <div class="tab-pane" id="tab-dados"></div>
     <div class="tab-pane" id="tab-json"></div>
   </div>
-</div>
+  </div><!-- /.bottom-panel -->
+</div><!-- /#map-col -->
+</div><!-- /.layout -->
 
 <!-- ============================================================
      SCRIPTS
@@ -851,7 +894,12 @@ function esc(s) {
 // ============================================================
 // HEADER
 // ============================================================
+// Fontes GeoSGB conhecidas (fixo — não inclui chaves derivadas como ml_prospectivity)
+const KNOWN_GEO_SOURCES = ['ocorrencias','gravimetria','geoquimica','geocronologia','litoestratigrafia','aerogeofisica','furos'];
+
 function renderHeader(r) {
+  // D4: Título dinâmico
+  document.title = r.region_name + ' — miner-harness';
   document.getElementById('h-region').textContent = r.region_name;
 
   const qInfo = qualityLabel(r.data_quality_score);
@@ -869,7 +917,8 @@ function renderHeader(r) {
   const missing = r.missing_sources || [];
   const banner = document.getElementById('coverage-banner');
   if (missing.length > 0) {
-    const total = r.geological_data ? Object.keys(r.geological_data).length : 6;
+    // D3: usar total fixo (serviços GeoSGB conhecidos), não Object.keys() que inclui derivados
+    const total = KNOWN_GEO_SOURCES.length;
     document.getElementById('coverage-banner-text').textContent =
       missing.length + ' de ' + total + ' fontes indisponíveis: ' + missing.join(', ') +
       '. Resultados baseados em dados parciais — interpretar com cautela.';
@@ -909,12 +958,27 @@ function renderQualityDonut(r) {
 
   const totalDur = durFmt(r.total_duration_ms);
   const date = new Date(r.analysis_date).toLocaleDateString('pt-BR');
+
+  // Q1: detectar se há score ML do modelo semente sintético
+  const geo = r.geological_data || {};
+  const mlProsp = (geo['ml_prospectivity'] || [])[0];
+  const mlScore = mlProsp ? mlProsp.rf_score : null;
+  const mlRow = mlScore != null
+    ? `<div class="q-row" title="Modelo RF treinado em amostras sintéticas — resultado indicativo apenas">
+         <span class="q-label">RF ML:</span>
+         <span class="q-val">${mlScore.toFixed(1)}
+           <span style="font-size:9px;background:#f59e0b22;color:#f59e0b;padding:1px 5px;border-radius:8px;border:1px solid #f59e0b44;margin-left:3px">EXPERIMENTAL</span>
+         </span>
+       </div>`
+    : '';
+
   document.getElementById('quality-meta').innerHTML = `
     <div class="q-row"><span class="q-label">Data:</span><span class="q-val">${date}</span></div>
     <div class="q-row"><span class="q-label">Modelo:</span><span class="q-val">${r.model_used}</span></div>
     <div class="q-row"><span class="q-label">Duração:</span><span class="q-val">${totalDur}</span></div>
     <div class="q-row"><span class="q-label">Alvos:</span><span class="q-val">${r.targets.length}</span></div>
     <div class="q-row"><span class="q-label">Passos:</span><span class="q-val">${r.steps.length}</span></div>
+    ${mlRow}
   `;
 }
 
@@ -1693,7 +1757,9 @@ function renderAnaliseTab(r) {
     const findings = (step.findings || []).slice(0, 10);
     const sources = (step.data_sources_used || []).join(', ') || '—';
     const gaps = (step.data_gaps || []).join(', ') || '—';
-    const reasoning = (step.raw_reasoning || '').slice(0, 2000);
+    // Q3: separar raciocínio multi-agente pelo delimitador " | " e renderizar por agente
+    const rawReasoning = step.raw_reasoning || '';
+    const reasoningParts = rawReasoning.split(' | ').filter(Boolean);
 
     const findingsHtml = findings.length
       ? findings.map(function(f) { return `<div class="finding-item">${esc(f)}</div>`; }).join('')
@@ -1725,9 +1791,20 @@ function renderAnaliseTab(r) {
             <div class="meta-vals">${esc(gaps)}</div>
           </div>
         </div>
-        ${reasoning ? `
-          <div class="reasoning-toggle" data-si="${si}">▶ Raciocínio completo do agente</div>
-          <div class="reasoning-text" data-si="${si}">${esc(reasoning)}</div>
+        ${reasoningParts.length > 0 ? `
+          <div class="reasoning-toggle" data-si="${si}">▶ Raciocínio completo ${reasoningParts.length > 1 ? '(' + reasoningParts.length + ' agentes)' : 'do agente'}</div>
+          <div class="reasoning-text" data-si="${si}">${
+            reasoningParts.length > 1
+              ? reasoningParts.map(function(p, pi) {
+                  // Tentar extrair nome do agente do campo "summary" do JSON
+                  var agentMatch = p.match(/"summary"\s*:\s*"([^"]{0,40})/);
+                  var label = 'Agente ' + (pi + 1);
+                  return '<div style="margin-bottom:6px;padding:4px 6px;background:rgba(245,158,11,0.06);border-left:2px solid var(--accent)">' +
+                    '<div style="font-size:9px;font-weight:700;color:var(--accent);margin-bottom:3px;text-transform:uppercase">' + label + '</div>' +
+                    esc(p.slice(0, 800)) + (p.length > 800 ? '…' : '') + '</div>';
+                }).join('')
+              : esc(reasoningParts[0].slice(0, 2000)) + (reasoningParts[0].length > 2000 ? '…' : '')
+          }</div>
         ` : ''}
       </div>
     `;
@@ -2303,6 +2380,79 @@ function renderDashboard(r) {
 
 // Render inicial
 renderDashboard(REPORT);
+
+// ============================================================
+// D2: SIDEBAR COLLAPSIBLE — setup único
+// ============================================================
+(function initSidebarCollapse() {
+  var aside = document.querySelector('aside');
+  if (!aside) return;
+  aside.querySelectorAll('.sidebar-section').forEach(function(section) {
+    var titleEl = section.querySelector('.section-title');
+    if (!titleEl) return;
+    // Criar wrapper para o conteúdo colapsável
+    var body = document.createElement('div');
+    body.className = 'section-body';
+    // Mover todos os filhos do section (exceto o título) para o body
+    Array.from(section.children).forEach(function(child) {
+      if (child !== titleEl) body.appendChild(child);
+    });
+    section.appendChild(body);
+    // Adicionar chevron ao título
+    var chevron = document.createElement('span');
+    chevron.className = 'section-chevron';
+    chevron.textContent = '▼';
+    titleEl.appendChild(chevron);
+    // Definir max-height inicial para que a transição funcione
+    body.style.maxHeight = body.scrollHeight + 'px';
+    // Toggle ao clicar no título
+    titleEl.addEventListener('click', function() {
+      var collapsed = body.classList.toggle('collapsed');
+      chevron.classList.toggle('collapsed', collapsed);
+    });
+  });
+})();
+
+// ============================================================
+// D1: DRAG HANDLE — redimensionar painel inferior
+// ============================================================
+(function initDragHandle() {
+  var handle = document.getElementById('drag-handle');
+  var panel  = document.getElementById('bottom-panel');
+  var mapCol = document.getElementById('map-col');
+  if (!handle || !panel || !mapCol) return;
+
+  var dragging = false;
+  var startY, startH;
+
+  handle.addEventListener('mousedown', function(e) {
+    dragging = true;
+    startY = e.clientY;
+    startH = panel.getBoundingClientRect().height;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var delta = startY - e.clientY;  // arrastar para cima aumenta o painel
+    var colH = mapCol.getBoundingClientRect().height;
+    var newH = Math.min(Math.max(80, startH + delta), colH - 100);
+    panel.style.flex = '0 0 ' + newH + 'px';
+    map.invalidateSize();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    map.invalidateSize();
+  });
+})();
 
 // ============================================================
 // TAB SYSTEM — setup único

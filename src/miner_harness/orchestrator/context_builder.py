@@ -72,6 +72,8 @@ class ContextBuilder:
         # Serviços filtrados pelo bbox na última chamada a build()
         # (dados obtidos, mas todos os registros estavam fora do bbox)
         self.bbox_filtered_sources: list[str] = []
+        # Truncamentos ocorridos: {service: (original, truncated_to)}
+        self.truncation_info: dict[str, tuple[int, int]] = {}
 
     async def build(
         self,
@@ -106,6 +108,7 @@ class ContextBuilder:
         cy = (bbox.lat_min + bbox.lat_max) / 2
 
         self.bbox_filtered_sources = []
+        self.truncation_info = {}
         context: dict[str, list[dict[str, Any]]] = {}
         for (service, _, _), features in zip(all_services, results, strict=True):
             # Filtrar registros com coordenadas fora do bbox antes de truncar.
@@ -125,14 +128,16 @@ class ContextBuilder:
                     self.bbox_filtered_sources.append(service)
 
             if len(features) > max_records_per_service:
+                original_count = len(features)
                 features = self._sort_by_proximity(features, cx, cy)
                 logger.info(
                     "context_truncated",
                     service=service,
-                    original=len(features),
+                    original=original_count,
                     truncated_to=max_records_per_service,
                 )
                 features = features[:max_records_per_service]
+                self.truncation_info[service] = (original_count, max_records_per_service)
             context[service] = features
 
         total = sum(len(v) for v in context.values())

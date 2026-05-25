@@ -36,6 +36,8 @@ from miner_harness.core.types import (
 from miner_harness.orchestrator.context_builder import ContextBuilder, ExtraSourcesMap
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from miner_harness.agents.base import BaseAgent
     from miner_harness.cache.manager import CacheManager
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -174,6 +176,7 @@ class Orchestrator:
         region_name: str,
         steps: list[AnalysisStep] | None = None,
         user_drillholes: list[dict[str, Any]] | None = None,
+        on_step_complete: Callable[[AnalysisStep, int, int, str], None] | None = None,
     ) -> ProspectionReport:
         """Executa análise completa de prospecção mineral.
 
@@ -231,13 +234,34 @@ class Orchestrator:
             print(f"Fontes filtradas (fora do bbox): {', '.join(bbox_filtered)}", flush=True)
         if truly_unavailable:
             print(f"Fontes indisponíveis: {', '.join(truly_unavailable)}", flush=True)
+
+        # Aviso de truncamento — quando >50% dos registros foram descartados
+        trunc = self._context_builder.truncation_info
+        heavy_trunc = {
+            svc: (orig, trunc_to)
+            for svc, (orig, trunc_to) in trunc.items()
+            if orig > 0 and trunc_to / orig < 0.5
+        }
+        if heavy_trunc:
+            parts = [
+                f"{svc}: {orig}→{trunc_to} ({100 * trunc_to // orig}%)"
+                for svc, (orig, trunc_to) in heavy_trunc.items()
+            ]
+            print(
+                f"⚠ Dados truncados (>50% ignorados): {', '.join(parts)}. "
+                "Use --ctx-size 32768 para análise mais completa.",
+                flush=True,
+            )
+
         print(f"Iniciando pipeline LLM — {len(steps)} passos...\n", flush=True)
 
         # 3. Executar passos sequencialmente
         step_results: list[StepResult] = []
-        for step in steps:
+        for i, step in enumerate(steps, 1):
             result = await self._execute_step(step, geological_data, step_results, bbox)
             step_results.append(result)
+            if on_step_complete is not None:
+                on_step_complete(step, i, len(steps), result.confidence.value)
 
         # 4. Extrair targets do resultado do Evaluator
         raw_targets = self._extract_targets(step_results)

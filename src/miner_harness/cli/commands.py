@@ -30,11 +30,19 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
+def _fmt_ms(ms: int) -> str:
+    """Formata duração em milissegundos para string legível."""
+    if ms < 60_000:
+        return f"{ms / 1000:.1f}s"
+    return f"{ms // 60_000}m {(ms % 60_000) // 1000}s"
+
+
 async def cmd_analyze(
     region: str,
     bbox: tuple[float, float, float, float],
     model: str | None = None,
     output_path: str | None = None,
+    output_html: str | None = None,
     no_html: bool = False,
     serve: bool = False,
     port: int = 8765,
@@ -137,7 +145,17 @@ async def cmd_analyze(
         else:
             orch = Orchestrator(connector, cache, llm, config)
         print("Running analysis pipeline...")
-        report = await orch.analyze_region(bb, region, user_drillholes=user_drillholes)
+
+        _conf_icon = {"high": "✓", "medium": "~", "low": "⚠", "insufficient": "✗"}
+
+        def _on_step(step: object, current: int, total: int, confidence: str) -> None:
+            icon = _conf_icon.get(confidence, "?")
+            step_val = getattr(step, "value", str(step))
+            print(f"  [{current}/{total}] {step_val}  {icon} ({confidence})", flush=True)
+
+        report = await orch.analyze_region(
+            bb, region, user_drillholes=user_drillholes, on_step_complete=_on_step
+        )
 
         # Validate
         validator = ReportValidator()
@@ -172,7 +190,7 @@ async def cmd_analyze(
 
         # Gerar dashboard HTML estático
         if not no_html:
-            _render_html_report(report, storage, region)
+            _render_html_report(report, storage, region, output_html_path=output_html)
 
         return 0
 
@@ -220,14 +238,18 @@ def _render_html_report(
     report: ProspectionReport,
     storage: StorageConfig,
     region: str,
+    output_html_path: str | None = None,
 ) -> None:
     """Gera dashboard HTML e abre no browser."""
     try:
         from miner_harness.report import HtmlReportRenderer
 
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_region = region.replace(" ", "_").replace("/", "_")
-        html_path = storage.exports_dir / "reports" / f"{safe_region}_{ts}.html"
+        if output_html_path:
+            html_path = Path(output_html_path)
+        else:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_region = region.replace(" ", "_").replace("/", "_")
+            html_path = storage.exports_dir / "reports" / f"{safe_region}_{ts}.html"
         renderer = HtmlReportRenderer()
         renderer.render_to_file(report, html_path)
         print(f"\nDashboard HTML: {html_path}")
@@ -450,7 +472,7 @@ def _print_report_summary(report: ProspectionReport) -> None:
     print(f"  Date:     {report.analysis_date}")
     print(f"  Model:    {report.model_used}")
     print(f"  Quality:  {report.data_quality_score:.2f}")
-    print(f"  Duration: {report.total_duration_ms}ms")
+    print(f"  Duration: {_fmt_ms(report.total_duration_ms)}")
     print()
 
     print("  ANALYSIS STEPS:")
@@ -461,7 +483,10 @@ def _print_report_summary(report: ProspectionReport) -> None:
             "low": "-",
             "insufficient": "!",
         }.get(step.confidence.value, "?")
-        print(f"    [{conf_icon}] {step.step.value}: {step.summary[:80]}")
+        summary = step.summary
+        if len(summary) > 100:
+            summary = summary[:97] + "..."
+        print(f"    [{conf_icon}] {step.step.value}: {summary}")
 
     if report.targets:
         print(f"\n  TARGETS ({len(report.targets)}):")

@@ -102,7 +102,16 @@ def _build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument(
         "--output",
         default=None,
-        help="Output file path for the report (JSON)",
+        help="Salvar relatório como JSON neste caminho (ex: report.json).",
+    )
+    analyze_parser.add_argument(
+        "--output-html",
+        default=None,
+        metavar="ARQUIVO",
+        help=(
+            "Salvar dashboard HTML neste caminho (ex: relatorio.html). "
+            "Padrão: salvo automaticamente em ~/.miner-harness/exports/reports/."
+        ),
     )
     analyze_parser.add_argument(
         "--no-html",
@@ -304,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
         wrapper_class=structlog.make_filtering_bound_logger(
             logging.DEBUG if args.verbose else logging.INFO
         ),
+        # Operational logs always go to stderr — stdout is reserved for user-facing output
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
     )
 
     if args.command is None:
@@ -327,6 +338,7 @@ def main(argv: list[str] | None = None) -> int:
                     bbox=tuple(args.bbox),
                     model=args.model,
                     output_path=args.output,
+                    output_html=args.output_html,
                     no_html=args.no_html,
                     serve=args.serve,
                     port=args.port,
