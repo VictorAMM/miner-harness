@@ -38,6 +38,57 @@ _SOURCE_LABELS: dict[str, str] = {
     "usgs": "USGS — Eventos Sísmicos",
 }
 
+# Mapa reverso: rótulo humanizado → chave canônica (para normalização pós-parse)
+_SOURCE_LABEL_REVERSE: dict[str, str] = {v.lower(): k for k, v in _SOURCE_LABELS.items()}
+# Aliases adicionais que o LLM pode gerar
+_SOURCE_ALIASES: dict[str, str] = {
+    "geosgb/ocorrencias": "ocorrencias",
+    "geosgb/ocorrências": "ocorrencias",
+    "ocorrências minerais": "ocorrencias",
+    "ocorrencias minerais": "ocorrencias",
+    "geosgb/gravimetria": "gravimetria",
+    "geosgb/geoquimica": "geoquimica",
+    "geosgb/geoquímica": "geoquimica",
+    "geosgb/geocronologia": "geocronologia",
+    "geosgb/litoestratigrafia": "litoestratigrafia",
+    "geosgb/aerogeofisica": "aerogeofisica",
+    "geosgb/aerogeofísica": "aerogeofisica",
+    "geosgb/furos de sondagem históricos": "furos",
+    "geosgb/furos de sondagem": "furos",
+    "furos de sondagem": "furos",
+    "furos históricos": "furos",
+    "anm/sigmine": "anm",
+    "anm/sigmine — concessões minerárias": "anm",
+    "concessões anm": "anm",
+    "concessoes anm": "anm",
+    "sigmine": "anm",
+    "usgs — eventos sísmicos": "usgs",
+    "usgs — sismicidade": "usgs",
+    "sismicidade usgs": "usgs",
+    "geoquimica_normalizada": "geoquimica_normalizada",
+    "geoquímica normalizada": "geoquimica_normalizada",
+    "prospectivity_grid": "prospectivity_grid",
+    "prospectividade": "prospectivity_grid",
+    "score de prospectividade": "prospectivity_grid",
+    "bouguer_gradient": "bouguer_gradient",
+    "derivadas bouguer": "bouguer_gradient",
+    "gradiente bouguer": "bouguer_gradient",
+    "user_drillholes": "user_drillholes",
+    "furos do usuário": "user_drillholes",
+    "furos usuario": "user_drillholes",
+    "sentinel2_indices": "sentinel2_indices",
+    "sentinel-2": "sentinel2_indices",
+    "sentinel2": "sentinel2_indices",
+    "índices sentinel-2": "sentinel2_indices",
+    "ml_prospectivity": "ml_prospectivity",
+    "randomforest": "ml_prospectivity",
+    "random forest": "ml_prospectivity",
+    "score ml": "ml_prospectivity",
+    "rag_context": "rag_context",
+    "rag": "rag_context",
+    "contexto rag": "rag_context",
+}
+
 
 class BaseAgent(ABC):
     """Classe base para todos os agentes especialistas.
@@ -238,7 +289,9 @@ class BaseAgent(ABC):
                 summary=str(parsed.get("summary", "")),
                 findings=list(parsed.get("findings", [])),
                 confidence=Confidence(parsed.get("confidence", "low")),
-                data_sources_used=list(parsed.get("data_sources_used", [])),
+                data_sources_used=self._normalize_sources(
+                    list(parsed.get("data_sources_used", []))
+                ),
                 data_gaps=list(parsed.get("data_gaps", [])),
                 raw_reasoning=content,
                 duration_ms=0,
@@ -266,6 +319,48 @@ class BaseAgent(ABC):
                 raw_reasoning=content,
                 duration_ms=0,
             )
+
+    @staticmethod
+    def _normalize_sources(sources: list[Any]) -> list[str]:
+        """Normaliza data_sources_used para chaves canônicas.
+
+        O LLM pode retornar variações como "GeoSGB/Geoquímica", "geoquimica" ou
+        "ANM/SIGMINE — Concessões Minerárias". Este método mapeia todas as variações
+        conhecidas para a chave canônica (lowercase, sem acentos).
+
+        Fontes não reconhecidas são mantidas (lowercase, stripped).
+        """
+        normalized: list[str] = []
+        for item in sources:
+            raw = str(item).strip()
+            key_lower = raw.lower()
+            # 1. Chave canônica direta
+            if key_lower in _SOURCE_LABELS:
+                normalized.append(key_lower)
+                continue
+            # 2. Rótulo humanizado (reverse map)
+            if key_lower in _SOURCE_LABEL_REVERSE:
+                normalized.append(_SOURCE_LABEL_REVERSE[key_lower])
+                continue
+            # 3. Aliases extras
+            if key_lower in _SOURCE_ALIASES:
+                normalized.append(_SOURCE_ALIASES[key_lower])
+                continue
+            # 4. Prefixo "geosgb/" não listado → tentar sem prefixo
+            stripped = key_lower.removeprefix("geosgb/")
+            if stripped in _SOURCE_LABELS:
+                normalized.append(stripped)
+                continue
+            # 5. Fallback: manter tal como está (lowercase)
+            normalized.append(key_lower)
+        # Deduplicar preservando ordem
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for s in normalized:
+            if s not in seen:
+                seen.add(s)
+                deduped.append(s)
+        return deduped
 
     @staticmethod
     def _extract_json(text: str) -> dict[str, Any]:

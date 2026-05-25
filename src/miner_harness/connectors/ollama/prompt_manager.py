@@ -222,6 +222,11 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "Para cada alvo:\n"
         "- Use coordenadas reais extraídas dos dados (longitude/latitude WGS84 do Brasil)\n"
         '- Liste as commodities concretas (ex: ["Au", "Cu"], nunca ["Indeterminado"])\n'
+        "- NOMEAÇÃO OBRIGATÓRIA: combine uma referência geográfica real da região "
+        "(serra, cinturão, bacia, rio, município) com o sistema mineral identificado. "
+        "Exemplos corretos: 'Serra Pelada Norte — Ouro Orogênico', "
+        "'Cinturão Itacaiúnas SW — IOCG', 'Alto Tapajós — Pórfiro Cu-Au'. "
+        "PROIBIDO: 'Alvo 1', 'Alvo Principal', 'Prospecto A', 'Target Norte'.\n"
         "- Classifique o sistema mineral usando a tabela abaixo — escolha o mais adequado\n"
         "- Atribua prioridade 1 ao melhor alvo, 2 ao segundo, e assim por diante\n"
         "- Justifique com evidências dos passos anteriores\n"
@@ -292,10 +297,14 @@ Responda OBRIGATORIAMENTE neste formato JSON:
   "summary": "Resumo conciso do passo (2-3 frases)",
   "findings": ["Achado 1", "Achado 2", ...],
   "confidence": "high|medium|low|insufficient",
-  "data_sources_used": ["fonte1", "fonte2"],
+  "data_sources_used": ["ocorrencias", "gravimetria"],
   "data_gaps": ["dado faltante 1", "dado faltante 2"],
   "targets": []
 }
+Em "data_sources_used", use APENAS os nomes canônicos das fontes disponíveis: \
+ocorrencias, gravimetria, geoquimica, geocronologia, litoestratigrafia, aerogeofisica, \
+furos, anm, usgs, rag_context, geoquimica_normalizada, prospectivity_grid, \
+bouguer_gradient, user_drillholes, sentinel2_indices, ml_prospectivity.
 Nos passos 1-4, "targets" deve ser uma lista vazia."""
 
 _RESPONSE_FORMAT_EVALUATOR = """\
@@ -304,11 +313,11 @@ Responda OBRIGATORIAMENTE neste formato JSON (sem texto fora do JSON):
   "summary": "Síntese multidisciplinar (3-5 frases)",
   "findings": ["Evidência integrada 1", "Evidência integrada 2", ...],
   "confidence": "high|medium|low|insufficient",
-  "data_sources_used": ["fonte1", "fonte2"],
+  "data_sources_used": ["ocorrencias", "gravimetria", "geoquimica"],
   "data_gaps": ["lacuna 1", "lacuna 2"],
   "targets": [
     {
-      "name": "Nome descritivo do Alvo",
+      "name": "Referência geográfica + sistema mineral (ex: 'Serra Pelada Norte — Ouro Orogênico')",
       "longitude": -44.5,
       "latitude": -20.2,
       "radius_km": 5.0,
@@ -326,7 +335,13 @@ REGRAS PARA "targets":
 - "priority": 1 = melhor alvo, 2 = segundo melhor, e assim por diante (nunca comece em 2)
 - "longitude" e "latitude": coordenadas WGS84 reais extraídas dos dados (dentro do bbox da região)
 - "commodities": metais concretos (["Au","Cu"], ["Fe","Mn"]) — NUNCA ["Indeterminado"]
-- "mineral_system": IOCG, Ouro Orogênico, Pórfiro Cu-Au, BIF, VMS, Epithermal, etc."""
+- "mineral_system": IOCG, Ouro Orogênico, Pórfiro Cu-Au, BIF, VMS, Epithermal, etc.
+- "name": OBRIGATÓRIO usar referência geográfica real da região + sistema mineral. \
+  NUNCA use nomes genéricos como "Alvo 1", "Alvo Principal", "Prospecto A", "Target Norte".
+Em "data_sources_used", use APENAS os nomes canônicos: \
+ocorrencias, gravimetria, geoquimica, geocronologia, litoestratigrafia, aerogeofisica, \
+furos, anm, usgs, rag_context, geoquimica_normalizada, prospectivity_grid, \
+bouguer_gradient, user_drillholes, sentinel2_indices, ml_prospectivity."""
 
 
 class PromptManager:

@@ -408,3 +408,74 @@ class TestEvaluatorTargetsBlockException:
         response = _mock_llm_response("Análise descritiva sem JSON algum para extrair.")
         result = agent.parse_response(response, AnalysisStep.TOTAL_INTEGRATION)
         assert result.targets == []
+
+
+class TestNormalizeSources:
+    """Testes unitários de BaseAgent._normalize_sources (Q6)."""
+
+    def _make_agent(self) -> StructuralGeoAgent:
+        mock_llm = AsyncMock(spec=OllamaClient)
+        return StructuralGeoAgent(llm=mock_llm)
+
+    def test_canonical_keys_unchanged(self) -> None:
+        """Chaves canônicas já corretas não são alteradas."""
+        agent = self._make_agent()
+        result = agent._normalize_sources(["ocorrencias", "gravimetria", "anm", "usgs"])
+        assert result == ["ocorrencias", "gravimetria", "anm", "usgs"]
+
+    def test_human_label_mapped_to_key(self) -> None:
+        """Rótulo humanizado é mapeado para chave canônica."""
+        agent = self._make_agent()
+        result = agent._normalize_sources(["GeoSGB/Ocorrências Minerais"])
+        assert result == ["ocorrencias"]
+
+    def test_geosgb_prefix_stripped(self) -> None:
+        """Prefixo 'GeoSGB/' é removido para obter chave canônica."""
+        agent = self._make_agent()
+        result = agent._normalize_sources(["GeoSGB/Geoquímica", "GeoSGB/Aerogeofísica"])
+        assert result == ["geoquimica", "aerogeofisica"]
+
+    def test_alias_mapped_to_canonical(self) -> None:
+        """Alias como 'ANM/SIGMINE' e 'Sentinel-2' são normalizados."""
+        agent = self._make_agent()
+        result = agent._normalize_sources(["ANM/SIGMINE", "Sentinel-2", "RAG"])
+        assert result == ["anm", "sentinel2_indices", "rag_context"]
+
+    def test_duplicates_removed(self) -> None:
+        """Entradas duplicadas (após normalização) são deduplicadas."""
+        agent = self._make_agent()
+        # 'GeoSGB/Geoquímica' e 'geoquimica' normalizam para a mesma chave
+        result = agent._normalize_sources(["geoquimica", "GeoSGB/Geoquímica", "gravimetria"])
+        assert result == ["geoquimica", "gravimetria"]
+
+    def test_unknown_source_lowercased(self) -> None:
+        """Fonte desconhecida é mantida como lowercase stripped."""
+        agent = self._make_agent()
+        result = agent._normalize_sources(["FooBar Source", "gravimetria"])
+        assert result == ["foobar source", "gravimetria"]
+
+    def test_mixed_case_canonical(self) -> None:
+        """Chave canônica em maiúsculas é normalizada."""
+        agent = self._make_agent()
+        result = agent._normalize_sources(["USGS", "ANM"])
+        assert result == ["usgs", "anm"]
+
+    def test_parse_response_normalizes_sources(self) -> None:
+        """parse_response aplica normalização ao campo data_sources_used."""
+        agent = self._make_agent()
+        content = json.dumps(
+            {
+                "summary": "test",
+                "findings": [],
+                "confidence": "high",
+                "data_sources_used": ["GeoSGB/Geoquímica", "ANM/SIGMINE"],
+                "data_gaps": [],
+            }
+        )
+        response = _mock_llm_response(content)
+        result = agent.parse_response(response, AnalysisStep.TECTONIC_HISTORY)
+        assert "geoquimica" in result.data_sources_used
+        assert "anm" in result.data_sources_used
+        # Nenhum rótulo humanizado deve restar
+        assert "GeoSGB/Geoquímica" not in result.data_sources_used
+        assert "ANM/SIGMINE" not in result.data_sources_used
