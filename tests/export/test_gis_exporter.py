@@ -344,6 +344,41 @@ class TestGisExporterGeoPackage:
         mock_gdf.to_file.assert_called()
 
 
+class TestGisExporterSkipsEmptyFeats:
+    """Linha 232-233: camada ignorada quando converter retorna None para todos os registros."""
+
+    def test_gravimetria_without_coords_skipped(self, tmp_path: Path) -> None:
+        """Registros sem coordenada → _gravimetria_to_feature → None → feats=[] → skip."""
+        report = _make_report(
+            geological_data={
+                "gravimetria": [
+                    {"objectid": 1},  # sem coordenada → None
+                    {"objectid": 2},  # sem coordenada → None
+                ]
+            }
+        )
+        exporter = GisExporter()
+        out = tmp_path / "out.gpkg"
+
+        mock_gdf = MagicMock()
+        mock_gdf_cls = MagicMock()
+        mock_gdf_cls.from_features = MagicMock(return_value=mock_gdf)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "geopandas": MagicMock(GeoDataFrame=mock_gdf_cls),
+                "shapely.geometry": MagicMock(),
+            },
+        ):
+            result = exporter.export(report, out)
+
+        # gravimetria layer NÃO exportada (feats=[])
+        assert result == out
+        # to_file foi chamado apenas para targets e targets_buffer (2 vezes)
+        assert mock_gdf.to_file.call_count == 2
+
+
 def _block_geopandas(name: str, *args: object, **kwargs: object) -> object:
     """Bloqueia importação de geopandas para testar ImportError."""
     if name in ("geopandas", "shapely", "shapely.geometry"):

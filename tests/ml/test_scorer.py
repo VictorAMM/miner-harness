@@ -310,3 +310,70 @@ class TestMLScorerContextKey:
         assert len(ml_records) == 1
         assert "RandomForest" in ml_records[0]["text"]
         assert "rf_score" in ml_records[0]["stats"]
+
+
+# ---------------------------------------------------------------------------
+# Testes de _ensure_loaded — branches de erro (linhas 184-185, 214-216, 242-247)
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureLoadedErrorBranches:
+    """Cobre handlers de erro dentro de _ensure_loaded."""
+
+    def test_predict_exception_falls_back(self) -> None:
+        """Linha 184-185: exceção em predict_proba → except → fallback heurístico."""
+        from unittest.mock import MagicMock
+
+        mock_model = MagicMock()
+        mock_model.predict_proba.side_effect = RuntimeError("GPU OOM")
+        mock_model.feature_importances_ = []
+        scorer = ProspectivityMLScorer(model_path="/nonexistent.joblib")
+        # Injetar modelo diretamente para pular _ensure_loaded
+        scorer._model = mock_model
+        scorer._loaded = True
+
+        context = _make_full_context()
+        result = scorer.score(context, BBOX_CARAJAS)
+        assert result is not None
+        assert result.fallback_used is True  # fallback heurístico ativado
+
+    def test_model_invalid_no_predict_proba(self, tmp_path: Path) -> None:
+        """Linhas 214-216: modelo carregado sem predict_proba → _load_error."""
+        import joblib
+
+        model_file = tmp_path / "bad_model.joblib"
+        joblib.dump({"not": "a classifier"}, model_file)
+        scorer = ProspectivityMLScorer(model_path=str(model_file))
+        scorer._ensure_loaded()
+        assert scorer._model is None
+        assert scorer._load_error is not None
+        assert "classificador" in scorer._load_error.lower()
+
+    def test_import_error_when_joblib_missing(self) -> None:
+        """Linhas 242-244: ImportError → _load_error = 'scikit-learn/joblib não instalado'."""
+        import sys
+        from unittest.mock import patch
+
+        scorer = ProspectivityMLScorer(model_path="/nonexistent.joblib")
+        # Remover joblib de sys.modules para forçar ImportError no próximo import
+        with patch.dict(sys.modules, {"joblib": None}):
+            scorer._ensure_loaded()
+        assert scorer._load_error == "scikit-learn/joblib não instalado"
+
+    def test_generic_exception_in_load(self, tmp_path: Path) -> None:
+        """Linhas 245-247: Exception genérica → _load_error = str(exc)."""
+        from unittest.mock import patch
+
+        import joblib
+
+        model_file = tmp_path / "model.joblib"
+        joblib.dump({"not": "a classifier"}, model_file)
+
+        # Fazer o joblib.load lançar Exception genérica
+        def _bad_load(*_args: object, **_kwargs: object) -> None:
+            raise OSError("disk read error")
+
+        scorer = ProspectivityMLScorer(model_path=str(model_file))
+        with patch("joblib.load", side_effect=_bad_load):
+            scorer._ensure_loaded()
+        assert "disk read error" in (scorer._load_error or "")

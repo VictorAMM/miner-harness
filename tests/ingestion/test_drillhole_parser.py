@@ -137,6 +137,13 @@ class TestParse:
         with pytest.raises(FileNotFoundError):
             DrillholeParser.parse("/caminho/nao/existe.csv")
 
+    def test_completely_empty_file_returns_empty_list(self, tmp_path: Path) -> None:
+        """Linha 153-154: arquivo totalmente vazio → fieldnames is None → return []."""
+        path = tmp_path / "empty.csv"
+        path.write_text("", encoding="utf-8")
+        records = DrillholeParser.parse(path)
+        assert records == []
+
     def test_utf8_bom_handled(self, tmp_path: Path) -> None:
         path = _write_csv_bom(tmp_path, "hole_id,x,y\nBOM-01,-50.0,-6.0\n")
         records = DrillholeParser.parse(path)
@@ -414,6 +421,25 @@ class TestToGeoJSON:
                 "hole_id": "A",
                 "x": math.nan,
                 "y": -6.0,
+                "z": None,
+                "from_m": None,
+                "to_m": None,
+                "lithology": "",
+                "alteration": "",
+            },
+        ]
+        gj = DrillholeParser.to_geojson(records)
+        assert gj["features"] == []
+
+    def test_nan_y_coord_excluded(self) -> None:
+        """Linha 312-313: y=NaN (com x válido) → continue."""
+        import math
+
+        records = [
+            {
+                "hole_id": "B",
+                "x": -50.0,
+                "y": math.nan,
                 "z": None,
                 "from_m": None,
                 "to_m": None,

@@ -6,7 +6,7 @@ Ref: RFC-002 §6
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -377,3 +377,310 @@ class TestSortByProximity:
         ]
         result = ContextBuilder._sort_by_proximity(features, cx=-50.0, cy=-6.0)
         assert result[0]["coordenada"]["longitude"] == -50.0
+
+
+# ---------------------------------------------------------------------------
+# TestContextBuilderEnrichment — linhas 162-163, 190-193, 201-206, 214-219, 241-242
+# ---------------------------------------------------------------------------
+
+
+class TestContextBuilderEnrichment:
+    """Cobre injeção de computed keys: geoquimica_normalizada, bouguer_gradient,
+    user_drillholes, sentinel2_indices, ml_prospectivity exception.
+    """
+
+    @pytest.mark.asyncio
+    async def test_geoquimica_normalizada_injected(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linha 162-163: geoquimica com dados → geoquimica_normalizada injetada."""
+        cache.put(
+            "geoquimica",
+            bbox,
+            [
+                {
+                    "objectid": 1,
+                    "coordenada": {"longitude": -50.0, "latitude": -6.0},
+                    "analises": {"cu_ppm": 1.0},
+                },
+                {
+                    "objectid": 2,
+                    "coordenada": {"longitude": -50.1, "latitude": -6.0},
+                    "analises": {"cu_ppm": 50.0},
+                },
+            ],
+        )
+        builder = ContextBuilder(mock_connector, cache)
+        context = await builder.build(bbox)
+        assert "geoquimica_normalizada" in context
+        assert len(context["geoquimica_normalizada"]) == 1
+        assert "text" in context["geoquimica_normalizada"][0]
+
+    @pytest.mark.asyncio
+    async def test_bouguer_gradient_injected(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 190-193: gravimetria com dados → bouguer_gradient injetada."""
+        # Provide enough gravimetry points spread across bbox for IDW to work
+        grav_records = [
+            {
+                "objectid": i,
+                "anomalia_bouguer": -30.0 + i,
+                "coordenada": {"longitude": -51.0 + i * 0.4, "latitude": -7.0 + i * 0.4},
+            }
+            for i in range(6)
+        ]
+        cache.put("gravimetria", bbox, grav_records)
+        builder = ContextBuilder(mock_connector, cache)
+        context = await builder.build(bbox)
+        assert "bouguer_gradient" in context
+        assert len(context["bouguer_gradient"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_user_drillholes_injected(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 201-206: user_drillholes passados → injetados no contexto."""
+        drillholes = [
+            {
+                "hole_id": "FUR-001",
+                "x": -50.0,
+                "y": -6.0,
+                "z": 100.0,
+                "depth_from": 0.0,
+                "depth_to": 200.0,
+                "depth_m": 200.0,
+            }
+        ]
+        builder = ContextBuilder(mock_connector, cache)
+        context = await builder.build(bbox, user_drillholes=drillholes)
+        assert "user_drillholes" in context
+        assert len(context["user_drillholes"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_sentinel2_indices_injected(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 214-219: copernicus com resultado → sentinel2_indices injetada."""
+        from miner_harness.connectors.sentinel2.processor import (
+            IndexStats,
+            Sentinel2Indices,
+            SentinelIndexProcessor,
+        )
+
+        mock_copernicus = AsyncMock()
+        mock_copernicus.statistics = AsyncMock(
+            return_value={
+                "data": [
+                    {
+                        "interval": {
+                            "from": "2024-01-01T00:00:00Z",
+                            "to": "2024-04-01T00:00:00Z",
+                        },
+                        "outputs": {},
+                    }
+                ]
+            }
+        )
+        mock_s2 = Sentinel2Indices(
+            ndvi=IndexStats(
+                name="ndvi",
+                mean=0.4,
+                std=0.1,
+                max=0.8,
+                p90=0.6,
+                area_anomalous_pct=12.0,
+                sample_count=1000,
+            )
+        )
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        with patch.object(SentinelIndexProcessor, "process", return_value=mock_s2):
+            context = await builder.build(bbox)
+        assert "sentinel2_indices" in context
+        assert len(context["sentinel2_indices"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_ml_prospectivity_exception_logged(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 241-242: exceção no ML scorer → except silencioso, sem crash."""
+        cache.put(
+            "ocorrencias",
+            bbox,
+            [{"objectid": 1, "coordenada": {"longitude": -50.0, "latitude": -6.0}}],
+        )
+        builder = ContextBuilder(mock_connector, cache)
+        builder._ml_enabled = True  # forçar ML path
+
+        with patch(
+            "miner_harness.ml.scorer.ProspectivityMLScorer.score",
+            side_effect=RuntimeError("model error"),
+        ):
+            # Não deve lançar exceção
+            context = await builder.build(bbox)
+
+        # ml_prospectivity não deve estar no contexto (exceção foi silenciada)
+        assert "ml_prospectivity" not in context
+
+
+# ---------------------------------------------------------------------------
+# TestGetSentinel2Indices — linhas 355-396
+# ---------------------------------------------------------------------------
+
+
+class TestGetSentinel2Indices:
+    """Testes de ContextBuilder._get_sentinel2_indices."""
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_returns_cached_result(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Cache hit → retorna sem chamar copernicus."""
+        from miner_harness.connectors.sentinel2.processor import (
+            IndexStats,
+            Sentinel2Indices,
+        )
+
+        s2 = Sentinel2Indices(
+            ndvi=IndexStats(
+                name="ndvi",
+                mean=0.4,
+                std=0.1,
+                max=0.8,
+                p90=0.6,
+                area_anomalous_pct=12.0,
+                sample_count=1000,
+            )
+        )
+        cache.put("sentinel2", bbox, [s2.to_dict()])
+        mock_copernicus = AsyncMock()
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        result = await builder._get_sentinel2_indices(bbox)
+        assert result is not None
+        mock_copernicus.statistics.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cache_deserialize_exception_falls_through(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Cache com valor inválido → deserialize falha → vai para copernicus."""
+        cache.put("sentinel2", bbox, [None])  # None → from_dict(None) → AttributeError
+        mock_copernicus = AsyncMock()
+        mock_copernicus.statistics = AsyncMock(return_value={})
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        result = await builder._get_sentinel2_indices(bbox)
+        assert result is None  # raw vazio → return None
+
+    @pytest.mark.asyncio
+    async def test_empty_raw_returns_none(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Copernicus retorna {} vazio → return None."""
+        mock_copernicus = AsyncMock()
+        mock_copernicus.statistics = AsyncMock(return_value={})
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        result = await builder._get_sentinel2_indices(bbox)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_processor_returns_none_gives_none(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 352-354: processor.process() retorna None → return None."""
+        from miner_harness.connectors.sentinel2.processor import SentinelIndexProcessor
+
+        mock_copernicus = AsyncMock()
+        mock_copernicus.statistics = AsyncMock(
+            return_value={"data": [{"interval": {}, "outputs": {}}]}
+        )
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        with patch.object(SentinelIndexProcessor, "process", return_value=None):
+            result = await builder._get_sentinel2_indices(bbox)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_connector_exception_returns_none(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 365-368: exceção no connector → except → return None."""
+        mock_copernicus = AsyncMock()
+        mock_copernicus.statistics = AsyncMock(side_effect=RuntimeError("API down"))
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        result = await builder._get_sentinel2_indices(bbox)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_success_path_caches_and_returns(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Linhas 356-363: caminho bem-sucedido — salva no cache e retorna resultado."""
+        from miner_harness.connectors.sentinel2.processor import (
+            IndexStats,
+            Sentinel2Indices,
+            SentinelIndexProcessor,
+        )
+
+        mock_copernicus = AsyncMock()
+        mock_copernicus.statistics = AsyncMock(
+            return_value={
+                "data": [
+                    {
+                        "interval": {
+                            "from": "2024-01-01T00:00:00Z",
+                            "to": "2024-04-01T00:00:00Z",
+                        },
+                        "outputs": {"ndvi": {}},
+                    }
+                ]
+            }
+        )
+        mock_s2 = Sentinel2Indices(
+            ndvi=IndexStats(
+                name="ndvi",
+                mean=0.4,
+                std=0.1,
+                max=0.8,
+                p90=0.6,
+                area_anomalous_pct=12.0,
+                sample_count=1000,
+            )
+        )
+        builder = ContextBuilder(mock_connector, cache, copernicus=mock_copernicus)
+        with patch.object(SentinelIndexProcessor, "process", return_value=mock_s2):
+            result = await builder._get_sentinel2_indices(bbox)
+
+        assert result is not None
+        assert cache.contains("sentinel2", bbox)

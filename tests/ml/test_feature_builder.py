@@ -317,3 +317,56 @@ class TestMLFeatureBuilderExtract:
         assert features is not None
         idx_mean = FEATURE_NAMES.index("geochem_mean_cf")
         assert features[idx_mean] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Testes de branches de exceção em funções auxiliares (linhas 185, 230)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractGeochemMedZero:
+    """Linha 185: if med <= 0: continue — elemento com mediana zero."""
+
+    def test_zero_median_element_skipped(self) -> None:
+        """Todos os valores do elemento são 0 → median=0 → continue (linha 185)."""
+        # Elemento "cu_ppm" com todos os valores = 0 → mediana = 0 → skipped
+        records = [
+            {
+                "coordenada": {"longitude": -50.0, "latitude": -6.0},
+                "analises": {"cu_ppm": 0.0},
+            },
+            {
+                "coordenada": {"longitude": -50.1, "latitude": -6.0},
+                "analises": {"cu_ppm": 0.0},
+            },
+        ]
+        result = _extract_geochem_features(records)
+        # Sem elementos com mediana > 0 → mean_cf = 0.0, max_cf = 0.0
+        assert result["mean_cf"] == 0.0
+        assert result["max_cf"] == 0.0
+
+
+class TestExtractBouguerFeaturesEmptyHgm:
+    """Linha 230: if not hgm_vals: return empty — features sem hgm válido."""
+
+    def test_no_hgm_values_returns_empty(self) -> None:
+        """Features sem propriedade 'hgm' → hgm_vals=[] → retorna empty (linha 230)."""
+        bgrid_records = [
+            {
+                "geojson": {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": {},
+                            # sem 'hgm' nas properties
+                            "properties": {"is_lineament": False},
+                        }
+                    ],
+                }
+            }
+        ]
+        result = _extract_bouguer_features(bgrid_records)
+        assert result["mean_gradient"] == 0.0
+        assert result["std_gradient"] == 0.0
+        assert result["max_gradient"] == 0.0

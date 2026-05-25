@@ -436,3 +436,46 @@ class TestComputeHgmEdgeCases:
         hgm = _compute_hgm(grid, ncols=2, nrows=2, step_lon=0.01, step_lat=0.01, lat_center=89.9)
         assert len(hgm) == 4
         assert all(h >= 0 for h in hgm)
+
+    def test_single_row_dy_zero(self) -> None:
+        """Linha 352-353: nrows=1 → dy=0.0 para todos os pontos."""
+        # Grade 3×1 (ncols=3, nrows=1): única linha → gradiente em y = 0
+        grid = [1.0, 2.0, 4.0]  # valores crescentes em x
+        hgm = _compute_hgm(grid, ncols=3, nrows=1, step_lon=0.1, step_lat=0.1, lat_center=-6.0)
+        assert len(hgm) == 3
+        # Gradiente em y é zero; gradiente em x é não-negativo
+        assert all(h >= 0 for h in hgm)
+
+
+# ---------------------------------------------------------------------------
+# Testes para branch "else: nenhum lineamento" (linha 133)
+# ---------------------------------------------------------------------------
+
+
+class TestBouguerGridFormatNoLineaments:
+    """Linha 133: mensagem 'Nenhum lineamento' quando lineament_cells é vazio."""
+
+    def test_no_lineaments_message_shown(self) -> None:
+        """Grade com HGM=0 (campo uniforme) → nenhum lineamento → linha 133."""
+        from miner_harness.geophysics.bouguer_processor import BouguerCell
+
+        # Criar grid com células onde is_lineament=False
+        cells = [
+            BouguerCell(lon=-50.5, lat=-6.0, bouguer=-30.0, hgm=0.0, is_lineament=False),
+            BouguerCell(lon=-50.4, lat=-6.0, bouguer=-30.0, hgm=0.0, is_lineament=False),
+            BouguerCell(lon=-50.3, lat=-6.0, bouguer=-30.0, hgm=0.0, is_lineament=False),
+        ]
+        grid = BouguerGrid(
+            lon_min=-51.0,
+            lat_min=-7.0,
+            lon_max=-49.0,
+            lat_max=-5.0,
+            step_deg=0.1,
+            cells=cells,
+            n_source_points=4,
+            bouguer_mean=-30.0,
+            bouguer_std=0.0,
+            hgm_threshold=1.0,
+        )
+        text = grid.format_for_prompt()
+        assert "Nenhum lineamento" in text

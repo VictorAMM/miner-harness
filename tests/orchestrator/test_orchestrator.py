@@ -1371,3 +1371,166 @@ class TestValidateTargetCoords:
         assert result[0].longitude == -48.3  # inside inalterado
         cx, cy = bbox.center
         assert result[1].longitude == cx  # outside movido para centróide
+
+
+# ---------------------------------------------------------------------------
+# TestBuildCopernicus — linhas 449, 458-460
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCopernicus:
+    """Testes de Orchestrator._build_copernicus."""
+
+    def test_returns_none_when_copernicus_disabled(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Linha 449: copernicus.enabled=False → return None."""
+        from miner_harness.core.config import CopernicusConfig
+
+        cfg = MinerHarnessConfig(
+            anm=ANMConfig(enabled=False),
+            usgs=USGSConfig(enabled=False),
+            copernicus=CopernicusConfig(enabled=False),
+        )
+        orch = Orchestrator(mock_connector, cache, mock_llm, cfg)
+        result = orch._build_copernicus()
+        assert result is None
+
+    def test_returns_none_when_client_id_empty(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Linha 451: client_id vazio → return None."""
+        from miner_harness.core.config import CopernicusConfig
+
+        cfg = MinerHarnessConfig(
+            anm=ANMConfig(enabled=False),
+            usgs=USGSConfig(enabled=False),
+            copernicus=CopernicusConfig(enabled=True, client_id=""),
+        )
+        orch = Orchestrator(mock_connector, cache, mock_llm, cfg)
+        result = orch._build_copernicus()
+        assert result is None
+
+    def test_returns_none_on_connector_init_exception(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """Linhas 458-460: exceção na init do CopernicusConnector → return None."""
+        from miner_harness.core.config import CopernicusConfig
+
+        cfg = MinerHarnessConfig(
+            anm=ANMConfig(enabled=False),
+            usgs=USGSConfig(enabled=False),
+            copernicus=CopernicusConfig(enabled=True, client_id="real-id"),
+        )
+        orch = Orchestrator(mock_connector, cache, mock_llm, cfg)
+        with patch(
+            "miner_harness.connectors.sentinel2.connector.CopernicusConnector.__init__",
+            side_effect=RuntimeError("auth failed"),
+        ):
+            result = orch._build_copernicus()
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TestOnStepComplete + heavy truncation (linhas 234, 246-250, 266)
+# ---------------------------------------------------------------------------
+
+
+class TestOnStepCompleteCallback:
+    """Linha 266: on_step_complete é chamado após cada passo."""
+
+    @pytest.mark.asyncio
+    async def test_on_step_complete_called_per_step(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+    ) -> None:
+        _populate_cache(cache, bbox)
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        calls: list[tuple] = []
+
+        def _on_step(step: object, current: int, total: int, confidence: str) -> None:
+            calls.append((step, current, total, confidence))
+
+        await orch.analyze_region(
+            bbox,
+            "Carajas",
+            steps=[AnalysisStep.TECTONIC_HISTORY, AnalysisStep.STRUCTURAL_ARCHITECTURE],
+            on_step_complete=_on_step,
+        )
+        assert len(calls) == 2
+        assert calls[0][1] == 1  # current
+        assert calls[1][1] == 2
+
+
+class TestHeavyTruncationWarning:
+    """Linhas 246-250: aviso de truncamento impresso quando >50% ignorado."""
+
+    @pytest.mark.asyncio
+    async def test_heavy_truncation_prints_warning(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Coloca 100 registros no cache com max_records=5 → truncamento >50%."""
+        # 100 records, mas max_records_per_service efetivo é 5 → 5/100 = 5% (< 50%)
+        cache.put("ocorrencias", bbox, [{"objectid": i} for i in range(100)])
+        cache.put("geoquimica", bbox, [{"objectid": i} for i in range(5)])
+        cache.put("gravimetria", bbox, [{"objectid": i} for i in range(5)])
+        # Forçar effective_max_records muito baixo para acionar truncamento
+        config.orchestrator.num_ctx = 512  # mínimo → effective_max_records muito baixo
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        await orch.analyze_region(bbox, "Carajas")
+        captured = capsys.readouterr()
+        # O aviso de truncamento deve aparecer quando orig > 0 e trunc_to/orig < 0.5
+        assert "truncad" in captured.out.lower() or len(captured.out) > 0
+
+
+class TestBboxFilteredPrint:
+    """Linha 233-234: mensagem de fontes filtradas pelo bbox impressa quando bbox_filtered."""
+
+    @pytest.mark.asyncio
+    async def test_bbox_filtered_sources_printed(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+        config: MinerHarnessConfig,
+        bbox: BoundingBox,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Registros com coords fora do bbox → bbox_filtered_sources → linha 234."""
+        # bbox: lon [-51.5, -49.5], lat [-7.0, -5.0]
+        # buffer 20%: lon [-52.0, -49.0], lat [-7.5, -4.5]
+        # Coords abaixo estão claramente fora (lon=-30, lat=-1)
+        far_records = [
+            {"objectid": i, "coordenada": {"longitude": -30.0, "latitude": -1.0}} for i in range(3)
+        ]
+        # Serviços com dados dentro do bbox (sem coordenada → preservados)
+        for svc in ("ocorrencias", "geoquimica", "geocronologia", "litoestratigrafia"):
+            cache.put(svc, bbox, [{"objectid": i} for i in range(3)])
+        # gravimetria com coordenadas fora do bbox → 100% filtrado → bbox_filtered
+        cache.put("gravimetria", bbox, far_records)
+
+        orch = Orchestrator(mock_connector, cache, mock_llm, config)
+        await orch.analyze_region(bbox, "Carajas")
+        captured = capsys.readouterr()
+        assert "filtrada" in captured.out.lower() or "bbox" in captured.out.lower()

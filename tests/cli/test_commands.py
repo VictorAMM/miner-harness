@@ -19,7 +19,9 @@ import pytest
 
 from miner_harness.cli.app import main
 from miner_harness.cli.commands import (
+    _export_docx,
     _export_gis,
+    _load_user_drillholes,
     _print_report_summary,
     _render_html_report,
     _serve_dashboard,
@@ -28,6 +30,7 @@ from miner_harness.cli.commands import (
     cmd_cache_evict,
     cmd_cache_stats,
     cmd_health,
+    cmd_index_drillholes,
     cmd_index_stats,
     cmd_install,
     cmd_validate,
@@ -339,6 +342,18 @@ class TestMainCLI:
             mock_cfg.return_value = config
             result = main(["index", "stats"])
             assert result == 0
+
+    def test_main_index_drillholes(self, tmp_path: Path) -> None:
+        """app.py linhas 372-373 → cmd_index_drillholes chamado."""
+        csv_file = tmp_path / "furos.csv"
+        csv_file.write_text("hole_id,x,y,z,depth_m\nFUR-001,-50.0,-6.0,100,200\n")
+        with patch(
+            "miner_harness.cli.app.cmd_index_drillholes",
+            return_value=0,
+        ) as mock_cmd:
+            result = main(["index", "drillholes", str(csv_file)])
+        assert result == 0
+        mock_cmd.assert_called_once_with(str(csv_file))
 
 
 class TestCmdAnalyze:
@@ -1227,3 +1242,463 @@ class TestExportGis:
 
         assert result == 0
         mock_export.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# TestFmtMs — linha 37 de commands.py
+# ---------------------------------------------------------------------------
+
+
+class TestFmtMs:
+    """Testes da função _fmt_ms (linha 37 — branch ≥ 60s)."""
+
+    def test_fmt_ms_below_60s(self) -> None:
+        from miner_harness.cli.commands import _fmt_ms
+
+        assert _fmt_ms(5000) == "5.0s"
+
+    def test_fmt_ms_above_60s(self) -> None:
+        """Linha 37: ms ≥ 60_000 → formato 'Xm Ys'."""
+        from miner_harness.cli.commands import _fmt_ms
+
+        assert _fmt_ms(90000) == "1m 30s"
+
+    def test_fmt_ms_exactly_60s(self) -> None:
+        from miner_harness.cli.commands import _fmt_ms
+
+        assert _fmt_ms(60000) == "1m 0s"
+
+
+# ---------------------------------------------------------------------------
+# TestCmdAnalyzeNewParams — linhas 102, 104, 106, 139-144, 177-181, 216
+# ---------------------------------------------------------------------------
+
+
+class TestCmdAnalyzeNewParams:
+    """cmd_analyze com rf_model, verbose e output_docx."""
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_rf_model_and_verbose_and_docx(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linhas 102 (s2), 104 (s2days), 106 (rf_model), 139-144 (verbose), 216 (docx)."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        out_docx = str(tmp_path / "report.docx")
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+            patch("miner_harness.cli.commands._load_user_drillholes") as mock_load_dh,
+            patch("miner_harness.cli.commands._export_docx") as mock_export_docx,
+        ):
+            config_obj = MagicMock()
+            config_obj.storage = storage
+            config_obj.orchestrator.model = "qwen3:8b"
+            config_obj.orchestrator.min_data_sources = 1
+            config_obj.orchestrator.num_ctx = 4096
+            config_obj.orchestrator.effective_max_records = 50
+            config_obj.orchestrator.effective_max_chars = 8000
+            mock_cfg.return_value = config_obj
+
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=report)
+            mock_orch_cls.return_value = mock_orch
+            mock_load_dh.return_value = []
+
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+                s2_max_cloud=20.0,
+                s2_days=45,
+                rf_model="/path/to/model.joblib",
+                verbose=True,
+                output_docx=out_docx,
+            )
+
+        assert result == 0
+        # Linha 102: s2_max_cloud
+        assert config_obj.copernicus.max_cloud_pct == 20.0
+        # Linha 104: s2_days
+        assert config_obj.copernicus.days_back == 45
+        # Linha 106: rf_model
+        assert config_obj.ml.model_path == "/path/to/model.joblib"
+        # Linha 216: docx exported
+        mock_export_docx.assert_called_once()
+        # Linha 139-144: verbose → tokens/context info printed
+        captured = capsys.readouterr()
+        assert "Contexto" in captured.out or "tokens" in captured.out.lower()
+
+    @pytest.mark.asyncio
+    async def test_on_step_callback_fires_during_analyze(self, tmp_path: Path) -> None:
+        """Linhas 177-181: _on_step callback é chamado para cada passo."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        on_step_calls: list = []
+
+        # Capturar a chamada a analyze_region e chamar o callback
+        async def _fake_analyze_region(
+            bb: object,
+            region: str,
+            *,
+            user_drillholes: list | None = None,
+            on_step_complete: object = None,
+            **kw: object,
+        ) -> object:
+            if on_step_complete is not None:
+                from miner_harness.core.types import AnalysisStep
+
+                on_step_complete(AnalysisStep.TECTONIC_HISTORY, 1, 1, "medium")
+                on_step_calls.append(True)
+            return report
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+            patch("miner_harness.cli.commands._load_user_drillholes", return_value=[]),
+        ):
+            config_obj = MagicMock()
+            config_obj.storage = storage
+            config_obj.orchestrator.model = "qwen3:8b"
+            config_obj.orchestrator.min_data_sources = 1
+            config_obj.orchestrator.num_ctx = 4096
+            config_obj.orchestrator.effective_max_records = 50
+            config_obj.orchestrator.effective_max_chars = 8000
+            mock_cfg.return_value = config_obj
+
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = _fake_analyze_region
+            mock_orch_cls.return_value = mock_orch
+
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+            )
+
+        assert result == 0
+        assert len(on_step_calls) == 1  # callback foi chamado
+
+
+# ---------------------------------------------------------------------------
+# TestExportDocx — linhas 232-242
+# ---------------------------------------------------------------------------
+
+
+class TestExportDocx:
+    """Testes do _export_docx (linhas 232-242)."""
+
+    def test_export_docx_success(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Exportação bem-sucedida imprime o caminho do arquivo."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "report.docx"
+
+        mock_exporter = MagicMock()
+        with patch("miner_harness.report.DocxReportExporter", return_value=mock_exporter):
+            _export_docx(report, out)
+
+        mock_exporter.export.assert_called_once_with(report, out)
+        captured = capsys.readouterr()
+        assert str(out) in captured.out
+
+    def test_export_docx_import_error_prints_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """ImportError → aviso no stderr (linhas 238-239)."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "report.docx"
+
+        with patch(
+            "miner_harness.report.DocxReportExporter",
+            side_effect=ImportError("No module named 'docx'"),
+        ):
+            _export_docx(report, out)
+
+        captured = capsys.readouterr()
+        assert "python-docx" in captured.err or "docx" in captured.err.lower()
+
+    def test_export_docx_runtime_error_prints_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Exceção genérica → aviso no stderr (linhas 240-242)."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        out = tmp_path / "report.docx"
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.side_effect = RuntimeError("disk full")
+        with patch("miner_harness.report.DocxReportExporter", return_value=mock_exporter):
+            _export_docx(report, out)
+
+        captured = capsys.readouterr()
+        assert "falha" in captured.err.lower() or "docx" in captured.err.lower()
+
+
+# ---------------------------------------------------------------------------
+# TestRenderHtmlReportOutputPath — linha 275
+# ---------------------------------------------------------------------------
+
+
+class TestRenderHtmlReportOutputPath:
+    """Linha 275: output_html_path fornecido → usa caminho customizado."""
+
+    def test_render_with_output_path(self, tmp_path: Path) -> None:
+        """_render_html_report com output_html_path → usa o caminho fornecido."""
+        from miner_harness.cli.commands import _render_html_report
+
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        out_html = str(tmp_path / "report.html")
+
+        mock_renderer = MagicMock()
+        with (
+            patch("miner_harness.report.HtmlReportRenderer", return_value=mock_renderer),
+            patch("webbrowser.open"),
+        ):
+            _render_html_report(report, storage, "Carajas", output_html_path=out_html)
+
+        mock_renderer.render_to_file.assert_called_once()
+        # Verifica que o caminho passado corresponde ao customizado
+        call_args = mock_renderer.render_to_file.call_args
+        rendered_path = str(call_args.args[1])
+        assert "report.html" in rendered_path
+
+
+# ---------------------------------------------------------------------------
+# TestLoadUserDrillholes — linhas 445-449, 455-457
+# ---------------------------------------------------------------------------
+
+
+class TestLoadUserDrillholes:
+    """Testes do _load_user_drillholes (linhas 445-449, 455-457)."""
+
+    def test_csv_path_success_returns_records(self, tmp_path: Path) -> None:
+        """Linha 446: csv_path fornecido e parse tem sucesso."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        fake_records = [{"hole_id": "FUR-001", "x": -50.0, "y": -6.0}]
+
+        with patch(
+            "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+            return_value=fake_records,
+        ):
+            result = _load_user_drillholes("furos.csv", storage)
+
+        assert result == fake_records
+
+    def test_csv_path_file_not_found_returns_empty(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linhas 447-449: FileNotFoundError → aviso + retorna []."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        with patch(
+            "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+            side_effect=FileNotFoundError("not found"),
+        ):
+            result = _load_user_drillholes("furos.csv", storage)
+
+        assert result == []
+        captured = capsys.readouterr()
+        assert "furos.csv" in captured.err
+
+    def test_csv_path_value_error_returns_empty(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linhas 447-449: ValueError → aviso + retorna []."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        with patch(
+            "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+            side_effect=ValueError("bad csv"),
+        ):
+            result = _load_user_drillholes("furos.csv", storage)
+
+        assert result == []
+        captured = capsys.readouterr()
+        assert "furos.csv" in captured.err
+
+    def test_no_csv_store_exception_returns_empty(self, tmp_path: Path) -> None:
+        """Linhas 455-457: store.query_all() levanta → retorna []."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        mock_store = MagicMock()
+        mock_store.__enter__ = MagicMock(return_value=mock_store)
+        mock_store.__exit__ = MagicMock(return_value=False)
+        mock_store.query_all.side_effect = RuntimeError("db locked")
+
+        with patch(
+            "miner_harness.ingestion.drillhole_store.DrillholeStore",
+            return_value=mock_store,
+        ):
+            result = _load_user_drillholes(None, storage)
+
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# TestCmdIndexDrillholes — linhas 465-491
+# ---------------------------------------------------------------------------
+
+
+class TestCmdIndexDrillholes:
+    """Testes do cmd_index_drillholes (linhas 465-491)."""
+
+    def test_file_not_found_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linhas 473-475: FileNotFoundError → retorna 1."""
+        with patch(
+            "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+            side_effect=FileNotFoundError("not found"),
+        ):
+            result = cmd_index_drillholes("/nonexistent/furos.csv")
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "not found" in captured.err.lower() or "file" in captured.err.lower()
+
+    def test_invalid_csv_returns_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linhas 476-478: ValueError → retorna 1."""
+        with patch(
+            "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+            side_effect=ValueError("bad csv"),
+        ):
+            result = cmd_index_drillholes("bad.csv")
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "invalid" in captured.err.lower() or "csv" in captured.err.lower()
+
+    def test_empty_csv_returns_0(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Linhas 480-482: records vazios → retorna 0 com aviso."""
+        with patch(
+            "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+            return_value=[],
+        ):
+            result = cmd_index_drillholes("empty.csv")
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "aviso" in captured.out.lower() or "csv" in captured.out.lower()
+
+    def test_success_with_no_previous_records(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linhas 484-491: sucesso sem registros anteriores."""
+        fake_records = [{"hole_id": "FUR-001", "x": -50.0, "y": -6.0}]
+
+        mock_store = MagicMock()
+        mock_store.__enter__ = MagicMock(return_value=mock_store)
+        mock_store.__exit__ = MagicMock(return_value=False)
+        mock_store.clear.return_value = 0
+        mock_store.insert_batch.return_value = 1
+
+        with (
+            patch(
+                "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+                return_value=fake_records,
+            ),
+            patch(
+                "miner_harness.ingestion.drillhole_store.DrillholeStore",
+                return_value=mock_store,
+            ),
+            patch("miner_harness.cli.commands.StorageConfig") as mock_cfg,
+        ):
+            mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
+            result = cmd_index_drillholes("furos.csv")
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "1" in captured.out
+
+    def test_success_with_previous_records_removed(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Linha 489: removed > 0 → imprime linha de remoção."""
+        fake_records = [{"hole_id": "FUR-002", "x": -50.1, "y": -6.1}]
+
+        mock_store = MagicMock()
+        mock_store.__enter__ = MagicMock(return_value=mock_store)
+        mock_store.__exit__ = MagicMock(return_value=False)
+        mock_store.clear.return_value = 3
+        mock_store.insert_batch.return_value = 1
+
+        with (
+            patch(
+                "miner_harness.ingestion.drillhole_parser.DrillholeParser.parse",
+                return_value=fake_records,
+            ),
+            patch(
+                "miner_harness.ingestion.drillhole_store.DrillholeStore",
+                return_value=mock_store,
+            ),
+            patch("miner_harness.cli.commands.StorageConfig") as mock_cfg,
+        ):
+            mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
+            result = cmd_index_drillholes("furos.csv")
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "3" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# TestPrintReportSummaryLongText — linhas 516-517, 531
+# ---------------------------------------------------------------------------
+
+
+class TestPrintReportSummaryLongText:
+    """Testes de _print_report_summary com texto longo (linhas 516-517, 531)."""
+
+    def test_long_integrated_summary_wraps(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Linhas 516-517: palavra que causa quebra de linha → imprime linha anterior."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        # Sumário longo com muitas palavras para forçar quebra de linha
+        report.integrated_summary = (
+            "Região com alta prospectividade para cobre e ouro identificada "
+            "com base em múltiplas evidências geológicas e geofísicas convergentes "
+            "na área de Carajás indicando sistema mineral do tipo IOCG."
+        )
+        _print_report_summary(report)
+        captured = capsys.readouterr()
+        assert "SÍNTESE INTEGRADA" in captured.out
+
+    def test_long_step_summary_truncated(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Linha 531: summary > 90 chars → truncado com '...'."""
+        bbox = BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0)
+        report = _make_report(bbox)
+        # Forçar summary > 90 chars em um dos steps
+        long_summary = "A" * 100
+        report.steps[0] = report.steps[0].model_copy(update={"summary": long_summary})
+        _print_report_summary(report)
+        captured = capsys.readouterr()
+        assert "..." in captured.out
+
+
+# ---------------------------------------------------------------------------
+# TestMainCLIIndexDrillholes — app.py linhas 372-373
+# ---------------------------------------------------------------------------

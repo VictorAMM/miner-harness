@@ -234,6 +234,66 @@ class TestFormatForPrompt:
         assert "Média" in text
 
 
+class TestExtractGravityExceptionBranch:
+    """Linha 272-273: except (KeyError, TypeError, ValueError) em _extract_gravity."""
+
+    def test_bad_coord_value_skipped(self) -> None:
+        """lon='bad' → float('bad') → ValueError → except pass → ponto ignorado."""
+        records = [
+            {
+                "coordenada": {"longitude": "bad", "latitude": -6.0},
+                "anomalia_bouguer": -30.0,
+            }
+        ]
+        pts = ProspectivityScorer._extract_gravity(records)
+        assert pts == []
+
+    def test_none_coord_value_skipped(self) -> None:
+        """longitude=None → float(None) → TypeError → except pass → ignorado."""
+        records = [{"coordenada": {"longitude": None, "latitude": -6.0}}]
+        pts = ProspectivityScorer._extract_gravity(records)
+        assert pts == []
+
+
+class TestExtractGeochemExceptionBranches:
+    """Linhas 295-296, 308-309, 321-322: excepts em _extract_geochem."""
+
+    def test_by_element_bad_value_skipped(self) -> None:
+        """Linha 295-296: analises com valor não-numérico → except → ignorado."""
+        records = [
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}, "analises": {"cu_ppm": "N/A"}}
+        ]
+        pts = ProspectivityScorer._extract_geochem(records)
+        # Registro é incluído (coord válida) mas não anomalous (valor inválido → mediana não calc)
+        assert len(pts) == 1
+        assert pts[0][2] is False
+
+    def test_coord_bad_value_continue(self) -> None:
+        """Linha 308-309: coord lon='invalid' → ValueError → continue → ponto não incluído."""
+        records = [
+            {
+                "coordenada": {"longitude": "invalid", "latitude": -6.0},
+                "analises": {"cu_ppm": 1.0},
+            }
+        ]
+        pts = ProspectivityScorer._extract_geochem(records)
+        assert pts == []
+
+    def test_analysis_bad_value_in_anomaly_check(self) -> None:
+        """Linha 321-322: mediana > 0 mas float(val) falha → except pass → is_anom=False."""
+        # Duas amostras com valores válidos para calcular mediana de cu_ppm
+        records = [
+            {"coordenada": {"longitude": -50.0, "latitude": -6.0}, "analises": {"cu_ppm": 1.0}},
+            {"coordenada": {"longitude": -50.1, "latitude": -6.0}, "analises": {"cu_ppm": 1.0}},
+            # Terceira amostra com coord válida mas valor inválido na análise
+            {"coordenada": {"longitude": -50.2, "latitude": -6.0}, "analises": {"cu_ppm": "bad"}},
+        ]
+        pts = ProspectivityScorer._extract_geochem(records)
+        assert len(pts) == 3
+        # Terceiro ponto: val='bad' → float('bad') → ValueError → pass → is_anom=False
+        assert pts[2][2] is False
+
+
 class TestToGeoJSON:
     def test_returns_feature_collection(self) -> None:
         scorer = ProspectivityScorer()

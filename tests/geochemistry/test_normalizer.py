@@ -296,3 +296,36 @@ class TestContextInjection:
         norm = GeochemistryNormalizer().normalize(records)
         assert norm is not None
         assert norm.n_records == 10
+
+
+# ---------------------------------------------------------------------------
+# Testes de branches defensivos (linha 180: if n < 1)
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeBranchNLessThan1:
+    """Linha 180-181: if n < 1: continue — elemento com lista de pares vazia."""
+
+    def test_phantom_empty_element_skipped(self) -> None:
+        """Injeta par ('__phantom__', []) via sorted → n=0 → continue (linha 180)."""
+        from unittest.mock import patch
+
+        records = [
+            _make_record(1, {"au_ppb": 1.0}),
+            _make_record(2, {"au_ppb": 2.0}),
+        ]
+
+        _original_sorted = sorted
+
+        def _patched_sorted(iterable: object, *args: object, **kwargs: object) -> list:
+            result = list(_original_sorted(iterable, *args, **kwargs))  # type: ignore[call-overload]
+            # Injetar par com lista vazia para acionar if n < 1: continue
+            result.insert(0, ("__phantom__", []))
+            return result
+
+        with patch("miner_harness.geochemistry.normalizer.sorted", side_effect=_patched_sorted):
+            norm = GeochemistryNormalizer().normalize(records)
+
+        # __phantom__ foi ignorado; os elementos reais ainda foram processados
+        assert norm is not None
+        assert "au_ppb" in norm.elements
