@@ -47,6 +47,7 @@ async def cmd_analyze(
     output_docx: str | None = None,
     s2_max_cloud: float | None = None,
     s2_days: int | None = None,
+    rf_model: str | None = None,
 ) -> int:
     """Run full analysis pipeline on a region."""
     from miner_harness.connectors.geosgb.connector import GeoSGBConnector
@@ -66,6 +67,8 @@ async def cmd_analyze(
         config.copernicus.max_cloud_pct = s2_max_cloud
     if s2_days is not None:
         config.copernicus.days_back = s2_days
+    if rf_model is not None:
+        config.ml.model_path = rf_model
 
     storage = config.storage
     storage.ensure_dirs()

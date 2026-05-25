@@ -159,8 +159,8 @@ class TestOrchestratorPipeline:
         builder = ContextBuilder(mock_connector, cache)
         context = await builder.build(bbox)
 
-        # All 7 services fetched (6 GeoSGB + furos)
-        assert len(context) == 7
+        # 7 serviços GeoSGB (6 + furos) + 1 chave ML derivada (ml_prospectivity, PRD-002 F8)
+        assert len(context) == 8
         for _svc, features in context.items():
             assert isinstance(features, list)
 

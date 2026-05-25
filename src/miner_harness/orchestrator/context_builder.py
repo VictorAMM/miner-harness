@@ -59,12 +59,16 @@ class ContextBuilder:
         search_engine: SearchEngine | None = None,
         extra_sources: ExtraSourcesMap | None = None,
         copernicus: CopernicusConnector | None = None,
+        ml_model_path: str = "",
+        ml_enabled: bool = True,
     ) -> None:
         self._connector = connector
         self._cache = cache
         self._search_engine = search_engine
         self._extra_sources: ExtraSourcesMap = extra_sources or {}
         self._copernicus = copernicus
+        self._ml_model_path: str = ml_model_path
+        self._ml_enabled: bool = ml_enabled
         # Serviços filtrados pelo bbox na última chamada a build()
         # (dados obtidos, mas todos os registros estavam fora do bbox)
         self.bbox_filtered_sources: list[str] = []
@@ -212,6 +216,25 @@ class ContextBuilder:
                     cloud_free_pct=round(s2_result.cloud_free_pct, 1),
                     available=len(s2_result.available_indices),
                 )
+
+        # Score ML de prospectividade — RandomForest (PRD-002 F8)
+        if self._ml_enabled:
+            try:
+                from miner_harness.ml.scorer import ProspectivityMLScorer  # noqa: PLC0415
+
+                model_path = self._ml_model_path or None
+                ml_result = ProspectivityMLScorer(model_path).score(context, bbox.as_tuple())
+                if ml_result is not None:
+                    context["ml_prospectivity"] = [
+                        {"text": ml_result.format_for_prompt(), "stats": ml_result.to_dict()}
+                    ]
+                    logger.info(
+                        "ml_prospectivity_scored",
+                        rf_score=round(ml_result.rf_score, 1),
+                        fallback=ml_result.fallback_used,
+                    )
+            except Exception:
+                logger.warning("ml_prospectivity_failed", exc_info=True)
 
         return context
 

@@ -212,6 +212,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "Ex: --s2-days 60"
         ),
     )
+    analyze_parser.add_argument(
+        "--rf-model",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Caminho para modelo RandomForest .joblib alternativo (PRD-002 F8). "
+            "Vazio = usa rf_prospectivity_v1.joblib incluído no pacote. "
+            "Ex: --rf-model meu_modelo.joblib"
+        ),
+    )
 
     # --- validate ---
     validate_parser = subparsers.add_parser(
@@ -328,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
                     output_docx=args.output_docx,
                     s2_max_cloud=args.s2_max_cloud,
                     s2_days=args.s2_days,
+                    rf_model=args.rf_model,
                 )
             )
         if args.command == "validate":

@@ -30,6 +30,7 @@ _COMPUTED_KEYS: frozenset[str] = frozenset(
         "rag_context",
         "user_drillholes",  # meta-registro formatado (PRD-002 F7)
         "sentinel2_indices",  # índices espectrais CDSE (PRD-002 F6)
+        "ml_prospectivity",  # score RandomForest (PRD-002 F8)
     }
 )
 

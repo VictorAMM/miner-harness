@@ -105,9 +105,10 @@ F7 Drillholes — DrillholeParser (50+ aliases en/pt-BR) + DrillholeStore SQLite
 F9 DOCX — DocxReportExporter gera relatório Word 7 seções (sumário, tabela alvos, justificativas, análise por etapa, lacunas, ressalvas JORC, referências); --output-docx CLI ✅ CONCLUÍDA (2026-05-23) [v1.0.0]
 Documentação v1.0.0 — CHANGELOG completo v0.3.0→v1.0.0, README atualizado, pyproject.toml 1.0.0 ✅ CONCLUÍDA (2026-05-23) [v1.0.0]
 F6 Sentinel-2 — CopernicusConnector OAuth2 + Statistics API (sem rasters); NDVI/BSI/Clay/Iron + área anômala%; injeção prompt + guia geológico; --s2-max-cloud/--s2-days CLI; TTL 30d; 42 testes ✅ CONCLUÍDA (2026-05-24) [v1.1.0]
+F8 Random Forest ML — ProspectivityMLScorer RF pré-treinado (15 features: geoquímica CF, Bouguer HGM, Sentinel-2 anomalias, densidade ocorrências); MLFeatureBuilder; modelo semente rf_prospectivity_v1.joblib (4000 amostras sintéticas); fallback heurístico gracioso; MLConfig + --rf-model CLI; injeção ml_prospectivity no contexto LLM; _DERIVED_CONTEXT_KEYS no orquestrador; 57 testes ✅ CONCLUÍDA (2026-05-24) [v1.2.0]
 ```
 
-**Status**: v1.0.0 em produção. PRD-002 F6 (Sentinel-2) entregue. Pendente: F8 (Random Forest ML) — `[NEEDS CLARIFICATION]`.
+**Status**: v1.2.0 em produção. PRD-002 F6 (Sentinel-2) + F8 (Random Forest ML) entregues.
 
 ## Grafo de Rastreabilidade
 

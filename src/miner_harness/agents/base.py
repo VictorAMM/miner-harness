@@ -193,6 +193,16 @@ class BaseAgent(ABC):
                     geo_data_str + f"\n\n<sentinel2_indices>\n{s2_text}\n</sentinel2_indices>"
                 )
 
+        # Injetar score ML de prospectividade — RandomForest (PRD-002 F8)
+        ml_records = geological_data.get("ml_prospectivity", [])
+        if ml_records:
+            ml_text = ml_records[0].get("text", "")
+            if ml_text:
+                geo_data_str = (
+                    geo_data_str
+                    + f"\n\n<ml_prospectivity_score>\n{ml_text}\n</ml_prospectivity_score>"
+                )
+
         prev_str = ""
         if previous_results:
             prev_dicts = [r.model_dump() for r in previous_results]

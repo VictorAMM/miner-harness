@@ -269,7 +269,16 @@ _STEP_INSTRUCTIONS: dict[AnalysisStep, str] = {
         "- Anomalias Iron Oxide + Clay Index co-localizadas com ocorrências = evidência forte\n"
         "- NDVI e BSI anômalos validam que a região tem exposição geológica favorável ao SR\n"
         "- Se area_anomalous_pct ≥ 20% em ≥2 índices: mencione 'assinatura espectral multi-índice' "
-        "na síntese e eleve a confiança do alvo correspondente"
+        "na síntese e eleve a confiança do alvo correspondente\n"
+        "Se houver score ML de prospectividade (ml_prospectivity_score) no contexto:\n"
+        "- O RandomForest integra 15 features: geoquímica (CF), gravimetria (HGM), S2 (anomalia%) "
+        "e densidade de ocorrências — é uma síntese quantitativa independente do LLM\n"
+        "- Score ≥ 70/100 → ALTA probabilidade de mineralização: eleve prioridade dos alvos\n"
+        "- Score 45–69/100 → MODERADA: mantenha confiança baseada nas evidências geológicas\n"
+        "- Score < 45/100 → BAIXA: justifique os alvos com evidências qualitativas específicas\n"
+        "- Cite as top-3 variáveis preditoras listadas pelo RF para contextualizar a decisão\n"
+        "- O RF é um modelo semente treinado em dados sintéticos; use como indicador auxiliar, "
+        "não como substituto do julgamento geológico"
     ),
 }
 
