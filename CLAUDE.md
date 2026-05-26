@@ -120,7 +120,7 @@ PRD-005 T2 ETA Progress — AnalysisRunner rastreia durações por step; step_st
 PRD-005 T3 Offline Mode — botão 🗺 Modo Offline no grupo Navegação; toggleOfflineMode() remove tile layers externos mantendo marcadores/WMS ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
 ```
 
-**Status**: v1.5.0 em produção. PRD-005 (UX) implementado, aguardando CI → v1.6.0.
+**Status**: v1.6.0 em produção. PRD-004 (qualidade) + PRD-005 (UX) entregues. Suite: 1 392 testes, 0 missing statements.
 
 ## Grafo de Rastreabilidade
 
