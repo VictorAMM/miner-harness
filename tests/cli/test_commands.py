@@ -1555,6 +1555,50 @@ class TestLoadUserDrillholes:
 
         assert result == []
 
+    def test_cached_drillholes_print_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """PRD-004 T4: furos cacheados → aviso visível no stderr."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+        cached = [{"hole_id": "FUR-001", "x": -50.0, "y": -6.0}]
+
+        mock_store = MagicMock()
+        mock_store.__enter__ = MagicMock(return_value=mock_store)
+        mock_store.__exit__ = MagicMock(return_value=False)
+        mock_store.query_all.return_value = cached
+
+        with patch(
+            "miner_harness.ingestion.drillhole_store.DrillholeStore",
+            return_value=mock_store,
+        ):
+            result = _load_user_drillholes(None, storage)
+
+        assert result == cached
+        captured = capsys.readouterr()
+        assert "cacheados" in captured.err.lower() or "cache" in captured.err.lower()
+        assert "1" in captured.err  # 1 trecho
+
+    def test_no_cached_drillholes_no_warning(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """PRD-004 T4: store vazia → sem aviso (nada foi cacheado)."""
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        mock_store = MagicMock()
+        mock_store.__enter__ = MagicMock(return_value=mock_store)
+        mock_store.__exit__ = MagicMock(return_value=False)
+        mock_store.query_all.return_value = []
+
+        with patch(
+            "miner_harness.ingestion.drillhole_store.DrillholeStore",
+            return_value=mock_store,
+        ):
+            result = _load_user_drillholes(None, storage)
+
+        assert result == []
+        captured = capsys.readouterr()
+        assert "cacheados" not in captured.err.lower()
+
 
 # ---------------------------------------------------------------------------
 # TestCmdIndexDrillholes — linhas 465-491
