@@ -609,3 +609,136 @@ class TestLowConfidenceBadge:
         """Tooltip do ícone de aviso deve explicar o motivo ao usuário."""
         html = HtmlReportRenderer().render(sample_report)
         assert "Confiança baixa" in html or "dados insuficientes" in html
+
+
+# ---------------------------------------------------------------------------
+# PRD-005 — UX: grupos de botões, ETA e modo offline
+# ---------------------------------------------------------------------------
+
+
+class TestPrd005UxFeatures:
+    """Testes das melhorias de UX do PRD-005 (v1.6.0)."""
+
+    def _make_simple_report(self) -> ProspectionReport:
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        return ProspectionReport(
+            region_name="UX Test",
+            bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 26, tzinfo=timezone.utc),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.8,
+            total_duration_ms=5000,
+            model_used="qwen3:8b",
+            geological_data=None,
+        )
+
+    # T1 — Grupos colapsáveis de botões
+    def test_html_has_map_group_nav(self) -> None:
+        """Grupo Navegação deve existir com id map-group-nav."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "map-group-nav" in html
+
+    def test_html_has_map_group_data(self) -> None:
+        """Grupo Camadas de Dados deve existir com id map-group-data."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "map-group-data" in html
+
+    def test_html_has_map_group_atlas(self) -> None:
+        """Grupo Atlas SGB/CPRM deve existir com id map-group-atlas."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "map-group-atlas" in html
+
+    def test_html_has_toggle_map_group_function(self) -> None:
+        """Função JS toggleMapGroup deve estar definida."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "function toggleMapGroup" in html
+
+    def test_atlas_group_starts_collapsed(self) -> None:
+        """Grupo Atlas deve iniciar colapsado (class collapsed)."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert 'id="map-group-atlas"' in html
+        # O grupo atlas deve ter 'collapsed' na classe
+        idx = html.find('id="map-group-atlas"')
+        snippet = html[max(0, idx - 60) : idx + 60]
+        assert "collapsed" in snippet
+
+    def test_map_group_header_has_onclick(self) -> None:
+        """Headers dos grupos devem ter onclick para toggleMapGroup."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "toggleMapGroup('map-group-nav')" in html
+        assert "toggleMapGroup('map-group-data')" in html
+        assert "toggleMapGroup('map-group-atlas')" in html
+
+    def test_nav_group_contains_centralizar(self) -> None:
+        """Botão Centralizar deve estar no grupo Navegação."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "btn-centralizar" in html
+
+    def test_data_group_contains_ocorrencias(self) -> None:
+        """Botão Ocorrências deve estar no grupo Camadas de Dados."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "btn-ocorr" in html
+
+    # T2 — ETA de progresso
+    def test_html_has_eta_element(self) -> None:
+        """Elemento ETA deve estar presente no overlay de progresso (serve_mode)."""
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        report = ProspectionReport(
+            region_name="ETA Test",
+            bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 26, tzinfo=timezone.utc),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.8,
+            total_duration_ms=5000,
+            model_used="qwen3:8b",
+            geological_data=None,
+        )
+        html = HtmlReportRenderer().render(report, serve_mode=True)
+        assert "np-progress-eta" in html
+        assert "eta_s" in html  # campo no payload SSE
+        assert "restante" in html  # lógica de exibição
+
+    # T3 — Modo offline
+    def test_html_has_offline_mode_button(self) -> None:
+        """Botão Modo Offline deve estar presente nos controles do mapa."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "btn-offline-mode" in html
+        assert "Modo Offline" in html
+
+    def test_html_has_toggle_offline_function(self) -> None:
+        """Função JS toggleOfflineMode deve estar definida."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "function toggleOfflineMode" in html
+        assert "_offlineMode" in html
+
+    def test_offline_mode_removes_tile_layer(self) -> None:
+        """Lógica de remoção de TileLayer deve estar no JS."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "L.TileLayer" in html
+        assert "eachLayer" in html
