@@ -944,3 +944,16 @@ class TestAtlasWmsFix:
         assert "geofisica/aerogeofisica/MapServer/export" in html
         # WMSServer não deve mais aparecer para este serviço
         assert "geofisica/aerogeofisica/MapServer/WMSServer" not in html
+
+    def test_atlas_error_badge_element_present(self) -> None:
+        """Badge de erro #atlas-warn deve estar no HTML do grupo Atlas."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "atlas-warn" in html
+        assert "⚠ indisponível" in html
+
+    def test_atlas_tile_error_listener_wired(self) -> None:
+        """Listeners tileerror e tileload devem estar wired nos 3 overlays Atlas."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "tileerror" in html
+        assert "tileload" in html
+        assert "atlas-warn" in html
