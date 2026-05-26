@@ -1297,12 +1297,14 @@ let userDhVisible = true;
 let aeromagGridLayers = [];
 let aeromagGridVisible = true;
 
-// Atlas Aerogeofísico — camadas SGB/CPRM
-// Mapas_Tern_Mag_MIL1 NÃO tem WMS habilitado (capabilities: Query,Map,Data apenas).
-// Usa ArcGIS REST /export com bbox calculado por tile em vez de L.tileLayer.wms.
-// geofisica/aerogeofisica TEM WMS (listado em supportedExtensions) — mantém tileLayer.wms.
-const _REST_TERN_MAG = 'https://geoportal.sgb.gov.br/server/rest/services/Mapas_Tern_Mag_MIL1/MapServer/export';
-const _WMS_AEROPROJ  = 'https://geoportal.sgb.gov.br/server/services/geofisica/aerogeofisica/MapServer/WMSServer';
+// Atlas Aerogeofísico — camadas SGB/CPRM via ArcGIS REST /export
+// Ambos os serviços usam L.TileLayer.ArcGISExport (sem WMS):
+//   • Mapas_Tern_Mag_MIL1: capabilities=Query,Map,Data — WMS não habilitado.
+//   • geofisica/aerogeofisica: WMS habilitado mas só declara EPSG:4326/CRS:84;
+//     Leaflet envia EPSG:3857 por padrão → ServiceException XML → ORB.
+//     REST /export reprojeta server-side para EPSG:3857 sem distorção.
+const _REST_TERN_MAG  = 'https://geoportal.sgb.gov.br/server/rest/services/Mapas_Tern_Mag_MIL1/MapServer/export';
+const _REST_AEROPROJ  = 'https://geoportal.sgb.gov.br/server/rest/services/geofisica/aerogeofisica/MapServer/export';
 const _WMS_ATTR = '© <a href="https://www.sgb.gov.br" target="_blank">SGB/CPRM</a> — Atlas Aerogeofísico';
 
 // TileLayer personalizado: ArcGIS REST /export → tiles georreferenciados sem WMS
@@ -1328,7 +1330,7 @@ L.TileLayer.ArcGISExport = L.TileLayer.extend({
 
 let wmsAtlasMag  = new L.TileLayer.ArcGISExport(_REST_TERN_MAG, { layerId: 1, opacity: 0.70, attribution: _WMS_ATTR });
 let wmsAtlasTern = new L.TileLayer.ArcGISExport(_REST_TERN_MAG, { layerId: 0, opacity: 0.70, attribution: _WMS_ATTR });
-let wmsAeroprojetos = L.tileLayer.wms(_WMS_AEROPROJ, { layers:'0,1,2,3', format:'image/png', transparent:true, opacity:0.50, attribution:_WMS_ATTR });
+let wmsAeroprojetos = new L.TileLayer.ArcGISExport(_REST_AEROPROJ, { layerId: '0,1,2,3', opacity: 0.50, attribution: _WMS_ATTR });
 let atlasMagVisible  = false;
 let atlasTernVisible = false;
 let aeroprojVisible  = false;

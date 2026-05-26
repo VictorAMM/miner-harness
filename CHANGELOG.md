@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.7.3] — 2026-05-26
+
+### Corrigido — Aeroprojetos WMS → ArcGIS REST export (EPSG:4326 incompatível)
+
+#### Problema
+
+`geofisica/aerogeofisica/MapServer/WMSServer` tem WMS habilitado mas declara apenas
+`EPSG:4326` e `CRS:84` nas suas capabilities — sem suporte a EPSG:3857. O Leaflet enviava
+`srs=EPSG:3857` por padrão, e o servidor retornaria `ServiceException` em XML, bloqueado
+por `net::ERR_BLOCKED_BY_ORB` (mesma raiz do issue v1.7.2).
+
+#### Fix
+
+- Substituído `L.tileLayer.wms(_WMS_AEROPROJ, ...)` por
+  `new L.TileLayer.ArcGISExport(_REST_AEROPROJ, { layerId: '0,1,2,3' })`.
+- O endpoint REST `/export` reprojeta server-side para `imageSR=3857` sem distorção
+  de projeção; `layerId: '0,1,2,3'` mapeia para `layers=show:0,1,2,3`.
+- Constante renomeada `_WMS_AEROPROJ` → `_REST_AEROPROJ` apontando para
+  `/MapServer/export`.
+
+#### Testes
+
+- Teste `test_aeroprojetos_keeps_wms` → `test_aeroprojetos_uses_rest_export`:
+  verifica `_REST_AEROPROJ`, URL REST e ausência de `WMSServer` para esse serviço.
+- Suite total: **1 428 testes**, 65 skipped, cobertura **100%**
+
+---
+
 ## [1.7.2] — 2026-05-26
 
 ### Corrigido — Atlas WMS → ArcGIS REST export (tiles Mag Total e K-Th-U)

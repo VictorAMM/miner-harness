@@ -937,7 +937,10 @@ class TestAtlasWmsFix:
         # Garantir que o guard de remoção de tiles não remove camadas ArcGISExport
         assert "!(l instanceof L.TileLayer.ArcGISExport)" in html
 
-    def test_aeroprojetos_keeps_wms(self) -> None:
-        """geofisica/aerogeofisica (com WMS real) deve continuar usando tileLayer.wms."""
+    def test_aeroprojetos_uses_rest_export(self) -> None:
+        """geofisica/aerogeofisica deve usar REST /export (WMS só suporta EPSG:4326)."""
         html = HtmlReportRenderer().render(self._make_simple_report())
-        assert "geofisica/aerogeofisica/MapServer/WMSServer" in html
+        assert "_REST_AEROPROJ" in html
+        assert "geofisica/aerogeofisica/MapServer/export" in html
+        # WMSServer não deve mais aparecer para este serviço
+        assert "geofisica/aerogeofisica/MapServer/WMSServer" not in html
