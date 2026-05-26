@@ -266,6 +266,11 @@ class DocxReportExporter:
             for g in step.data_gaps:
                 doc.add_paragraph(g, style="List Bullet")
 
+        if step.calibration_note:
+            p = doc.add_paragraph()
+            p.add_run("Nota de calibração: ").bold = True
+            p.add_run(step.calibration_note).italic = True
+
         doc.add_paragraph()
 
     def _add_data_gaps(self, doc: Any, report: ProspectionReport) -> None:
@@ -304,6 +309,14 @@ class DocxReportExporter:
                     f"{s} — dados disponíveis mas fora do bbox de análise", style="List Bullet"
                 )
             doc.add_paragraph()
+
+        if report.diversity_removed_count > 0:
+            doc.add_paragraph(
+                f"Nota de diversidade: {report.diversity_removed_count} alvo(s) suprimido(s) "
+                "por estarem a menos de 15 km de alvos de maior prioridade "
+                "(critério de diversidade espacial mínima).",
+                style="List Bullet",
+            )
 
         if report.caveats:
             doc.add_paragraph().add_run("Ressalvas adicionais:").bold = True

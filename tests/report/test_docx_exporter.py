@@ -411,3 +411,87 @@ class TestDocxEdgeCases:
         DocxReportExporter().export(sample_report, path)
         text = self._get_full_text(path)
         assert "-51.5" in text or "-51.5000" in text
+
+
+# ---------------------------------------------------------------------------
+# TestDocxPrd006Fields — calibration_note e diversity_removed_count (PRD-006)
+# ---------------------------------------------------------------------------
+
+
+class TestDocxPrd006Fields:
+    """Testes PRD-007 T2: campos PRD-006 ausentes do exportador DOCX."""
+
+    def _get_full_text(self, path: Path) -> str:
+        from docx import Document
+
+        doc = Document(str(path))
+        return "\n".join(p.text for p in doc.paragraphs)
+
+    def _make_step_with_note(self, note: str | None = None) -> StepResult:
+        return StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="structural_geologist",
+            summary="Síntese.",
+            findings=["Achado A"],
+            confidence=Confidence.MEDIUM,
+            data_sources_used=["GeoSGB/litoestratigrafia"],
+            data_gaps=["Lacuna X"],
+            raw_reasoning="Raciocínio.",
+            duration_ms=1000,
+            calibration_note=note,
+        )
+
+    def _make_report(self, step: StepResult, diversity_count: int = 0) -> ProspectionReport:
+        return ProspectionReport(
+            region_name="Região Teste",
+            bbox=BoundingBox(lon_min=-52.0, lat_min=-8.0, lon_max=-50.0, lat_max=-6.0),
+            analysis_date=datetime(2026, 5, 26, 0, 0, 0, tzinfo=timezone.utc),
+            steps=[step],
+            targets=[],
+            integrated_summary="",
+            caveats=[],
+            data_quality_score=0.5,
+            total_duration_ms=5000,
+            model_used="qwen3:8b",
+            diversity_removed_count=diversity_count,
+        )
+
+    def test_calibration_note_in_step_section(self, tmp_path: Path) -> None:
+        """calibration_note aparece na seção 4.x quando presente."""
+        note = "Confiança recalibrada para MEDIUM: cobertura de dados insuficiente."
+        step = self._make_step_with_note(note)
+        report = self._make_report(step)
+        path = tmp_path / "r.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "Nota de calibração" in text
+        assert note in text
+
+    def test_calibration_note_absent_when_none(self, tmp_path: Path) -> None:
+        """Quando calibration_note é None, texto 'Nota de calibração' não aparece."""
+        step = self._make_step_with_note(None)
+        report = self._make_report(step)
+        path = tmp_path / "r.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "Nota de calibração" not in text
+
+    def test_diversity_removed_count_in_caveats(self, tmp_path: Path) -> None:
+        """diversity_removed_count > 0 gera nota de diversidade na seção 6."""
+        step = self._make_step_with_note()
+        report = self._make_report(step, diversity_count=2)
+        path = tmp_path / "r.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "Nota de diversidade" in text
+        assert "2 alvo(s) suprimido(s)" in text
+        assert "15 km" in text
+
+    def test_diversity_removed_count_absent_when_zero(self, tmp_path: Path) -> None:
+        """Quando diversity_removed_count == 0, nota de diversidade não aparece."""
+        step = self._make_step_with_note()
+        report = self._make_report(step, diversity_count=0)
+        path = tmp_path / "r.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "Nota de diversidade" not in text
