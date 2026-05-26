@@ -1,5 +1,93 @@
 # Changelog
 
+## [1.6.0] — 2026-05-26
+
+### Adicionado — PRD-005 UX Simplification
+
+#### Dashboard HTML
+
+- **T1 — Grupos colapsáveis de botões**: 15 botões do mapa reorganizados em 3 grupos com
+  toggle collapse/expand via CSS `max-height` e `toggleMapGroup()` JS:
+  - 📍 **Navegação** → Centralizar região, Mostrar/ocultar polígono, Enquadrar alvos, Modo Offline
+  - 🗂 **Camadas de Dados** → Ocorrências, Litoestratigrafia, Furos GeoSGB, Furos Usuário,
+    ANM, USGS, Prospectividade, Bouguer HGM
+  - 🛰 **Atlas SGB/CPRM** → Mag. Total, K-Th-U, Pol. Projetos, Proj. Aero., Opacidade
+    (inicia colapsado — requer internet)
+- **T3 — Modo Offline**: botão 🗺 Modo Offline no grupo Navegação; `toggleOfflineMode()` remove
+  tiles OSM externos mantendo marcadores, WMS e dados do relatório.
+- **Overlay de progresso**: exibe `⏱ ~X min restantes` assim que o segundo step começa;
+  fallback `calculando...` no primeiro step.
+
+#### Servidor SSE
+
+- **T2 — ETA de progresso**: `AnalysisRunner` rastreia duração de cada step concluído.
+  Payload `step_start` SSE inclui `elapsed_s` e `eta_s` (`null` no primeiro step).
+
+### Testes
+
+- 15 novos testes: `TestPrd005UxFeatures` (12) + `TestAnalysisRunnerEta` (3)
+- Suite total: **1 392 testes**, 65 skipped
+
+---
+
+## [1.5.0] — 2026-05-26
+
+### Corrigido / Adicionado — PRD-004 Resiliência e Qualidade de Dados/Alvos
+
+#### Conectores
+
+- **T1 — Aeromag 403**: `AeromagConnector` cria `httpx.AsyncClient` com `_BROWSER_HEADERS`
+  (Mozilla/Chrome User-Agent + `Referer: https://geoportal.sgb.gov.br/`). Resolve 403 do
+  endpoint `MapServer/identify` do SGB geoportal.
+
+#### Orquestrador
+
+- **T2 — Diversidade espacial dos alvos**: `_enforce_target_diversity(min_km=15.0)` remove
+  alvos a menos de 15 km de alvos de maior prioridade (Haversine), re-numerando prioridades.
+  Corrige caso real Carajás: P1 e P2 gerados em `lat=-5.85` com ~11 km de separação.
+- **T2-A — REGRA ESPACIAL no prompt**: persona evaluator instruída a distribuir alvos com
+  mínimo 15 km entre eles.
+- **T5 — Prospectivity score**: `MineralTarget.prospectivity_score: float | None`;
+  `_assign_prospectivity_scores()` atribui score da célula do `prospectivity_grid` mais
+  próxima a cada alvo.
+
+#### ContextBuilder
+
+- **T3 — Fontes vazias**: `ContextBuilder.empty_sources: list[str]` rastreia serviços GeoSGB
+  que retornaram 0 registros — distinção de `bbox_filtered_sources` e de falhas de fetch.
+
+#### CLI
+
+- **T4 — Aviso drillhole cacheado**: `_load_user_drillholes()` avisa no `stderr` quando furos
+  são carregados do `DrillholeStore` sem `--drillholes`, com instrução de como limpar.
+
+### Testes
+
+- 25 novos testes: `TestBrowserHeaders` (3) + `TestEnforceTargetDiversity` (7) +
+  `TestAssignProspectivityScores` (5) + `TestEmptySources` (4) + 2 em `TestLoadUserDrillholes`
+- Suite total: **1 377 testes**, 65 skipped
+
+---
+
+## [1.4.0] — 2026-05-25
+
+### Adicionado — PRD-003 F10 Aeromagnética Real
+
+- **AeromagConnector**: amostragem real de TMA via endpoint `MapServer/identify` do Atlas
+  Aerogeofísico SGB em grade N×N pontos; fallback gracioso quando indisponível.
+- **AeromagProcessor**: derivadas HGM (diferenças finitas), anomalias 2σ,
+  `format_for_prompt()`, `to_geojson()`; injetado no `GeophysicistAgent` com guia TMA/HGM.
+- **`AeromagConfig`**: `grid_n`, `timeout_s`, TTL 30 dias.
+- **CLI**: `--no-aeromag` e `--aeromag-grid-n N`.
+- **`_COMPUTED_KEYS`**: `aeromag_grid` sem penalidade HIGH na calibração de confiança.
+
+### Testes
+
+- 56 novos testes para `AeromagConnector` e `AeromagProcessor`
+- Suite total: **1 356 testes**, 0 missing statements
+
+---
+
 ## [1.3.0] — 2026-05-25
 
 ### Melhorado — UX Audit (19 melhorias)
