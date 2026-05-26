@@ -7,7 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from miner_harness.connectors.geosgb.aeromag_connector import AeromagConnector
+from miner_harness.connectors.geosgb.aeromag_connector import (
+    _BROWSER_HEADERS,
+    AeromagConnector,
+)
 from miner_harness.core.types import BoundingBox
 
 # Caminho do AsyncClient para uso em patches
@@ -277,3 +280,53 @@ class TestSampleTma:
                 bbox = _make_bbox()
                 await conn.sample_tma(bbox)
             mock_client.aclose.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Browser headers — PRD-004 T1
+# ---------------------------------------------------------------------------
+
+
+class TestBrowserHeaders:
+    def test_make_client_passes_browser_headers(self) -> None:
+        """_make_client() cria AsyncClient com todos os headers browser-like."""
+        conn = AeromagConnector()
+        with patch(_ASYNC_CLIENT_PATH) as mock_cls:
+            mock_cls.return_value = MagicMock()
+            conn._make_client()
+            call_kwargs = mock_cls.call_args[1]
+            headers_sent = call_kwargs.get("headers", {})
+        assert headers_sent.get("Referer") == "https://geoportal.sgb.gov.br/"
+        assert "Mozilla" in headers_sent.get("User-Agent", "")
+        assert headers_sent.get("Accept") == "application/json, text/plain, */*"
+
+    def test_browser_headers_constant_has_required_keys(self) -> None:
+        """_BROWSER_HEADERS exportado contém as chaves obrigatórias."""
+        assert "User-Agent" in _BROWSER_HEADERS
+        assert "Referer" in _BROWSER_HEADERS
+        assert "Accept" in _BROWSER_HEADERS
+        assert "Accept-Language" in _BROWSER_HEADERS
+
+    @pytest.mark.asyncio
+    async def test_403_still_falls_back_gracefully(self) -> None:
+        """Mesmo com headers browser, um 403 persistente resulta em lista vazia."""
+        import httpx
+
+        conn = AeromagConnector(grid_n=2, min_delay_ms=0)
+        bbox = _make_bbox()
+
+        forbidden = MagicMock()
+        forbidden.raise_for_status = MagicMock(
+            side_effect=httpx.HTTPStatusError(
+                "403 Forbidden",
+                request=MagicMock(),
+                response=MagicMock(),
+            )
+        )
+
+        with patch(_ASYNC_CLIENT_PATH) as mock_cls:
+            mock_cls.return_value.aclose = AsyncMock()
+            mock_cls.return_value.get = AsyncMock(return_value=forbidden)
+            result = await conn.sample_tma(bbox)
+
+        assert result == []
