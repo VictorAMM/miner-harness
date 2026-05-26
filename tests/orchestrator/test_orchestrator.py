@@ -1556,3 +1556,208 @@ class TestBuildAeromag:
         ):
             result = orch._build_aeromag()
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TestEnforceTargetDiversity — PRD-004 T2
+# ---------------------------------------------------------------------------
+
+
+class TestEnforceTargetDiversity:
+    """Testes para _enforce_target_diversity (diversidade espacial mínima)."""
+
+    def _make_target(
+        self,
+        name: str,
+        lon: float,
+        lat: float,
+        priority: int = 1,
+    ) -> MineralTarget:
+        return MineralTarget(
+            name=name,
+            longitude=lon,
+            latitude=lat,
+            radius_km=5.0,
+            commodities=["Au"],
+            mineral_system="Ouro Orogênico",
+            confidence=Confidence.MEDIUM,
+            priority=priority,
+            rationale="Test",
+            recommended_followup=["Field check"],
+        )
+
+    def test_empty_list_returns_empty(self) -> None:
+        assert Orchestrator._enforce_target_diversity([]) == []
+
+    def test_single_target_unchanged(self) -> None:
+        t = self._make_target("A", -50.0, -6.0, priority=1)
+        result = Orchestrator._enforce_target_diversity([t])
+        assert len(result) == 1
+        assert result[0].name == "A"
+
+    def test_removes_close_target_keeps_higher_priority(self) -> None:
+        """Dois alvos a ~11 km (< 15 km min) → o de menor prioridade é removido."""
+        # ~11 km de distância (mesmo lat=-5.85, lon diferente por 0.1°)
+        t1 = self._make_target("P1", -50.45, -5.85, priority=1)
+        t2 = self._make_target("P2", -50.35, -5.85, priority=2)
+        result = Orchestrator._enforce_target_diversity([t1, t2], min_km=15.0)
+        assert len(result) == 1
+        assert result[0].name == "P1"
+
+    def test_keeps_distant_targets(self) -> None:
+        """Dois alvos a > 15 km → ambos mantidos."""
+        t1 = self._make_target("A", -51.0, -6.0, priority=1)
+        t2 = self._make_target("B", -50.0, -6.0, priority=2)  # ~110 km de distância
+        result = Orchestrator._enforce_target_diversity([t1, t2], min_km=15.0)
+        assert len(result) == 2
+
+    def test_renumbers_priorities_after_removal(self) -> None:
+        """Após remoção, prioridades são re-numeradas sequencialmente."""
+        t1 = self._make_target("A", -51.0, -6.0, priority=1)
+        t2 = self._make_target("B", -51.05, -6.0, priority=2)  # ~5 km de A → removido
+        t3 = self._make_target("C", -50.0, -6.0, priority=3)  # ~110 km de A → mantido
+        result = Orchestrator._enforce_target_diversity([t1, t2, t3], min_km=15.0)
+        assert len(result) == 2
+        assert result[0].name == "A"
+        assert result[0].priority == 1
+        assert result[1].name == "C"
+        assert result[1].priority == 2
+
+    def test_preserves_order_by_priority(self) -> None:
+        """Lista é processada em ordem de prioridade — P1 nunca é removido por P2."""
+        t1 = self._make_target("P1", -50.0, -6.0, priority=1)
+        t2 = self._make_target("P2", -50.05, -6.0, priority=2)  # ~5 km de P1
+        result = Orchestrator._enforce_target_diversity([t1, t2], min_km=15.0)
+        # P1 deve sobreviver; P2 deve ser removido (não o contrário)
+        assert any(t.name == "P1" for t in result)
+        assert not any(t.name == "P2" for t in result)
+
+    def test_default_min_km_is_15(self) -> None:
+        """Distância default de 15 km: alvos a 14 km são removidos."""
+        t1 = self._make_target("A", -50.0, -6.0, priority=1)
+        # ~14 km ao norte (0.126° lat ≈ 14 km)
+        t2 = self._make_target("B", -50.0, -5.874, priority=2)
+        result = Orchestrator._enforce_target_diversity([t1, t2])
+        assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
+# TestAssignProspectivityScores — PRD-004 T5
+# ---------------------------------------------------------------------------
+
+
+class TestAssignProspectivityScores:
+    """Testes para _assign_prospectivity_scores."""
+
+    def _make_target(self, lon: float, lat: float, name: str = "T") -> MineralTarget:
+        return MineralTarget(
+            name=name,
+            longitude=lon,
+            latitude=lat,
+            radius_km=5.0,
+            commodities=["Au"],
+            mineral_system="IOCG",
+            confidence=Confidence.MEDIUM,
+            priority=1,
+            rationale="Test",
+            recommended_followup=["Field check"],
+        )
+
+    def _make_geo_data(self, cells: list[tuple[float, float, float]]) -> dict:
+        """Cria geological_data com prospectivity_grid a partir de (lon, lat, score)."""
+        half = 0.05
+        features = []
+        for clon, clat, score in cells:
+            coords = [
+                [clon - half, clat - half],
+                [clon + half, clat - half],
+                [clon + half, clat + half],
+                [clon - half, clat + half],
+                [clon - half, clat - half],
+            ]
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": [coords]},
+                    "properties": {"score": score},
+                }
+            )
+        return {
+            "prospectivity_grid": [
+                {"text": "...", "geojson": {"type": "FeatureCollection", "features": features}}
+            ]
+        }
+
+    def test_score_assigned_from_nearest_cell(self) -> None:
+        """Alvo recebe score da célula mais próxima."""
+        target = self._make_target(-50.0, -6.0)
+        geo_data = self._make_geo_data(
+            [
+                (-50.0, -6.0, 75.0),  # célula exata — mais próxima
+                (-51.0, -7.0, 10.0),
+            ]
+        )
+        result = Orchestrator._assign_prospectivity_scores([target], geo_data)
+        assert len(result) == 1
+        assert result[0].prospectivity_score == pytest.approx(75.0)
+
+    def test_score_none_without_grid(self) -> None:
+        """Sem prospectivity_grid → score permanece None."""
+        target = self._make_target(-50.0, -6.0)
+        result = Orchestrator._assign_prospectivity_scores([target], {})
+        assert result[0].prospectivity_score is None
+
+    def test_empty_targets_returns_empty(self) -> None:
+        """Lista de alvos vazia → retorna lista vazia."""
+        geo_data = self._make_geo_data([(-50.0, -6.0, 80.0)])
+        result = Orchestrator._assign_prospectivity_scores([], geo_data)
+        assert result == []
+
+    def test_multiple_targets_get_nearest_cell(self) -> None:
+        """Cada alvo recebe score da SUA célula mais próxima."""
+        t1 = self._make_target(-51.0, -7.0, "T1")
+        t2 = self._make_target(-50.0, -6.0, "T2")
+        geo_data = self._make_geo_data(
+            [
+                (-51.0, -7.0, 20.0),
+                (-50.0, -6.0, 90.0),
+            ]
+        )
+        result = Orchestrator._assign_prospectivity_scores([t1, t2], geo_data)
+        by_name = {t.name: t.prospectivity_score for t in result}
+        assert by_name["T1"] == pytest.approx(20.0)
+        assert by_name["T2"] == pytest.approx(90.0)
+
+    def test_grid_without_score_property_skipped(self) -> None:
+        """Feature sem 'score' na propriedade → célula ignorada."""
+        target = self._make_target(-50.0, -6.0)
+        geo_data = {
+            "prospectivity_grid": [
+                {
+                    "geojson": {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [-50.1, -6.1],
+                                            [-49.9, -6.1],
+                                            [-49.9, -5.9],
+                                            [-50.1, -5.9],
+                                            [-50.1, -6.1],
+                                        ]
+                                    ],
+                                },
+                                "properties": {},  # sem score
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+        result = Orchestrator._assign_prospectivity_scores([target], geo_data)
+        # Sem células válidas → score permanece None
+        assert result[0].prospectivity_score is None
