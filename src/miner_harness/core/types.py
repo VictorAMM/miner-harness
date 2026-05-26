@@ -288,6 +288,10 @@ class MineralTarget(BaseModel):
     priority: int = Field(ge=1, le=5, description="1=máxima, 5=mínima")
     rationale: str
     recommended_followup: list[str]
+    prospectivity_score: float | None = Field(
+        default=None,
+        description="Score 0–100 da célula de prospectividade mais próxima ao alvo.",
+    )
 
     @model_validator(mode="before")
     @classmethod
