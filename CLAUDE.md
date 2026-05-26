@@ -115,9 +115,12 @@ PRD-004 T2 Diversidade Espacial — REGRA ESPACIAL no prompt evaluator + _enforc
 PRD-004 T3 Gravimetria Vazia — ContextBuilder.empty_sources: list[str] rastreia serviços com 0 registros; distingue de bbox_filtered_sources e de falhas ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
 PRD-004 T4 Drillhole Cacheado — aviso stderr em _load_user_drillholes() quando furos são carregados da store persistente sem --drillholes flag ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
 PRD-004 T5 Prospectivity Score — MineralTarget.prospectivity_score: float | None + _assign_prospectivity_scores() atribui score da célula mais próxima do grid ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
+PRD-005 T1 Button Groups — 3 grupos colapsáveis no mapa (📍 Navegação, 🗂 Camadas de Dados, 🛰 Atlas SGB/CPRM) com toggleMapGroup() JS; Atlas inicia colapsado ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
+PRD-005 T2 ETA Progress — AnalysisRunner rastreia durações por step; step_start inclui elapsed_s + eta_s; overlay exibe "⏱ ~X min restantes" ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
+PRD-005 T3 Offline Mode — botão 🗺 Modo Offline no grupo Navegação; toggleOfflineMode() remove tile layers externos mantendo marcadores/WMS ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
 ```
 
-**Status**: v1.5.0 em desenvolvimento (branch feature/prd-004-quality). PRD-004 (5 quality fixes) implementado, aguardando CI. PRD-005 (UX) pendente.
+**Status**: v1.5.0 em produção. PRD-005 (UX) implementado, aguardando CI → v1.6.0.
 
 ## Grafo de Rastreabilidade
 
