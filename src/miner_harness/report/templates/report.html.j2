@@ -256,7 +256,36 @@ aside {
   border-radius: 0 4px 4px 0;
 }
 
-/* Map controls in sidebar */
+/* Map controls in sidebar — collapsible groups */
+.map-group { margin-bottom: 8px; }
+.map-group:last-child { margin-bottom: 0; }
+.map-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 4px 0;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.map-group-header:hover { color: var(--accent); }
+.map-group-chevron {
+  font-size: 9px;
+  transition: transform 0.2s;
+}
+.map-group.collapsed .map-group-chevron { transform: rotate(-90deg); }
+.map-group-body {
+  overflow: hidden;
+  max-height: 600px;
+  transition: max-height 0.25s ease;
+}
+.map-group.collapsed .map-group-body { max-height: 0; }
 .map-ctrl-btns {
   display: flex;
   flex-direction: column;
@@ -785,44 +814,77 @@ aside {
       <div id="ocorr-stats-content"></div>
     </div>
 
-    <!-- Controles do mapa -->
-    <div class="sidebar-section">
+    <!-- Controles do mapa — 3 grupos colapsáveis -->
+    <div class="sidebar-section" id="map-controls-section">
       <div class="section-title">Controles do Mapa</div>
-      <div class="map-ctrl-btns">
-        <button class="ctrl-btn" id="btn-centralizar">🎯 Centralizar região</button>
-        <button class="ctrl-btn" id="btn-bbox">□ Mostrar/ocultar polígono</button>
-        <button class="ctrl-btn" id="btn-all-targets">👁 Enquadrar todos os alvos</button>
-        <button class="ctrl-btn" id="btn-anm" title="Concessões ANM/SIGMINE">🏗️ ANM</button>
-        <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
-        <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
-        <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
-        <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos</button>
-        <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
-        <button class="ctrl-btn" id="btn-bouguer" title="Gradiente horizontal do campo Bouguer — lineamentos gravimétricas (HGM)">🌐 Bouguer HGM</button>
-        <button class="ctrl-btn" id="btn-user-dh" title="Furos de sondagem do usuário (dados proprietários — PRD-002 F7)">🟠 Furos Usuário</button>
+
+      <!-- Grupo 1: Navegação -->
+      <div class="map-group" id="map-group-nav">
+        <div class="map-group-header" onclick="toggleMapGroup('map-group-nav')">
+          <span>📍 Navegação</span>
+          <span class="map-group-chevron">▼</span>
+        </div>
+        <div class="map-group-body">
+          <div class="map-ctrl-btns">
+            <button class="ctrl-btn" id="btn-centralizar">🎯 Centralizar região</button>
+            <button class="ctrl-btn" id="btn-bbox">□ Mostrar/ocultar polígono</button>
+            <button class="ctrl-btn" id="btn-all-targets">👁 Enquadrar todos os alvos</button>
+            <button class="ctrl-btn" id="btn-offline-mode" title="Remove tiles externos — ideal para ambientes sem internet ou screenshots">🗺 Modo Offline</button>
+          </div>
+        </div>
       </div>
-      <div id="aerogeo-legend" style="display:none;margin-top:8px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
-        <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
-        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #7c3aed;margin-right:6px;vertical-align:middle"></span>Mag + Gama</div>
-        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #2563eb;margin-right:6px;vertical-align:middle"></span>Magnetometria</div>
-        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #16a34a;margin-right:6px;vertical-align:middle"></span>Gamaespectrometria</div>
-        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #d97706;margin-right:6px;vertical-align:middle"></span>Eletromagnetometria</div>
-        <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #6b7280;margin-right:6px;vertical-align:middle"></span>Outros</div>
+
+      <!-- Grupo 2: Camadas de Dados -->
+      <div class="map-group" id="map-group-data">
+        <div class="map-group-header" onclick="toggleMapGroup('map-group-data')">
+          <span>🗂 Camadas de Dados</span>
+          <span class="map-group-chevron">▼</span>
+        </div>
+        <div class="map-group-body">
+          <div class="map-ctrl-btns">
+            <button class="ctrl-btn" id="btn-ocorr" title="Ocorrências minerais GeoSGB">⬟ Ocorrências</button>
+            <button class="ctrl-btn" id="btn-lito" title="Unidades litoestratigráficas GeoSGB (centróides de polígonos)">🗺 Litoestratigrafia</button>
+            <button class="ctrl-btn" id="btn-furos" title="Furos de sondagem históricos GeoSGB">🔩 Furos GeoSGB</button>
+            <button class="ctrl-btn" id="btn-user-dh" title="Furos de sondagem do usuário (dados proprietários — PRD-002 F7)">🟠 Furos Usuário</button>
+            <button class="ctrl-btn" id="btn-anm" title="Concessões ANM/SIGMINE">🏗️ ANM</button>
+            <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
+            <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
+            <button class="ctrl-btn" id="btn-bouguer" title="Gradiente horizontal do campo Bouguer — lineamentos gravimétricas (HGM)">🌐 Bouguer HGM</button>
+          </div>
+        </div>
       </div>
-      <div class="section-title" style="font-size:0.72rem;margin-top:10px;color:#94a3b8;letter-spacing:.03em">Atlas Aerogeofísico — SGB/CPRM <span style="font-weight:400;opacity:.7">(requer internet)</span></div>
-      <div class="map-ctrl-btns">
-        <button class="ctrl-btn inactive" id="btn-atlas-mag" title="Anomalia Magnética de Campo Total — SGB/CPRM">🧲 Mag. Total</button>
-        <button class="ctrl-btn inactive" id="btn-atlas-tern" title="Ternário K-Th-U — Gamaespectrometria — SGB/CPRM">🌈 K-Th-U</button>
-        <button class="ctrl-btn inactive" id="btn-aeroproj" title="Polígonos de cobertura dos projetos aerogeofísicos — SGB/CPRM (requer internet)">✈️ Pol. Projetos</button>
-        <button class="ctrl-btn" id="btn-aerogeo-proj" title="Centroides dos projetos aerogeofísicos (dados do relatório, offline)">🔺 Proj. Aero.</button>
+
+      <!-- Grupo 3: Atlas SGB/CPRM -->
+      <div class="map-group collapsed" id="map-group-atlas">
+        <div class="map-group-header" onclick="toggleMapGroup('map-group-atlas')">
+          <span>🛰 Atlas SGB/CPRM</span>
+          <span class="map-group-chevron">▼</span>
+        </div>
+        <div class="map-group-body">
+          <div class="map-ctrl-btns" style="margin-bottom:6px">
+            <button class="ctrl-btn inactive" id="btn-atlas-mag" title="Anomalia Magnética de Campo Total — SGB/CPRM">🧲 Mag. Total</button>
+            <button class="ctrl-btn inactive" id="btn-atlas-tern" title="Ternário K-Th-U — Gamaespectrometria — SGB/CPRM">🌈 K-Th-U</button>
+            <button class="ctrl-btn inactive" id="btn-aeroproj" title="Polígonos de cobertura dos projetos aerogeofísicos — SGB/CPRM (requer internet)">✈️ Pol. Projetos</button>
+            <button class="ctrl-btn" id="btn-aerogeo-proj" title="Centroides dos projetos aerogeofísicos (dados do relatório, offline)">🔺 Proj. Aero.</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:0 2px;margin-bottom:4px">
+            <span style="font-size:0.72rem;color:#94a3b8;white-space:nowrap">Opacidade:</span>
+            <input type="range" id="atlas-opacity" min="10" max="100" value="70"
+                   style="flex:1;height:4px;cursor:pointer;accent-color:var(--accent)"
+                   title="Opacidade das camadas do Atlas">
+            <span id="atlas-opacity-val" style="font-size:0.72rem;color:#94a3b8;min-width:2.2em;text-align:right">70%</span>
+          </div>
+          <div id="aerogeo-legend" style="display:none;margin-top:4px;padding:6px 8px;background:#1e293b;border-radius:6px;font-size:0.72rem;line-height:1.7">
+            <div style="color:#94a3b8;font-weight:600;margin-bottom:3px">🔺 Projetos Aerogeofísicos</div>
+            <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #7c3aed;margin-right:6px;vertical-align:middle"></span>Mag + Gama</div>
+            <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #2563eb;margin-right:6px;vertical-align:middle"></span>Magnetometria</div>
+            <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #16a34a;margin-right:6px;vertical-align:middle"></span>Gamaespectrometria</div>
+            <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #d97706;margin-right:6px;vertical-align:middle"></span>Eletromagnetometria</div>
+            <div><span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #6b7280;margin-right:6px;vertical-align:middle"></span>Outros</div>
+          </div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:0 2px">
-        <span style="font-size:0.72rem;color:#94a3b8;white-space:nowrap">Opacidade:</span>
-        <input type="range" id="atlas-opacity" min="10" max="100" value="70"
-               style="flex:1;height:4px;cursor:pointer;accent-color:var(--accent)"
-               title="Opacidade das camadas do Atlas">
-        <span id="atlas-opacity-val" style="font-size:0.72rem;color:#94a3b8;min-width:2.2em;text-align:right">70%</span>
-      </div>
+
     </div>
 
     {% if serve_mode %}
@@ -875,7 +937,10 @@ aside {
       <div id="np-progress-bar" style="height:6px;border-radius:6px;background:var(--accent);width:0%;transition:width 0.4s;"></div>
     </div>
     <div id="np-progress-steps" style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px;"></div>
-    <div id="np-progress-status" style="font-size:11px;color:var(--text-muted);"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div id="np-progress-status" style="font-size:11px;color:var(--text-muted);"></div>
+      <div id="np-progress-eta" style="font-size:11px;color:var(--accent);font-weight:600;display:none"></div>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -1583,6 +1648,34 @@ function renderMapForReport(r) {
   setupMapControls(bboxBounds);
 }
 
+function toggleMapGroup(groupId) {
+  var el = document.getElementById(groupId);
+  if (el) el.classList.toggle('collapsed');
+}
+
+var _offlineMode = false;
+var _osmLayer = null;
+
+function toggleOfflineMode() {
+  var btn = document.getElementById('btn-offline-mode');
+  if (_offlineMode) {
+    // Restaurar tile OSM
+    if (_osmLayer) { _osmLayer.addTo(map); }
+    _offlineMode = false;
+    if (btn) { btn.classList.remove('inactive'); btn.textContent = '🗺 Modo Offline'; }
+  } else {
+    // Remover todos os tile layers externos
+    map.eachLayer(function(l) {
+      if (l instanceof L.TileLayer && !(l instanceof L.TileLayer.WMS)) {
+        _osmLayer = l;
+        map.removeLayer(l);
+      }
+    });
+    _offlineMode = true;
+    if (btn) { btn.classList.add('inactive'); btn.textContent = '🌐 Modo Online'; }
+  }
+}
+
 function setupMapControls(bboxBounds) {
   document.getElementById('btn-centralizar').onclick = function() {
     map.fitBounds(bboxBounds, {padding:[24,24], animate:true, duration:0.8});
@@ -1599,6 +1692,9 @@ function setupMapControls(bboxBounds) {
     const group = L.featureGroup(targetLayers.map(function(l) { return l.marker; }));
     map.fitBounds(group.getBounds().pad(0.3), {animate:true});
   };
+
+  var btnOffline = document.getElementById('btn-offline-mode');
+  if (btnOffline) { btnOffline.onclick = toggleOfflineMode; }
 
   var btnAnm = document.getElementById('btn-anm');
   if (btnAnm) {
@@ -2745,6 +2841,17 @@ setTimeout(function() { map.invalidateSize(); }, 100);
         document.getElementById('np-progress-status').textContent =
           'Executando: ' + (STEP_NAMES[d.step] || d.step);
         markStep(d.step, true);
+        var etaEl = document.getElementById('np-progress-eta');
+        if (etaEl) {
+          if (d.eta_s != null && d.eta_s > 0) {
+            var etaMins = Math.ceil(d.eta_s / 60);
+            etaEl.textContent = '⏱ ~' + etaMins + ' min restante' + (etaMins !== 1 ? 's' : '');
+            etaEl.style.display = 'block';
+          } else if (d.step_index === 0) {
+            etaEl.textContent = '⏱ calculando...';
+            etaEl.style.display = 'block';
+          }
+        }
       });
 
       evtSource.addEventListener('step_complete', function(e) {
