@@ -749,3 +749,105 @@ class TestContextBuilderAeromag:
         builder = ContextBuilder(mock_connector, cache, aeromag=mock_aeromag)
         context = await builder.build(bbox)
         assert "aeromag_grid" not in context
+
+
+# ---------------------------------------------------------------------------
+# TestEmptySources — PRD-004 T3
+# ---------------------------------------------------------------------------
+
+
+class TestEmptySources:
+    """Testes para empty_sources: rastreio de fontes com 0 registros."""
+
+    @pytest.mark.asyncio
+    async def test_empty_sources_populated_when_service_returns_zero(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Serviço com 0 registros → aparece em empty_sources."""
+        # Colocar dados em todos os serviços core exceto gravimetria (0 registros)
+        for svc in ("ocorrencias", "geoquimica", "geocronologia", "litoestratigrafia"):
+            cache.put(svc, bbox, [{"objectid": 1}])
+        cache.put("gravimetria", bbox, [])
+        cache.put("aerogeofisica", bbox, [])
+
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+
+        assert "gravimetria" in builder.empty_sources
+        assert "aerogeofisica" in builder.empty_sources
+
+    @pytest.mark.asyncio
+    async def test_active_service_not_in_empty_sources(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Serviço com ≥1 registro → NÃO aparece em empty_sources."""
+        cache.put("ocorrencias", bbox, [{"objectid": 1}])
+        other_svcs = (
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "gravimetria",
+            "aerogeofisica",
+        )
+        for svc in other_svcs:
+            cache.put(svc, bbox, [])
+
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+
+        assert "ocorrencias" not in builder.empty_sources
+
+    @pytest.mark.asyncio
+    async def test_bbox_filtered_not_in_empty_sources(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """Serviço com registros fora do bbox → bbox_filtered_sources, NÃO empty_sources."""
+        # Registro com coordenadas bem fora do bbox (lon=-30)
+        cache.put("gravimetria", bbox, [{"coordenada": {"longitude": -30.0, "latitude": -1.0}}])
+        active_svcs = (
+            "ocorrencias",
+            "geoquimica",
+            "geocronologia",
+            "litoestratigrafia",
+            "aerogeofisica",
+        )
+        for svc in active_svcs:
+            cache.put(svc, bbox, [{"objectid": i} for i in range(2)])
+
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+
+        assert "gravimetria" in builder.bbox_filtered_sources
+        assert "gravimetria" not in builder.empty_sources
+
+    @pytest.mark.asyncio
+    async def test_empty_sources_reset_between_builds(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        bbox: BoundingBox,
+    ) -> None:
+        """empty_sources é reiniciada a cada chamada a build()."""
+        cache.put("gravimetria", bbox, [])
+        _svcs = ("ocorrencias", "geoquimica", "geocronologia", "litoestratigrafia", "aerogeofisica")
+        for svc in _svcs:
+            cache.put(svc, bbox, [])
+
+        builder = ContextBuilder(mock_connector, cache)
+        await builder.build(bbox)
+        first_empty = list(builder.empty_sources)
+        assert first_empty  # deve ter algo
+
+        # Segunda chamada — agora com dados em gravimetria
+        cache.put("gravimetria", bbox, [{"objectid": 99}])
+        await builder.build(bbox)
+        assert "gravimetria" not in builder.empty_sources

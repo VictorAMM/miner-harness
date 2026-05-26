@@ -75,6 +75,9 @@ class ContextBuilder:
         # Serviços filtrados pelo bbox na última chamada a build()
         # (dados obtidos, mas todos os registros estavam fora do bbox)
         self.bbox_filtered_sources: list[str] = []
+        # Serviços com 0 registros (falha silenciosa ou sem dados na área)
+        # Distinto de bbox_filtered_sources: aqui o fetch retornou lista vazia.
+        self.empty_sources: list[str] = []
         # Truncamentos ocorridos: {service: (original, truncated_to)}
         self.truncation_info: dict[str, tuple[int, int]] = {}
 
@@ -111,6 +114,7 @@ class ContextBuilder:
         cy = (bbox.lat_min + bbox.lat_max) / 2
 
         self.bbox_filtered_sources = []
+        self.empty_sources = []
         self.truncation_info = {}
         context: dict[str, list[dict[str, Any]]] = {}
         for (service, _, _), features in zip(all_services, results, strict=True):
@@ -142,6 +146,20 @@ class ContextBuilder:
                 features = features[:max_records_per_service]
                 self.truncation_info[service] = (original_count, max_records_per_service)
             context[service] = features
+
+        # Serviços core GeoSGB com 0 registros (falha ou sem dados na área)
+        _core_services = set(_SERVICE_METHODS.keys())
+        self.empty_sources = [
+            svc
+            for svc in _core_services
+            if len(context.get(svc, [])) == 0 and svc not in self.bbox_filtered_sources
+        ]
+        if self.empty_sources:
+            logger.info(
+                "context_sources_empty",
+                sources=self.empty_sources,
+                note="fetch retornou 0 registros — sem dados na área ou falha silenciosa",
+            )
 
         total = sum(len(v) for v in context.values())
         sources = sum(1 for v in context.values() if v)
