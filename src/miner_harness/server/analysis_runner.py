@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 from miner_harness.core.types import AnalysisStep, ProspectionReport, StepResult
@@ -24,6 +25,10 @@ class AnalysisRunner(Orchestrator):
 
     def set_channel(self, channel: SseChannel) -> None:
         self._sse_channel: SseChannel | None = channel
+        # ETA tracking: reset per analysis run
+        self._step_durations: list[float] = []
+        self._step_start_t: float | None = None
+        self._run_start_t: float = time.monotonic()
 
     async def analyze_region(
         self,
@@ -75,6 +80,16 @@ class AnalysisRunner(Orchestrator):
         agents = _STEP_AGENTS.get(step, [])
 
         if ch is not None:
+            now = time.monotonic()
+            elapsed_s = round(now - getattr(self, "_run_start_t", now), 1)
+            durations = getattr(self, "_step_durations", [])
+            remaining_steps = len(_STEP_ORDER) - step_index
+            if durations and remaining_steps > 0:
+                avg_dur = sum(durations) / len(durations)
+                eta_s: float | None = round(avg_dur * remaining_steps, 0)
+            else:
+                eta_s = None
+            self._step_start_t = now
             ch.send(
                 "step_start",
                 {
@@ -82,12 +97,20 @@ class AnalysisRunner(Orchestrator):
                     "step_index": step_index,
                     "total_steps": len(_STEP_ORDER),
                     "agents": agents,
+                    "elapsed_s": elapsed_s,
+                    "eta_s": eta_s,
                 },
             )
 
         result = await super()._execute_step(step, geological_data, previous_results, bbox)
 
         if ch is not None:
+            step_end = time.monotonic()
+            step_start = getattr(self, "_step_start_t", step_end)
+            duration = step_end - step_start
+            if not hasattr(self, "_step_durations"):
+                self._step_durations = []
+            self._step_durations.append(duration)
             ch.send(
                 "step_complete",
                 {

@@ -423,3 +423,119 @@ class TestAnalysisRunner:
             result = await runner._execute_step(AnalysisStep.TECTONIC_HISTORY, {}, [])
 
         assert result is mock_result
+
+
+class TestAnalysisRunnerEta:
+    """Testes do campo ETA nos eventos step_start (PRD-005 T2)."""
+
+    def _make_mock_result(self, step: AnalysisStep = AnalysisStep.TECTONIC_HISTORY) -> StepResult:
+        return StepResult(
+            step=step,
+            agent="structural_geologist",
+            summary=".",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=100,
+        )
+
+    @pytest.mark.asyncio
+    async def test_step_start_includes_elapsed_s(self) -> None:
+        """step_start payload deve incluir elapsed_s (segundos desde início da análise)."""
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=self._make_mock_result()),
+        ):
+            await runner._execute_step(AnalysisStep.TECTONIC_HISTORY, {}, [])
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        start_chunk = next((c for c in chunks if "event: step_start" in c), None)
+        assert start_chunk is not None
+        data_line = next(line for line in start_chunk.split("\n") if line.startswith("data: "))
+        payload = json.loads(data_line[len("data: ") :])
+        assert "elapsed_s" in payload
+        assert isinstance(payload["elapsed_s"], (int, float))
+        assert payload["elapsed_s"] >= 0
+
+    @pytest.mark.asyncio
+    async def test_step_start_eta_none_on_first_step(self) -> None:
+        """No primeiro step, eta_s deve ser None (sem histórico de duração)."""
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        with patch.object(
+            Orchestrator,
+            "_execute_step",
+            new=AsyncMock(return_value=self._make_mock_result()),
+        ):
+            await runner._execute_step(AnalysisStep.TECTONIC_HISTORY, {}, [])
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        start_chunk = next((c for c in chunks if "event: step_start" in c), None)
+        assert start_chunk is not None
+        data_line = next(line for line in start_chunk.split("\n") if line.startswith("data: "))
+        payload = json.loads(data_line[len("data: ") :])
+        # Primeiro step: sem histórico → eta_s = None
+        assert payload.get("eta_s") is None
+
+    @pytest.mark.asyncio
+    async def test_step_start_eta_populated_after_first_step(self) -> None:
+        """Após completar o 1º step, o 2º deve ter eta_s calculado."""
+        mock_result_1 = self._make_mock_result(AnalysisStep.TECTONIC_HISTORY)
+        mock_result_2 = self._make_mock_result(AnalysisStep.MAGMATIC_FERTILITY)
+
+        with patch.object(Orchestrator, "__init__", return_value=None):
+            runner = AnalysisRunner(None, None, None, None)
+
+        channel = SseChannel()
+        runner.set_channel(channel)
+
+        results = [mock_result_1, mock_result_2]
+        call_count = 0
+
+        async def fake_execute(_self, step, geo_data, prev, bbox=None):
+            nonlocal call_count
+            result = results[call_count]
+            call_count += 1
+            return result
+
+        with patch.object(Orchestrator, "_execute_step", new=fake_execute):
+            await runner._execute_step(AnalysisStep.TECTONIC_HISTORY, {}, [])
+            await runner._execute_step(AnalysisStep.MAGMATIC_FERTILITY, {}, [])
+
+        channel.close()
+        chunks: list[str] = []
+        async for chunk in channel:
+            chunks.append(chunk)
+
+        # O 2º step_start deve ter eta_s numérico (não None)
+        start_chunks = [c for c in chunks if "event: step_start" in c]
+        assert len(start_chunks) == 2
+
+        data_line_2 = next(
+            line for line in start_chunks[1].split("\n") if line.startswith("data: ")
+        )
+        payload_2 = json.loads(data_line_2[len("data: ") :])
+        assert payload_2.get("eta_s") is not None
+        assert isinstance(payload_2["eta_s"], (int, float))
+        assert payload_2["eta_s"] >= 0
