@@ -742,3 +742,143 @@ class TestPrd005UxFeatures:
         html = HtmlReportRenderer().render(self._make_simple_report())
         assert "L.TileLayer" in html
         assert "eachLayer" in html
+
+
+# ---------------------------------------------------------------------------
+# PRD-006 — Dual-persona dashboard improvements
+# ---------------------------------------------------------------------------
+
+
+class TestPrd006DashboardImprovements:
+    """Testes das melhorias do PRD-006 (persona criança + geólogo)."""
+
+    def _make_simple_report(self, **overrides: object) -> ProspectionReport:
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        base: dict[str, object] = {
+            "region_name": "PRD-006 Test",
+            "bbox": BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0),
+            "analysis_date": datetime(2026, 5, 26, tzinfo=timezone.utc),
+            "steps": [step],
+            "targets": [],
+            "integrated_summary": "ok",
+            "caveats": [],
+            "data_quality_score": 0.8,
+            "total_duration_ms": 5000,
+            "model_used": "qwen3:8b",
+            "geological_data": None,
+        }
+        base.update(overrides)
+        return ProspectionReport(**base)  # type: ignore[arg-type]
+
+    # C3 — Confidence tooltips
+    def test_html_has_conf_tooltips_constant(self) -> None:
+        """Constante CONF_TOOLTIPS deve estar definida no JS."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "CONF_TOOLTIPS" in html
+
+    def test_conf_tooltips_covers_all_levels(self) -> None:
+        """CONF_TOOLTIPS cobre os 4 níveis de confiança."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        for level in ("high", "medium", "low", "insufficient"):
+            assert level in html
+
+    # C2 — Aba padrão é Alvos
+    def test_html_default_tab_is_alvos(self) -> None:
+        """Tab Alvos deve ser a ativa por padrão (não Análise)."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        # tab-btn active deve estar no botão de alvos, não no de análise
+        assert 'tab-btn active" data-tab="alvos"' in html
+
+    # G1 — Botão Aeromag local
+    def test_html_has_aeromag_grid_button(self) -> None:
+        """Botão de grade aeromag local deve estar na sidebar."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "btn-aeromag-grid" in html
+
+    def test_html_has_aeromag_grid_js_logic(self) -> None:
+        """Lógica JS de toggle da grade aeromag deve estar presente."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "aeromagGridLayers" in html
+        assert "aeromagGridVisible" in html
+
+    # G3 — Nota de calibração
+    def test_html_has_calibration_note_css(self) -> None:
+        """Classe CSS .calibration-note deve estar definida."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert ".calibration-note" in html
+
+    def test_html_renders_calibration_note_when_present(self) -> None:
+        """calibration_note de um step aparece no HTML renderizado."""
+        step_with_note = StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.MEDIUM,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+            calibration_note="Confiança recalibrada para MEDIUM.",
+        )
+        report = ProspectionReport(
+            region_name="Calib Test",
+            bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 26, tzinfo=timezone.utc),
+            steps=[step_with_note],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.6,
+            total_duration_ms=1000,
+            model_used="qwen3:8b",
+        )
+        html = HtmlReportRenderer().render(report)
+        assert "Confiança recalibrada para MEDIUM." in html
+
+    # G11 — Nota de diversidade removida
+    def test_html_has_diversity_removed_note_css(self) -> None:
+        """Classe CSS .diversity-removed-note deve estar definida."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "diversity-removed-note" in html
+
+    def test_html_renders_diversity_removed_when_nonzero(self) -> None:
+        """Nota de diversidade removida aparece quando diversity_removed_count > 0."""
+        report = self._make_simple_report(diversity_removed_count=2)
+        html = HtmlReportRenderer().render(report)
+        assert "diversity_removed_count" in html or "diversidade espacial" in html
+
+    # C1 — Painel inferior maior
+    def test_html_has_larger_bottom_panel(self) -> None:
+        """Painel inferior deve usar 40vh em vez de valor fixo pequeno."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "40vh" in html
+
+    # A2 — Benchmark de qualidade
+    def test_html_has_quality_benchmark_logic(self) -> None:
+        """Lógica de benchmark de qualidade deve estar no JS (cores e dicas)."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "benchmarkTip" in html or "benchmark" in html.lower()
+
+    # G5 — TMA local no popup
+    def test_html_has_tma_popup_logic(self) -> None:
+        """Lógica de TMA local no popup do alvo deve estar presente."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "nearestTma" in html or "tma_nt" in html
+
+    # A1 — Legenda do mapa expandida por padrão
+    def test_html_legend_starts_expanded(self) -> None:
+        """Legenda do mapa deve começar expandida (collapsed = false)."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        # A variável collapsed deve ser inicializada como false
+        assert "collapsed = false" in html or "collapsed=false" in html

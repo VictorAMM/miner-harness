@@ -35,7 +35,7 @@
   --p5:        #6b7280;
   --radius:    8px;
   --sidebar-w: 380px;
-  --bottom-h:  300px;
+  --bottom-h:  40vh;
   --header-h:  54px;
 }
 
@@ -135,9 +135,9 @@ aside {
 .sidebar-section:last-child { border-bottom: none; }
 
 .section-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 10px;
@@ -331,6 +331,21 @@ aside {
   background: #1a2332;
 }
 
+/* Aeromag local — legenda de gradiente */
+.aeromag-gradient-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #2563eb, #ffffff, #dc2626);
+  margin: 3px 0 1px;
+}
+.aeromag-gradient-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
 /* Leaflet popup dark theme */
 .leaflet-popup-content-wrapper {
   background: var(--bg-card) !important;
@@ -506,15 +521,16 @@ aside {
 .meta-block .meta-label { color: var(--text-muted); margin-bottom: 2px; }
 .meta-block .meta-vals { color: var(--text); }
 .reasoning-toggle {
-  font-size: 10px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--accent);
   cursor: pointer;
   padding: 3px 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  opacity: 0.8;
 }
-.reasoning-toggle:hover { color: var(--accent); }
+.reasoning-toggle:hover { opacity: 1; }
 .reasoning-text {
   display: none;
   margin-top: 6px;
@@ -527,6 +543,33 @@ aside {
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* G3 — Nota de recalibração de confiança */
+.calibration-note {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.08);
+  border-left: 3px solid #fbbf24;
+  border-radius: 0 4px 4px 0;
+  padding: 4px 8px;
+  line-height: 1.4;
+}
+.calibration-note::before {
+  content: "⚠ ";
+  font-weight: 700;
+}
+
+/* G11 — Banner de diversidade removida */
+.diversity-removed-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(148,163,184,0.08);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
 }
 
 /* ================================================================
@@ -850,6 +893,7 @@ aside {
             <button class="ctrl-btn" id="btn-usgs" title="Eventos sísmicos USGS">🌋 USGS</button>
             <button class="ctrl-btn" id="btn-prospect" title="Heatmap de prospectividade (weighted overlay: ocorrências + Bouguer + geoquímica + estrutural)">🎯 Prospectividade</button>
             <button class="ctrl-btn" id="btn-bouguer" title="Gradiente horizontal do campo Bouguer — lineamentos gravimétricas (HGM)">🌐 Bouguer HGM</button>
+            <button class="ctrl-btn" id="btn-aeromag-grid" title="Grade local de Anomalia Magnética Total (AeromagConnector — dados amostrados na sessão, proxy RGB)">🧲 Aeromag local</button>
           </div>
         </div>
       </div>
@@ -951,15 +995,15 @@ aside {
   <!-- BOTTOM PANEL — TABS -->
   <div class="bottom-panel" id="bottom-panel">
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="analise">📊 Análise</button>
-    <button class="tab-btn" data-tab="alvos">🎯 Alvos</button>
+    <button class="tab-btn" data-tab="analise">📊 Análise</button>
+    <button class="tab-btn active" data-tab="alvos">🎯 Alvos</button>
     <button class="tab-btn" data-tab="qualidade">📈 Qualidade</button>
     <button class="tab-btn" data-tab="dados">🗂️ Dados</button>
-    <button class="tab-btn" data-tab="json">📋 Exportar</button>
+    <button class="tab-btn" data-tab="json">📥 Exportar</button>
   </div>
   <div class="tab-contents">
-    <div class="tab-pane active" id="tab-analise"></div>
-    <div class="tab-pane" id="tab-alvos"></div>
+    <div class="tab-pane" id="tab-analise"></div>
+    <div class="tab-pane active" id="tab-alvos"></div>
     <div class="tab-pane" id="tab-qualidade"></div>
     <div class="tab-pane" id="tab-dados"></div>
     <div class="tab-pane" id="tab-json"></div>
@@ -990,6 +1034,12 @@ let CURRENT_REPORT = REPORT;
 // ============================================================
 const CONF_COLORS = {high:'#22c55e', medium:'#eab308', low:'#f97316', insufficient:'#ef4444'};
 const CONF_LABELS = {high:'ALTA', medium:'MÉDIA', low:'BAIXA', insufficient:'INSUF.'};
+const CONF_TOOLTIPS = {
+  high: 'Confiança alta — dados suficientes e derivadas computadas presentes',
+  medium: 'Confiança média — cobertura parcial de dados geofísicos/geoquímicos',
+  low: 'Confiança baixa — dados insuficientes para conclusão robusta',
+  insufficient: 'Dados insuficientes — este passo não pode ser avaliado de forma confiável',
+};
 const CONF_SCORES = {high:3, medium:2, low:1, insufficient:0};
 const PRIORITY_COLORS = ['','#ef4444','#f97316','#eab308','#3b82f6','#6b7280'];
 
@@ -1025,6 +1075,30 @@ const STEP_NAMES = {
 };
 
 function stepName(s) { return STEP_NAMES[s] || s; }
+
+// G1/G5 — Aeromag local helpers
+function _tmaColor(value, minVal, maxVal) {
+  // Blue (baixo) → branco (médio) → vermelho (alto)
+  var range = maxVal - minVal || 1;
+  var t = Math.max(0, Math.min(1, (value - minVal) / range));
+  if (t < 0.5) {
+    var f = Math.round(t * 2 * 255);
+    return 'rgb(' + f + ',' + f + ',255)';
+  } else {
+    var f2 = Math.round((1 - (t - 0.5) * 2) * 255);
+    return 'rgb(255,' + f2 + ',' + f2 + ')';
+  }
+}
+function _nearestAeromagTma(lon, lat, grid) {
+  if (!grid || !grid.length) return null;
+  var best = null, bestDist = Infinity;
+  grid.forEach(function(p) {
+    var dx = p.lon - lon, dy = p.lat - lat;
+    var d = dx * dx + dy * dy;
+    if (d < bestDist) { bestDist = d; best = p; }
+  });
+  return best;
+}
 function durFmt(ms) {
   if (ms < 1000) return ms + 'ms';
   if (ms < 60000) return (ms/1000).toFixed(1) + 's';
@@ -1101,8 +1175,8 @@ function renderHeader(r) {
     const total = KNOWN_GEO_SOURCES.length;
     const available = total - missing.length;
     document.getElementById('coverage-banner-text').textContent =
-      missing.length + ' de ' + total + ' fontes indisponíveis: ' + missing.join(', ') +
-      '. Resultados baseados em dados parciais — interpretar com cautela.';
+      missing.length + ' de ' + total + ' fontes sem dados na área: ' + missing.join(', ') +
+      '. Confiança dos passos geofísicos/geoquímicos pode estar limitada — revisar badges ⚠ nos steps.';
     document.getElementById('coverage-banner-hint').textContent =
       '💡 Dica: re-execute o comando ou use --min-sources ' + available +
       ' para aceitar estes dados parciais.';
@@ -1156,12 +1230,21 @@ function renderQualityDonut(r) {
        </div>`
     : '';
 
+  // A2 — benchmark contextual (<60% baixa, 60-80% média, >80% alta)
+  var qPct = Math.round(q * 100);
+  var benchmarkTip = qPct >= 80 ? '✓ acima do limiar de alta confiança'
+    : qPct >= 60 ? '△ acima do limiar de confiança média (>80% para alta)'
+    : '✗ abaixo do limiar mínimo (<60% — interpretar com cautela)';
+  var benchmarkColor = qPct >= 80 ? '#22c55e' : qPct >= 60 ? '#eab308' : '#ef4444';
+
   document.getElementById('quality-meta').innerHTML = `
     <div class="q-row"><span class="q-label">Data:</span><span class="q-val">${date}</span></div>
     <div class="q-row"><span class="q-label">Modelo:</span><span class="q-val">${r.model_used}</span></div>
     <div class="q-row"><span class="q-label">Duração:</span><span class="q-val">${totalDur}</span></div>
     <div class="q-row"><span class="q-label">Alvos:</span><span class="q-val">${r.targets.length}</span></div>
     <div class="q-row"><span class="q-label">Passos:</span><span class="q-val">${r.steps.length}</span></div>
+    <div class="q-row" title="${benchmarkTip}"><span class="q-label">Nível:</span>
+      <span class="q-val" style="color:${benchmarkColor}">${benchmarkTip}</span></div>
     ${mlRow}
   `;
 }
@@ -1209,6 +1292,10 @@ let bouguerLayers = [];
 let bouguerVisible = true;
 let userDhLayers = [];
 let userDhVisible = true;
+
+// Grade local de TMA — AeromagConnector
+let aeromagGridLayers = [];
+let aeromagGridVisible = true;
 
 // Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
 const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
@@ -1295,16 +1382,35 @@ function buildPopup(t) {
   const color = PRIORITY_COLORS[t.priority] || '#6b7280';
   const cColor = CONF_COLORS[t.confidence] || '#6b7280';
   const cLabel = CONF_LABELS[t.confidence] || t.confidence;
+  const cTip = CONF_TOOLTIPS[t.confidence] || '';
   const comms = (t.commodities || []).join(', ');
   const followup = (t.recommended_followup || []).slice(0, 3).join(' · ');
   const rationale = (t.rationale || '').slice(0, 500);
+
+  // G5 — TMA local: busca célula mais próxima da grade aeromag
+  const aeroGrid = (CURRENT_REPORT.geological_data || {})['aeromag_grid'] || [];
+  const nearestTma = _nearestAeromagTma(t.longitude, t.latitude, aeroGrid);
+  const tmaRow = nearestTma != null
+    ? `<div class="popup-row"><span class="popup-label">TMA local:</span>
+         <span class="popup-val">${nearestTma.tma_nt.toFixed(1)} <span style="font-size:10px;color:#94a3b8">(proxy RGB)</span></span></div>`
+    : '';
+
+  // Score de prospectividade
+  const pScore = t.prospectivity_score != null
+    ? `<div class="popup-row"><span class="popup-label">Prosp. score:</span>
+         <span class="popup-val">${t.prospectivity_score.toFixed(0)}/100</span></div>`
+    : '';
+
   return `<div>
     <div class="popup-title" style="color:${color}">P${t.priority} — ${t.name}</div>
     <div class="popup-row"><span class="popup-label">Sistema:</span><span class="popup-val">${t.mineral_system}</span></div>
     <div class="popup-row"><span class="popup-label">Commodities:</span><span class="popup-val">${comms}</span></div>
-    <div class="popup-row"><span class="popup-label">Raio de interesse:</span><span class="popup-val">${t.radius_km} km</span></div>
+    <div class="popup-row"><span class="popup-label">Raio:</span><span class="popup-val">${t.radius_km} km</span></div>
     <div class="popup-row"><span class="popup-label">Confiança:</span>
-      <span class="popup-val t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span></div>
+      <span class="popup-val t-conf-badge" title="${cTip}"
+            style="background:${cColor}22;color:${cColor}">${cLabel}</span></div>
+    ${tmaRow}
+    ${pScore}
     <div class="popup-row"><span class="popup-label">Coord:</span>
       <span class="popup-val">${t.latitude.toFixed(4)}, ${t.longitude.toFixed(4)}</span></div>
     ${followup ? `<div class="popup-row"><span class="popup-label">Follow-up:</span><span class="popup-val">${followup}</span></div>` : ''}
@@ -1336,6 +1442,9 @@ function renderMapForReport(r) {
   furosLayers = [];
   userDhLayers.forEach(function(l) { map.removeLayer(l); });
   userDhLayers = [];
+  aeromagGridLayers.forEach(function(l) { map.removeLayer(l); });
+  aeromagGridLayers = [];
+  aeromagGridVisible = true;
 
   // Adicionar novo bbox
   const bbox = r.bbox;
@@ -1360,6 +1469,7 @@ function renderMapForReport(r) {
   var btnProspect = document.getElementById('btn-prospect');
   var btnBouguer = document.getElementById('btn-bouguer');
   var btnUserDh = document.getElementById('btn-user-dh');
+  var btnAeromagGrid = document.getElementById('btn-aeromag-grid');
   if (btnAnm) btnAnm.classList.remove('inactive');
   if (btnUsgs) btnUsgs.classList.remove('inactive');
   if (btnOcorr) btnOcorr.classList.remove('inactive');
@@ -1776,6 +1886,43 @@ function setupMapControls(bboxBounds) {
     };
   }
 
+  // G1 — Grade local TMA (AeromagConnector) — renderização e handler
+  var aeromagGridData = (r.geological_data || {})['aeromag_grid'] || [];
+  if (aeromagGridData.length > 0) {
+    var tmaValues = aeromagGridData.map(function(p) { return p.tma_nt; });
+    var tmaMin = Math.min.apply(null, tmaValues);
+    var tmaMax = Math.max.apply(null, tmaValues);
+    aeromagGridData.forEach(function(p) {
+      var c = _tmaColor(p.tma_nt, tmaMin, tmaMax);
+      var popup = '<b style="color:#93c5fd">🧲 TMA local</b><br>' +
+        'Valor: <b>' + p.tma_nt.toFixed(1) + '</b>' +
+        '<br><span style="color:#94a3b8;font-size:0.82em">proxy RGB (luminância)</span>' +
+        '<br><span style="color:#94a3b8;font-size:0.82em">Coord: ' +
+        p.lat.toFixed(4) + ', ' + p.lon.toFixed(4) + '</span>';
+      var mk = L.circleMarker([p.lat, p.lon], {
+        radius: 5, color: c, fillColor: c, fillOpacity: 0.75, weight: 1,
+      }).bindPopup(popup);
+      mk.addTo(map);
+      aeromagGridLayers.push(mk);
+    });
+    if (btnAeromagGrid) btnAeromagGrid.classList.remove('inactive');
+  } else {
+    if (btnAeromagGrid) btnAeromagGrid.classList.add('inactive');
+  }
+
+  if (btnAeromagGrid) {
+    btnAeromagGrid.onclick = function() {
+      if (aeromagGridVisible) {
+        aeromagGridLayers.forEach(function(l) { map.removeLayer(l); });
+        this.classList.add('inactive');
+      } else {
+        aeromagGridLayers.forEach(function(l) { l.addTo(map); });
+        if (aeromagGridLayers.length) this.classList.remove('inactive');
+      }
+      aeromagGridVisible = !aeromagGridVisible;
+    };
+  }
+
   // Atlas Aerogeofísico — toggle handlers
   var btnMag = document.getElementById('btn-atlas-mag');
   if (btnMag) {
@@ -1854,7 +2001,7 @@ function setupMapControls(bboxBounds) {
         'cursor:pointer',
       ].join(';');
 
-      var collapsed = true;
+      var collapsed = false;
       function render() {
         if (collapsed) {
           div.innerHTML = '<span style="color:#f59e0b;font-weight:700">⛏ Legenda</span> <span style="color:#94a3b8;font-size:10px">▲ expandir</span>';
@@ -1919,11 +2066,13 @@ function renderTargetsList(r) {
     const item = document.createElement('div');
     item.className = 'target-item';
     item.dataset.targetIdx = idx;
+    const cTip = CONF_TOOLTIPS[t.confidence] || '';
     item.innerHTML = `
       <div class="t-header">
         <div class="t-priority" style="background:${color}">P${t.priority}</div>
         <div class="t-name">${t.name}</div>
-        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span>
+        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}"
+              title="${cTip}">${cLabel}</span>
       </div>
       <div class="t-sub">${comms} · ${t.mineral_system}</div>
       <button class="btn-fly" onclick="flyToTarget(${idx})">📍 Ver no mapa</button>
@@ -2037,7 +2186,14 @@ function renderAnaliseTab(r) {
       : '<div style="color:var(--text-muted);font-size:11px">Sem achados.</div>';
 
     const isWarn = conf === 'low' || conf === 'insufficient';
-    const warnIcon = isWarn ? '<span class="step-warn-icon" title="Confiança baixa — dados insuficientes neste passo">⚠</span>' : '';
+    const cTipStep = CONF_TOOLTIPS[conf] || '';
+    const warnIcon = isWarn ? '<span class="step-warn-icon" title="Confiança baixa — ver nota de recalibração abaixo">⚠</span>' : '';
+
+    // G3 — nota de recalibração separada dos data_gaps
+    const calibNote = step.calibration_note || '';
+    const calibHtml = calibNote
+      ? `<div class="calibration-note">${esc(calibNote)}</div>`
+      : '';
 
     const acc = document.createElement('div');
     acc.className = 'step-accordion' + (isWarn ? ' step-accordion--warn' : '');
@@ -2046,12 +2202,14 @@ function renderAnaliseTab(r) {
         <span class="step-chevron">▶</span>
         ${warnIcon}<span class="step-name">${sName}</span>
         <span class="step-agent">${agent}</span>
-        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}">${cLabel}</span>
+        <span class="t-conf-badge" style="background:${cColor}22;color:${cColor}"
+              title="${cTipStep}">${cLabel}</span>
         <span style="font-size:10px;color:var(--text-muted);margin-left:4px">${dur}</span>
       </div>
       <div class="step-body" data-si="${si}">
         <div class="step-summary">${esc(step.summary || '')}</div>
         <div class="step-findings">${findingsHtml}</div>
+        ${calibHtml}
         <div class="step-meta">
           <div class="meta-block">
             <div class="meta-label">Fontes usadas</div>
@@ -2127,6 +2285,17 @@ function renderAlvosTab(r) {
   if (r.targets.length === 0) {
     pane.innerHTML = '<div class="empty-state">Sem alvos identificados no relatório.</div>';
     return;
+  }
+
+  // G11 — nota de alvos removidos por diversidade espacial
+  const divRemoved = r.diversity_removed_count || 0;
+  if (divRemoved > 0) {
+    const divNote = document.createElement('div');
+    divNote.className = 'diversity-removed-note';
+    divNote.innerHTML = `ℹ️ ${divRemoved} alvo(s) próximo(s) removido(s) por diversidade espacial ` +
+      `(distância &lt;15 km de alvo de maior prioridade). ` +
+      `Regiões com múltiplos alvos próximos indicam maior incerteza geológica.`;
+    pane.appendChild(divNote);
   }
 
   // Contexto executivo acima dos cards de alvos

@@ -270,8 +270,10 @@ class Orchestrator:
 
         # 4. Extrair targets do resultado do Evaluator
         raw_targets = self._extract_targets(step_results)
-        targets = self._validate_target_coords(raw_targets, bbox)
-        targets = self._assign_prospectivity_scores(targets, geological_data)
+        validated = self._validate_target_coords(raw_targets, bbox)
+        diverse = self._enforce_target_diversity(validated)
+        diversity_removed = len(validated) - len(diverse)
+        targets = self._assign_prospectivity_scores(diverse, geological_data)
 
         # 5. Montar relatório
         total_ms = int((time.monotonic() - start) * 1000)
@@ -289,6 +291,7 @@ class Orchestrator:
             missing_sources=[k for k in unavailable if k not in bbox_filtered],
             bbox_filtered_sources=list(bbox_filtered),
             geological_data=geological_data,
+            diversity_removed_count=diversity_removed,
         )
 
         logger.info(
@@ -358,10 +361,10 @@ class Orchestrator:
             step, result.confidence, effective_data
         )
         if calibrated_conf != original_conf:
-            gaps = list(result.data_gaps)
+            update: dict[str, Any] = {"confidence": calibrated_conf}
             if calib_note:
-                gaps.append(calib_note)
-            result = result.model_copy(update={"confidence": calibrated_conf, "data_gaps": gaps})
+                update["calibration_note"] = calib_note
+            result = result.model_copy(update=update)
             logger.info(
                 "confidence_calibrated",
                 step=step.value,
@@ -499,13 +502,14 @@ class Orchestrator:
 
         Usa os targets estruturados que o EvaluatorAgent extraiu do JSON do LLM.
         Cai para _findings_to_targets() apenas se o LLM não retornou targets válidos.
-        Aplica deduplicação geoespacial para remover alvos sobrepostos.
+        Aplica deduplicação geoespacial (10 km) mas NÃO diversidade espacial —
+        ``_enforce_target_diversity`` é chamado separadamente no fluxo principal
+        para permitir a contagem de alvos removidos.
         """
         for result in step_results:
             if result.step == AnalysisStep.TOTAL_INTEGRATION:
                 if result.targets:
-                    deduped = Orchestrator._dedup_targets(result.targets)
-                    return Orchestrator._enforce_target_diversity(deduped)
+                    return Orchestrator._dedup_targets(result.targets)
                 return Orchestrator._findings_to_targets(result)
         return []
 

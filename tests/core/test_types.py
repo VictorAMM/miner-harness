@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from miner_harness.core.types import (
@@ -12,6 +14,7 @@ from miner_harness.core.types import (
     FuroSondagem,
     MineralTarget,
     OcorrenciaMineral,
+    ProspectionReport,
     StepResult,
 )
 
@@ -244,3 +247,113 @@ class TestFuroSondagem:
         data = furo.model_dump()
         restored = FuroSondagem.model_validate(data)
         assert restored == furo
+
+
+# ---------------------------------------------------------------------------
+# PRD-006 — calibration_note + diversity_removed_count
+# ---------------------------------------------------------------------------
+
+
+class TestStepResultCalibrationNote:
+    """Testes PRD-006: campo calibration_note no StepResult."""
+
+    def _make_step_result(self, **overrides: object) -> StepResult:
+        base: dict[str, object] = {
+            "step": AnalysisStep.TECTONIC_HISTORY,
+            "agent": "structural_geologist",
+            "summary": "Região arqueana.",
+            "findings": ["Cráton Amazônico"],
+            "confidence": Confidence.HIGH,
+            "data_sources_used": ["litoestratigrafia"],
+            "data_gaps": [],
+            "raw_reasoning": "...",
+            "duration_ms": 1000,
+        }
+        base.update(overrides)
+        return StepResult(**base)  # type: ignore[arg-type]
+
+    def test_calibration_note_defaults_to_none(self) -> None:
+        """calibration_note deve ser None por padrão."""
+        result = self._make_step_result()
+        assert result.calibration_note is None
+
+    def test_calibration_note_stores_value(self) -> None:
+        """calibration_note armazena nota do ConfidenceCalibrator."""
+        note = "Confiança recalibrada para LOW: cobertura de dados < 50%."
+        result = self._make_step_result(calibration_note=note)
+        assert result.calibration_note == note
+
+    def test_calibration_note_roundtrip(self) -> None:
+        """calibration_note sobrevive a serialização model_dump/model_validate."""
+        note = "Nota de calibração de confiança."
+        result = self._make_step_result(calibration_note=note)
+        data = result.model_dump()
+        restored = StepResult.model_validate(data)
+        assert restored.calibration_note == note
+
+    def test_calibration_note_not_in_data_gaps(self) -> None:
+        """calibration_note NÃO deve aparecer em data_gaps."""
+        note = "Confiança recalibrada de HIGH para MEDIUM."
+        result = self._make_step_result(calibration_note=note, data_gaps=["lacuna A"])
+        assert note not in result.data_gaps
+        assert result.data_gaps == ["lacuna A"]
+
+
+class TestProspectionReportDiversityCount:
+    """Testes PRD-006: campo diversity_removed_count no ProspectionReport."""
+
+    def _make_report(self, **overrides: object) -> ProspectionReport:
+        step = StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="geo",
+            summary="s",
+            findings=[],
+            confidence=Confidence.LOW,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        target = MineralTarget(
+            name="Alvo A",
+            longitude=-50.0,
+            latitude=-6.0,
+            radius_km=5.0,
+            commodities=["Cu"],
+            mineral_system="IOCG",
+            confidence=Confidence.MEDIUM,
+            priority=1,
+            rationale="teste",
+            recommended_followup=[],
+        )
+        base: dict[str, object] = {
+            "region_name": "Carajás",
+            "bbox": BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
+            "analysis_date": datetime.now(tz=timezone.utc),
+            "steps": [step],
+            "targets": [target],
+            "integrated_summary": "Sumário.",
+            "caveats": [],
+            "data_quality_score": 0.7,
+            "total_duration_ms": 5000,
+            "model_used": "qwen3:8b",
+        }
+        base.update(overrides)
+        return ProspectionReport(**base)  # type: ignore[arg-type]
+
+    def test_diversity_removed_count_defaults_to_zero(self) -> None:
+        """diversity_removed_count deve ser 0 por padrão."""
+        report = self._make_report()
+        assert report.diversity_removed_count == 0
+
+    def test_diversity_removed_count_stores_value(self) -> None:
+        """diversity_removed_count armazena contagem de alvos removidos."""
+        report = self._make_report(diversity_removed_count=3)
+        assert report.diversity_removed_count == 3
+
+    def test_diversity_removed_count_roundtrip(self) -> None:
+        """diversity_removed_count sobrevive a serialização."""
+        report = self._make_report(diversity_removed_count=2)
+        data = report.model_dump()
+        restored = ProspectionReport.model_validate(data)
+        assert restored.diversity_removed_count == 2

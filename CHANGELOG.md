@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.7.0] — 2026-05-26
+
+### Adicionado — PRD-006 Dual-Persona Dashboard Improvements
+
+#### Dashboard HTML (persona criança + Dr. Augusto Valen)
+
+- **C1 — Painel inferior expandido**: altura de `300px` → `40vh` para melhor leitura de mapas
+  em telas médias.
+- **C2 — Aba padrão Alvos**: tab `🎯 Alvos` abre por padrão (era `📊 Análise`), colocando os
+  resultados mais importantes em primeiro plano.
+- **C3 — Tooltips de confiança**: constante `CONF_TOOLTIPS` com descrição contextual para cada
+  nível (`high`, `medium`, `low`, `insufficient`) exibida ao passar o mouse sobre badges.
+- **C4 — Banner de cobertura aprimorado**: texto atualizado para mencionar badges ⚠ nos steps.
+- **A1 — Legenda do mapa expandida por padrão**: `collapsed = false` — legenda visível sem
+  clique extra.
+- **A2 — Benchmark de qualidade**: indicador de referência no donut de qualidade (≥80 % verde,
+  60–80 % amarelo, <60 % vermelho) com dica textual contextual.
+- **G1 — Grade Aeromag local**: botão `🧲 Aeromag local` em Camadas de Dados; renderiza pontos
+  da `aeromag_grid` coloridos por gradiente azul→branco→vermelho (TMA mínimo→máximo);
+  toggle on/off; helper `_tmaColor()` e `_nearestAeromagTma()`.
+- **G3 — Nota de calibração visível**: `calibration_note` do `StepResult` exibida abaixo dos
+  achados de cada step com estilo âmbar (`::before "⚠ "`).
+- **G5 — TMA local no popup do alvo**: valor TMA mais próximo (proxy RGB) exibido no popup do
+  marcador do alvo quando `aeromag_grid` está disponível.
+- **G11 — Nota de diversidade removida**: quando `diversity_removed_count > 0`, nota
+  informativa aparece na aba Alvos explicando quantos alvos próximos foram suprimidos.
+
+#### Tipos de Domínio
+
+- `StepResult` ganha campo `calibration_note: str | None` — nota do `ConfidenceCalibrator`
+  quando a confiança é recalibrada; antes era concatenada em `data_gaps`.
+- `ProspectionReport` ganha campo `diversity_removed_count: int` — quantidade de alvos
+  removidos por `_enforce_target_diversity()` (<15 km de alvo de maior prioridade).
+
+#### Orquestrador
+
+- `ConfidenceCalibrator.calibrate()` → nota agora armazenada em `calibration_note`, não em
+  `data_gaps`.
+- `diversity_removed_count` calculado como `len(validated) - len(diverse)` em `analyze_region()`
+  e propagado para `ProspectionReport`.
+
+### Testes
+
+- 7 novos testes em `tests/core/test_types.py`:
+  `TestStepResultCalibrationNote` (4) + `TestProspectionReportDiversityCount` (3)
+- 4 novos testes em `tests/orchestrator/test_orchestrator.py`:
+  `TestCalibrationNoteInExecuteStep` (2) + `TestDiversityRemovedCountInReport` (2)
+- 13 novos testes em `tests/report/test_renderer.py`:
+  `TestPrd006DashboardImprovements` (13)
+- Suite total: **1 421 testes**, 65 skipped
+
+---
+
 ## [1.6.1] — 2026-05-26
 
 ### Corrigido — AeromagConnector (validação real Carajás)

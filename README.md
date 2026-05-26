@@ -3,7 +3,7 @@
 [![CI](https://github.com/VictorAMM/miner-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/VictorAMM/miner-harness/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.6.1-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-green.svg)](CHANGELOG.md)
 
 Sistema de prospecção mineral inteligente que utiliza agentes de IA especializados em geologia e
 geofísica para analisar dados públicos do GeoSGB (Serviço Geológico do Brasil), ANM e USGS.

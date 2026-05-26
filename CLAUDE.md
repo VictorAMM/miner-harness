@@ -118,9 +118,11 @@ PRD-004 T5 Prospectivity Score — MineralTarget.prospectivity_score: float | No
 PRD-005 T1 Button Groups — 3 grupos colapsáveis no mapa (📍 Navegação, 🗂 Camadas de Dados, 🛰 Atlas SGB/CPRM) com toggleMapGroup() JS; Atlas inicia colapsado ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
 PRD-005 T2 ETA Progress — AnalysisRunner rastreia durações por step; step_start inclui elapsed_s + eta_s; overlay exibe "⏱ ~X min restantes" ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
 PRD-005 T3 Offline Mode — botão 🗺 Modo Offline no grupo Navegação; toggleOfflineMode() remove tile layers externos mantendo marcadores/WMS ✅ CONCLUÍDA (2026-05-26) [v1.6.0]
+Aeromag Hotfix v1.6.1 — URL REST API corrigida (/server/rest/services/); parsing RGB pixel (luminância 0.299R+0.587G+0.114B); 5 novos testes ✅ CONCLUÍDA (2026-05-26) [v1.6.1]
+PRD-006 Dual-Persona Dashboard — 13 melhorias: aeromag local layer, TMA popup, CONF_TOOLTIPS, calibration_note, diversity_removed_count, painel 40vh, aba padrão Alvos, benchmark qualidade, legenda expandida, banner cobertura. StepResult.calibration_note + ProspectionReport.diversity_removed_count. 24 novos testes ✅ CONCLUÍDA (2026-05-26) [v1.7.0]
 ```
 
-**Status**: v1.6.0 em produção. PRD-004 (qualidade) + PRD-005 (UX) entregues. Suite: 1 392 testes, 0 missing statements.
+**Status**: v1.7.0 em produção. PRD-004 + PRD-005 + PRD-006 entregues. Suite: 1 421 testes, 0 missing statements.
 
 ## Grafo de Rastreabilidade
 

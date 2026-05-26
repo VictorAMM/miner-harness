@@ -1761,3 +1761,182 @@ class TestAssignProspectivityScores:
         result = Orchestrator._assign_prospectivity_scores([target], geo_data)
         # Sem células válidas → score permanece None
         assert result[0].prospectivity_score is None
+
+
+# ---------------------------------------------------------------------------
+# PRD-006 — calibration_note e diversity_removed_count
+# ---------------------------------------------------------------------------
+
+
+def _make_step_result_for_prd006(
+    step: AnalysisStep,
+    agent: str,
+    confidence: Confidence,
+    *,
+    calibration_note: str | None = None,
+) -> StepResult:
+    return StepResult(
+        step=step,
+        agent=agent,
+        summary="summary",
+        findings=["finding"],
+        confidence=confidence,
+        data_sources_used=["ocorrencias"],
+        data_gaps=[],
+        raw_reasoning="reasoning",
+        duration_ms=100,
+        calibration_note=calibration_note,
+    )
+
+
+class TestCalibrationNoteInExecuteStep:
+    """PRD-006: calibration_note armazenado em StepResult, não em data_gaps."""
+
+    def _make_orchestrator(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> Orchestrator:
+        cfg = MinerHarnessConfig(orchestrator=OrchestratorConfig(use_rag=False))
+        return Orchestrator(mock_connector, cache, mock_llm, cfg)
+
+    async def test_calibration_note_stored_in_field(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """Quando ConfidenceCalibrator recalibra confiança, nota vai para
+        calibration_note — não para data_gaps."""
+        from miner_harness.agents.base import BaseAgent
+
+        orch = self._make_orchestrator(mock_connector, cache, mock_llm)
+        geo_data = {
+            k: [{"objectid": 1}]
+            for k in [
+                "ocorrencias",
+                "gravimetria",
+                "geoquimica",
+                "geocronologia",
+                "litoestratigrafia",
+                "aerogeofisica",
+            ]
+        }
+
+        expected_note = "Confiança recalibrada: cobertura de dados insuficiente."
+
+        async def fake_analyze(self_agent, step, data, prev, bbox=None):  # noqa: ANN001
+            return _make_step_result_for_prd006(step, self_agent.name, Confidence.HIGH)
+
+        original = BaseAgent.analyze
+        BaseAgent.analyze = fake_analyze
+        try:
+            with patch(
+                "miner_harness.orchestrator.confidence_calibrator.ConfidenceCalibrator",
+            ) as mock_calib:
+                mock_calib.return_value.calibrate.return_value = (
+                    Confidence.MEDIUM,
+                    expected_note,
+                )
+                result = await orch._execute_step(AnalysisStep.TECTONIC_HISTORY, geo_data, [])
+        finally:
+            BaseAgent.analyze = original
+
+        assert result.calibration_note == expected_note
+        assert expected_note not in result.data_gaps
+        assert result.confidence == Confidence.MEDIUM
+
+    async def test_no_recalibration_leaves_note_none(
+        self,
+        mock_connector: MagicMock,
+        cache: CacheManager,
+        mock_llm: MagicMock,
+    ) -> None:
+        """Sem recalibração (confiança inalterada), calibration_note permanece None."""
+        from miner_harness.agents.base import BaseAgent
+
+        orch = self._make_orchestrator(mock_connector, cache, mock_llm)
+        geo_data = {
+            k: [{"objectid": 1}]
+            for k in [
+                "ocorrencias",
+                "gravimetria",
+                "geoquimica",
+                "geocronologia",
+                "litoestratigrafia",
+                "aerogeofisica",
+            ]
+        }
+
+        async def fake_analyze(self_agent, step, data, prev, bbox=None):  # noqa: ANN001
+            return _make_step_result_for_prd006(step, self_agent.name, Confidence.MEDIUM)
+
+        original = BaseAgent.analyze
+        BaseAgent.analyze = fake_analyze
+        try:
+            with patch(
+                "miner_harness.orchestrator.confidence_calibrator.ConfidenceCalibrator",
+            ) as mock_calib:
+                # Calibrator retorna MESMA confiança → sem recalibração
+                mock_calib.return_value.calibrate.return_value = (Confidence.MEDIUM, None)
+                result = await orch._execute_step(AnalysisStep.TECTONIC_HISTORY, geo_data, [])
+        finally:
+            BaseAgent.analyze = original
+
+        assert result.calibration_note is None
+
+
+class TestDiversityRemovedCountInReport:
+    """PRD-006: diversity_removed_count reflete alvos removidos por proximidade."""
+
+    def test_count_reflects_removed_targets(self) -> None:
+        """len(validated) - len(diverse) é capturado corretamente."""
+
+        # Dois alvos próximos: enforcement remove 1
+        def _tgt(name: str, lon: float, lat: float, priority: int) -> MineralTarget:
+            return MineralTarget(
+                name=name,
+                longitude=lon,
+                latitude=lat,
+                radius_km=5.0,
+                commodities=["Au"],
+                mineral_system="IOCG",
+                confidence=Confidence.MEDIUM,
+                priority=priority,
+                rationale="test",
+                recommended_followup=[],
+            )
+
+        close_pair = [
+            _tgt("P1", -50.0, -6.0, 1),
+            _tgt("P2", -50.05, -6.0, 2),  # ~5 km de P1 — será removido
+        ]
+        diverse = Orchestrator._enforce_target_diversity(close_pair, min_km=15.0)
+        removed_count = len(close_pair) - len(diverse)
+        assert removed_count == 1
+
+    def test_count_zero_when_all_kept(self) -> None:
+        """Quando nenhum alvo é removido, contagem deve ser 0."""
+
+        def _tgt(name: str, lon: float, lat: float, priority: int) -> MineralTarget:
+            return MineralTarget(
+                name=name,
+                longitude=lon,
+                latitude=lat,
+                radius_km=5.0,
+                commodities=["Au"],
+                mineral_system="IOCG",
+                confidence=Confidence.MEDIUM,
+                priority=priority,
+                rationale="test",
+                recommended_followup=[],
+            )
+
+        distant_pair = [
+            _tgt("A", -51.0, -6.0, 1),
+            _tgt("B", -50.0, -6.0, 2),  # ~110 km — ambos mantidos
+        ]
+        diverse = Orchestrator._enforce_target_diversity(distant_pair, min_km=15.0)
+        removed_count = len(distant_pair) - len(diverse)
+        assert removed_count == 0

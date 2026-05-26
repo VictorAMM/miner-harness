@@ -273,6 +273,13 @@ class StepResult(BaseModel):
     raw_reasoning: str
     duration_ms: int
     targets: list[MineralTarget] = Field(default_factory=list)
+    calibration_note: str | None = Field(
+        default=None,
+        description=(
+            "Nota do ConfidenceCalibrator quando a confiança foi "
+            "recalibrada por cobertura insuficiente de dados."
+        ),
+    )
 
 
 class MineralTarget(BaseModel):
@@ -338,4 +345,11 @@ class ProspectionReport(BaseModel):
     geological_data: dict[str, list[dict[str, Any]]] | None = Field(
         default=None,
         description="Dados brutos usados na análise (opcional, para visualização no dashboard)",
+    )
+    diversity_removed_count: int = Field(
+        default=0,
+        description=(
+            "Número de alvos removidos por diversidade espacial "
+            "(<15 km de alvo de maior prioridade)."
+        ),
     )
