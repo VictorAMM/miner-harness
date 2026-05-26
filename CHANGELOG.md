@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.6.1] — 2026-05-26
+
+### Corrigido — AeromagConnector (validação real Carajás)
+
+#### Conectores
+
+- **URL REST API correta**: `_ATLAS_BASE` corrigido de `/server/services/` (path SOAP → 403) para
+  `/server/rest/services/` (ArcGIS REST API → 200). Root cause do 403 persistente mesmo com
+  `_BROWSER_HEADERS` corretos adicionados no v1.5.0.
+- **Parsing RGB de pixel**: `_parse_identify()` agora trata o caso em que `AM_Brasil.tif` é
+  servido como raster RGB (`RGB.Red`/`RGB.Green`/`RGB.Blue`). Luminância (`0.299R+0.587G+0.114B`)
+  usada como proxy relativo de TMA. Variação espacial preservada para detecção de anomalias.
+
+### Testes
+
+- 5 novos testes: `TestRestApiUrl` (2) + 3 testes RGB em `TestParseIdentify` (31 total no módulo)
+- Suite total: **1 397 testes**, 65 skipped
+
+---
+
 ## [1.6.0] — 2026-05-26
 
 ### Adicionado — PRD-005 UX Simplification
