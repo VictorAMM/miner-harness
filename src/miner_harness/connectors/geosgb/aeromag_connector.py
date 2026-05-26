@@ -30,7 +30,9 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 # URL do serviço atlas aerogeofísico do SGB/CPRM
-_ATLAS_BASE = "https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer"
+# NOTA: o path correto é /server/rest/services/ (ArcGIS REST API).
+# /server/services/ (sem /rest/) retorna 403 em todos os requests.
+_ATLAS_BASE = "https://geoportal.sgb.gov.br/server/rest/services/Mapas_Tern_Mag_MIL1/MapServer"
 _IDENTIFY_URL = f"{_ATLAS_BASE}/identify"
 
 # Camada de TMA no serviço atlas
@@ -232,9 +234,20 @@ class AeromagConnector:
     ) -> dict[str, Any] | None:
         """Extrai valor TMA de resposta MapServer/identify.
 
-        Para camadas raster, o ArcGIS retorna::
+        O ArcGIS pode retornar o valor de pixel em dois formatos:
 
-            {"results": [{"attributes": {"Pixel Value": "1234.56"}, ...}]}
+        1. Raster escalar (ex: camadas DEM/Float)::
+
+               {"results": [{"attributes": {"Pixel Value": "1234.56"}, ...}]}
+
+        2. Raster RGB (ex: AM_Brasil.tif servido como imagem colorida)::
+
+               {"results": [{"attributes": {"RGB.Red": "144", "RGB.Green": "122",
+                                            "RGB.Blue": "0"}, ...}]}
+
+           Neste caso, a luminância (0–255) é usada como proxy relativo de TMA.
+           Os valores absolutos em nT não são preservados, mas a variação espacial
+           é mantida, que é o que importa para detecção de anomalias no AeromagProcessor.
 
         Returns:
             Dict ``{lon, lat, tma_nt}`` ou None se sem valor numérico.
@@ -245,18 +258,28 @@ class AeromagConnector:
 
         for res in results:
             attrs = res.get("attributes", {})
+
+            # Formato 1: Pixel Value escalar
             raw = attrs.get("Pixel Value") or attrs.get("pixel value") or attrs.get("VALUE")
-            if raw is None:
-                continue
-            # "NoData" ou string vazia → sem dado
-            raw_str = str(raw).strip()
-            if not raw_str or raw_str.lower() in {"nodata", "no data", "n/d", "-"}:
-                continue
-            try:
-                tma = float(raw_str)
-            except ValueError:
-                logger.debug("aeromag_non_numeric_pixel", raw=raw_str, lon=lon, lat=lat)
-                continue
-            return {"lon": lon, "lat": lat, "tma_nt": tma}
+            if raw is not None:
+                raw_str = str(raw).strip()
+                if raw_str and raw_str.lower() not in {"nodata", "no data", "n/d", "-"}:
+                    try:
+                        return {"lon": lon, "lat": lat, "tma_nt": float(raw_str)}
+                    except ValueError:
+                        logger.debug("aeromag_non_numeric_pixel", raw=raw_str, lon=lon, lat=lat)
+
+            # Formato 2: RGB (AM_Brasil.tif renderizado como imagem)
+            r_str = attrs.get("RGB.Red")
+            g_str = attrs.get("RGB.Green")
+            b_str = attrs.get("RGB.Blue")
+            if r_str is not None and g_str is not None and b_str is not None:
+                try:
+                    r, g, b = float(r_str), float(g_str), float(b_str)
+                    # Luminância como proxy relativo de intensidade TMA (range 0–255)
+                    tma = round(0.299 * r + 0.587 * g + 0.114 * b, 1)
+                    return {"lon": lon, "lat": lat, "tma_nt": tma}
+                except (ValueError, TypeError):
+                    logger.debug("aeromag_rgb_parse_failed", attrs=attrs, lon=lon, lat=lat)
 
         return None

@@ -9,6 +9,7 @@ import pytest
 
 from miner_harness.connectors.geosgb.aeromag_connector import (
     _BROWSER_HEADERS,
+    _IDENTIFY_URL,
     AeromagConnector,
 )
 from miner_harness.core.types import BoundingBox
@@ -130,6 +131,58 @@ class TestParseIdentify:
         result = AeromagConnector._parse_identify(data, -50.0, -6.0)
         assert result is not None
         assert result["tma_nt"] == pytest.approx(0.0)
+
+    def test_rgb_returns_luminance_proxy(self) -> None:
+        """RGB.Red/Green/Blue (AM_Brasil.tif renderizado) → luminância como proxy de TMA."""
+        data = {
+            "results": [
+                {
+                    "attributes": {
+                        "RGB.Red": "144",
+                        "RGB.Green": "122",
+                        "RGB.Blue": "0",
+                    }
+                }
+            ]
+        }
+        result = AeromagConnector._parse_identify(data, -50.2, -6.1)
+        assert result is not None
+        assert result["lon"] == -50.2
+        assert result["lat"] == -6.1
+        # 0.299*144 + 0.587*122 + 0.114*0 = 43.056 + 71.614 + 0.0 = 114.67 → 114.7
+        assert result["tma_nt"] == pytest.approx(114.7, abs=0.15)
+
+    def test_rgb_invalid_channel_returns_none(self) -> None:
+        """RGB com canal não-numérico → None (não lança exceção)."""
+        data = {
+            "results": [
+                {
+                    "attributes": {
+                        "RGB.Red": "N/A",
+                        "RGB.Green": "122",
+                        "RGB.Blue": "0",
+                    }
+                }
+            ]
+        }
+        result = AeromagConnector._parse_identify(data, -50.0, -6.0)
+        assert result is None
+
+    def test_rgb_partial_channels_missing_returns_none(self) -> None:
+        """RGB com apenas 2 canais (ex: sem Blue) → None."""
+        data = {
+            "results": [
+                {
+                    "attributes": {
+                        "RGB.Red": "100",
+                        "RGB.Green": "80",
+                        # RGB.Blue ausente
+                    }
+                }
+            ]
+        }
+        result = AeromagConnector._parse_identify(data, -50.0, -6.0)
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -330,3 +383,22 @@ class TestBrowserHeaders:
             result = await conn.sample_tma(bbox)
 
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# REST API URL — fix v1.6.1
+# ---------------------------------------------------------------------------
+
+
+class TestRestApiUrl:
+    def test_identify_url_uses_rest_api_path(self) -> None:
+        """_IDENTIFY_URL deve usar /rest/services/ (ArcGIS REST API).
+
+        O path /server/services/ (sem /rest/) é a interface SOAP e retorna 403.
+        """
+        assert "/rest/services/" in _IDENTIFY_URL
+
+    def test_identify_url_points_to_tma_layer_service(self) -> None:
+        """URL deve apontar para o serviço Mapas_Tern_Mag_MIL1."""
+        assert "Mapas_Tern_Mag_MIL1" in _IDENTIFY_URL
+        assert "MapServer/identify" in _IDENTIFY_URL
