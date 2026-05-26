@@ -457,7 +457,15 @@ def _load_user_drillholes(
     # Tentar store persistente
     try:
         with DrillholeStore(storage.miner_home) as store:
-            return store.query_all()
+            cached = store.query_all()
+            if cached:
+                print(
+                    f"⚠  Furos cacheados: {len(cached)} trecho(s) carregado(s) da store "
+                    f"persistente (use --drillholes CSV para sobrescrever ou "
+                    f"'miner-harness index drillholes --clear' para limpar).",
+                    file=sys.stderr,
+                )
+            return cached
     except Exception as exc:  # noqa: BLE001
         logger.warning("drillhole_store_load_failed", error=str(exc))
         return []

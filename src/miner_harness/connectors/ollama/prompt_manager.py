@@ -106,7 +106,10 @@ _AGENT_PROMPTS: dict[str, str] = {
         "históricos GeoSGB (evidência direta mais importante) na síntese final.\n\n"
         "REGRA FUNDAMENTAL: Os alvos gerados DEVEM ter coordenadas WGS84 "
         "extraídas dos dados reais fornecidos, dentro do bbox da análise. "
-        "Coordenadas inventadas ou fora da região são INVÁLIDAS."
+        "Coordenadas inventadas ou fora da região são INVÁLIDAS.\n"
+        "REGRA ESPACIAL: Cada alvo deve estar a pelo menos 15 km de distância dos demais. "
+        "Alvos muito próximos (<15 km) indicam incerteza — gere apenas 1 alvo nessa área. "
+        "Priorize diversidade geográfica: distribua os alvos pelo bbox em vez de agrupá-los."
     ),
 }
 

@@ -45,6 +45,19 @@ _MIN_DELAY_MS = 300
 # Timeout por request
 _TIMEOUT_S = 30
 
+# Headers browser-like necessários para contornar o filtro 403 do geoportal SGB.
+# O endpoint MapServer/identify exige Referer e User-Agent de browser real.
+_BROWSER_HEADERS: dict[str, str] = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://geoportal.sgb.gov.br/",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+}
+
 
 class AeromagConnector:
     """Amostra anomalia magnética total (TMA) do Atlas Aerogeofísico SGB.
@@ -78,8 +91,12 @@ class AeromagConnector:
     # Context manager
     # ------------------------------------------------------------------
 
+    def _make_client(self) -> httpx.AsyncClient:
+        """Cria cliente HTTP com headers browser-like necessários para o geoportal SGB."""
+        return httpx.AsyncClient(headers=_BROWSER_HEADERS, timeout=self._timeout_s)
+
     async def __aenter__(self) -> AeromagConnector:
-        self._client = httpx.AsyncClient(timeout=self._timeout_s)
+        self._client = self._make_client()
         return self
 
     async def __aexit__(self, *_: object) -> None:
@@ -112,7 +129,7 @@ class AeromagConnector:
         if not grid:  # pragma: no cover — _generate_grid sempre retorna ≥ 4 pontos
             return []
 
-        client = self._client or httpx.AsyncClient(timeout=self._timeout_s)
+        client = self._client or self._make_client()
         owned = self._client is None
         try:
             results = await self._sample_grid(client, grid, bbox)

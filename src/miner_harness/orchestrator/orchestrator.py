@@ -271,6 +271,7 @@ class Orchestrator:
         # 4. Extrair targets do resultado do Evaluator
         raw_targets = self._extract_targets(step_results)
         targets = self._validate_target_coords(raw_targets, bbox)
+        targets = self._assign_prospectivity_scores(targets, geological_data)
 
         # 5. Montar relatório
         total_ms = int((time.monotonic() - start) * 1000)
@@ -503,7 +504,8 @@ class Orchestrator:
         for result in step_results:
             if result.step == AnalysisStep.TOTAL_INTEGRATION:
                 if result.targets:
-                    return Orchestrator._dedup_targets(result.targets)
+                    deduped = Orchestrator._dedup_targets(result.targets)
+                    return Orchestrator._enforce_target_diversity(deduped)
                 return Orchestrator._findings_to_targets(result)
         return []
 
@@ -569,6 +571,105 @@ class Orchestrator:
 
         # Re-numerar prioridades
         return [t.model_copy(update={"priority": i + 1}) for i, t in enumerate(kept)]
+
+    @staticmethod
+    def _enforce_target_diversity(
+        targets: list[MineralTarget], min_km: float = 15.0
+    ) -> list[MineralTarget]:
+        """Remove alvos que estão a menos de ``min_km`` de um alvo de maior prioridade.
+
+        Aplicado após ``_dedup_targets`` para garantir diversidade geográfica mínima.
+        Alvos de menor prioridade que se sobrepõem espacialmente são descartados.
+
+        Args:
+            targets: Lista de alvos já deduplicados, ordem de prioridade asc.
+            min_km: Distância mínima em km entre quaisquer dois alvos.
+
+        Returns:
+            Lista filtrada e re-numerada por prioridade.
+        """
+        if len(targets) <= 1:
+            return list(targets)
+
+        kept: list[MineralTarget] = []
+        for candidate in sorted(targets, key=lambda t: t.priority):
+            too_close = any(
+                Orchestrator._haversine_km(
+                    candidate.longitude,
+                    candidate.latitude,
+                    k.longitude,
+                    k.latitude,
+                )
+                < min_km
+                for k in kept
+            )
+            if too_close:
+                logger.warning(
+                    "target_diversity_removed",
+                    name=candidate.name,
+                    min_km=min_km,
+                )
+            else:
+                kept.append(candidate)
+
+        # Re-numerar prioridades
+        return [t.model_copy(update={"priority": i + 1}) for i, t in enumerate(kept)]
+
+    @staticmethod
+    def _assign_prospectivity_scores(
+        targets: list[MineralTarget],
+        geological_data: dict[str, list[dict[str, Any]]],
+    ) -> list[MineralTarget]:
+        """Atribui score de prospectividade ao alvo com base na célula mais próxima.
+
+        Consulta o ``prospectivity_grid`` presente em ``geological_data`` e
+        associa a cada alvo o score da célula com menor distância haversine.
+        Alvos sem correspondência mantêm ``prospectivity_score=None``.
+
+        Args:
+            targets: Lista de alvos validados.
+            geological_data: Contexto geológico (contém ``prospectivity_grid``).
+
+        Returns:
+            Lista de alvos com ``prospectivity_score`` preenchido quando possível.
+        """
+        grid_entries = geological_data.get("prospectivity_grid", [])
+        if not grid_entries or not targets:
+            return targets
+
+        # Extrair células (lon, lat, score) do GeoJSON no primeiro entry
+        cells: list[tuple[float, float, float]] = []
+        for entry in grid_entries:
+            geojson = entry.get("geojson", {})
+            for feat in geojson.get("features", []):
+                props = feat.get("properties", {})
+                geom = feat.get("geometry", {})
+                coords = geom.get("coordinates", [[]])[0]
+                if not coords:
+                    continue
+                # Centro do polígono = média dos vértices (excluindo o repetido)
+                lons = [p[0] for p in coords[:-1]]
+                lats = [p[1] for p in coords[:-1]]
+                if lons and lats:
+                    clon = sum(lons) / len(lons)
+                    clat = sum(lats) / len(lats)
+                    score = props.get("score")
+                    if score is not None:
+                        cells.append((clon, clat, float(score)))
+
+        if not cells:
+            return targets
+
+        result = []
+        for target in targets:
+            nearest_score = min(
+                cells,
+                key=lambda c: Orchestrator._haversine_km(
+                    target.longitude, target.latitude, c[0], c[1]
+                ),
+            )[2]
+            result.append(target.model_copy(update={"prospectivity_score": nearest_score}))
+        return result
 
     @staticmethod
     def _validate_target_coords(
