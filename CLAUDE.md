@@ -110,9 +110,14 @@ UX Audit — 19 melhorias identificadas e implementadas: CLI PT-BR completo (_pr
 Coverage 100% — 19 branches descobertas pós-UX-audit cobertas (8 módulos); fix mypy: on_step_complete em AnalysisRunner + ProfilingRunner; 1 295 testes, 0 missing statements ✅ CONCLUÍDA (2026-05-25) [v1.3.0]
 F10 Aeromagnética Real — AeromagConnector (MapServer/identify; N×N grid; graceful fallback) + AeromagProcessor (HGM diferenças finitas, anomalias 2σ, format_for_prompt, to_geojson); AeromagConfig + TTL 30d; --no-aeromag/--aeromag-grid-n CLI; aeromag_grid no GeophysicistAgent + guia TMA/HGM no prompt; _COMPUTED_KEYS (sem penalidade HIGH); 56 novos testes; 1 351 testes no total ✅ CONCLUÍDA (2026-05-25) [v1.4.0]
 Coverage 100% pós-F10 — 5 gaps cobertos (pragma no cover no guard defensivo, grade esparsa HGM, 3 paths aeromag no ContextBuilder, exception path em _build_aeromag); 1 356 testes no total ✅ CONCLUÍDA (2026-05-25) [v1.4.0]
+PRD-004 T1 Aeromag 403 — _BROWSER_HEADERS + _make_client() no AeromagConnector; resolve 403 no SGB MapServer/identify com User-Agent + Referer ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
+PRD-004 T2 Diversidade Espacial — REGRA ESPACIAL no prompt evaluator + _enforce_target_diversity(min_km=15) no Orchestrator; remove alvos a <15 km de alvos de maior prioridade ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
+PRD-004 T3 Gravimetria Vazia — ContextBuilder.empty_sources: list[str] rastreia serviços com 0 registros; distingue de bbox_filtered_sources e de falhas ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
+PRD-004 T4 Drillhole Cacheado — aviso stderr em _load_user_drillholes() quando furos são carregados da store persistente sem --drillholes flag ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
+PRD-004 T5 Prospectivity Score — MineralTarget.prospectivity_score: float | None + _assign_prospectivity_scores() atribui score da célula mais próxima do grid ✅ CONCLUÍDA (2026-05-25) [v1.5.0]
 ```
 
-**Status**: v1.4.0 em produção. PRD-003 F10 (Aeromagnética Real) entregue. Cobertura 100% restaurada — 1 356 testes, 0 missing statements.
+**Status**: v1.5.0 em desenvolvimento (branch feature/prd-004-quality). PRD-004 (5 quality fixes) implementado, aguardando CI. PRD-005 (UX) pendente.
 
 ## Grafo de Rastreabilidade
 
