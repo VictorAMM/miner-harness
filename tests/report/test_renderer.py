@@ -882,3 +882,62 @@ class TestPrd006DashboardImprovements:
         html = HtmlReportRenderer().render(self._make_simple_report())
         # A variável collapsed deve ser inicializada como false
         assert "collapsed = false" in html or "collapsed=false" in html
+
+
+class TestAtlasWmsFix:
+    """Testes do fix WMS→REST para Mapas_Tern_Mag_MIL1 (serviço sem WMS)."""
+
+    def _make_simple_report(self) -> ProspectionReport:
+        step = StepResult(
+            step="tectonic_history",
+            agent="structural_geologist",
+            summary="ok",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        return ProspectionReport(
+            region_name="Atlas Fix Test",
+            bbox=BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.5, lat_max=-5.0),
+            analysis_date=datetime(2026, 5, 26, tzinfo=timezone.utc),
+            steps=[step],
+            targets=[],
+            integrated_summary="ok",
+            caveats=[],
+            data_quality_score=0.8,
+            total_duration_ms=1000,
+            model_used="qwen3:8b",
+        )
+
+    def test_uses_rest_export_not_wms_for_tern_mag(self) -> None:
+        """Mapas_Tern_Mag_MIL1 deve usar REST /export, não WMSServer."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "_REST_TERN_MAG" in html
+        # WMSServer jamais deve aparecer para esse serviço
+        assert "Mapas_Tern_Mag_MIL1/MapServer/WMSServer" not in html
+
+    def test_arcgis_export_tile_layer_class_defined(self) -> None:
+        """Classe L.TileLayer.ArcGISExport deve estar definida no HTML."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "L.TileLayer.ArcGISExport" in html
+
+    def test_arcgis_export_bbox_formula_present(self) -> None:
+        """Fórmula de bbox EPSG:3857 por tile deve estar no HTML."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "20037508" in html  # constante E do EPSG:3857
+        assert "bboxSR=3857" in html
+
+    def test_offline_guard_excludes_arcgis_export(self) -> None:
+        """Guard de modo offline deve excluir L.TileLayer.ArcGISExport."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "L.TileLayer.ArcGISExport" in html
+        # Garantir que o guard de remoção de tiles não remove camadas ArcGISExport
+        assert "!(l instanceof L.TileLayer.ArcGISExport)" in html
+
+    def test_aeroprojetos_keeps_wms(self) -> None:
+        """geofisica/aerogeofisica (com WMS real) deve continuar usando tileLayer.wms."""
+        html = HtmlReportRenderer().render(self._make_simple_report())
+        assert "geofisica/aerogeofisica/MapServer/WMSServer" in html

@@ -1297,13 +1297,37 @@ let userDhVisible = true;
 let aeromagGridLayers = [];
 let aeromagGridVisible = true;
 
-// Atlas Aerogeofísico — camadas WMS globais (SGB/CPRM)
-const _WMS_ATLAS_GRIDS = 'https://geoportal.sgb.gov.br/server/services/Mapas_Tern_Mag_MIL1/MapServer/WMSServer';
-const _WMS_AEROPROJ   = 'https://geoportal.sgb.gov.br/server/services/geofisica/aerogeofisica/MapServer/WMSServer';
+// Atlas Aerogeofísico — camadas SGB/CPRM
+// Mapas_Tern_Mag_MIL1 NÃO tem WMS habilitado (capabilities: Query,Map,Data apenas).
+// Usa ArcGIS REST /export com bbox calculado por tile em vez de L.tileLayer.wms.
+// geofisica/aerogeofisica TEM WMS (listado em supportedExtensions) — mantém tileLayer.wms.
+const _REST_TERN_MAG = 'https://geoportal.sgb.gov.br/server/rest/services/Mapas_Tern_Mag_MIL1/MapServer/export';
+const _WMS_AEROPROJ  = 'https://geoportal.sgb.gov.br/server/services/geofisica/aerogeofisica/MapServer/WMSServer';
 const _WMS_ATTR = '© <a href="https://www.sgb.gov.br" target="_blank">SGB/CPRM</a> — Atlas Aerogeofísico';
 
-let wmsAtlasMag  = L.tileLayer.wms(_WMS_ATLAS_GRIDS, { layers:'1', format:'image/png', transparent:true, opacity:0.70, attribution:_WMS_ATTR });
-let wmsAtlasTern = L.tileLayer.wms(_WMS_ATLAS_GRIDS, { layers:'0', format:'image/png', transparent:true, opacity:0.70, attribution:_WMS_ATTR });
+// TileLayer personalizado: ArcGIS REST /export → tiles georreferenciados sem WMS
+L.TileLayer.ArcGISExport = L.TileLayer.extend({
+    createTile: function (coords, done) {
+        var tile = document.createElement('img');
+        var E = 20037508.3427892;
+        var tileM = (2 * E) / Math.pow(2, coords.z);
+        var xMin = -E + coords.x * tileM;
+        var yMax =  E - coords.y * tileM;
+        var bbox = xMin.toFixed(2) + ',' + (yMax - tileM).toFixed(2) + ','
+                 + (xMin + tileM).toFixed(2) + ',' + yMax.toFixed(2);
+        tile.src = this._url
+            + '?bbox=' + bbox
+            + '&bboxSR=3857&imageSR=3857&size=256,256'
+            + '&layers=show:' + this.options.layerId
+            + '&format=png32&transparent=true&f=image';
+        L.DomEvent.on(tile, 'load',  L.bind(this._tileOnLoad,  this, done, tile));
+        L.DomEvent.on(tile, 'error', L.bind(this._tileOnError, this, done, tile));
+        return tile;
+    }
+});
+
+let wmsAtlasMag  = new L.TileLayer.ArcGISExport(_REST_TERN_MAG, { layerId: 1, opacity: 0.70, attribution: _WMS_ATTR });
+let wmsAtlasTern = new L.TileLayer.ArcGISExport(_REST_TERN_MAG, { layerId: 0, opacity: 0.70, attribution: _WMS_ATTR });
 let wmsAeroprojetos = L.tileLayer.wms(_WMS_AEROPROJ, { layers:'0,1,2,3', format:'image/png', transparent:true, opacity:0.50, attribution:_WMS_ATTR });
 let atlasMagVisible  = false;
 let atlasTernVisible = false;
@@ -1776,7 +1800,9 @@ function toggleOfflineMode() {
   } else {
     // Remover todos os tile layers externos
     map.eachLayer(function(l) {
-      if (l instanceof L.TileLayer && !(l instanceof L.TileLayer.WMS)) {
+      if (l instanceof L.TileLayer
+          && !(l instanceof L.TileLayer.WMS)
+          && !(l instanceof L.TileLayer.ArcGISExport)) {
         _osmLayer = l;
         map.removeLayer(l);
       }

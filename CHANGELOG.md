@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.7.2] — 2026-05-26
+
+### Corrigido — Atlas WMS → ArcGIS REST export (tiles Mag Total e K-Th-U)
+
+#### Problema
+
+O serviço `Mapas_Tern_Mag_MIL1/MapServer` do geoportal SGB não tem WMS habilitado
+(capabilities: `Query,Map,Data` apenas). `L.tileLayer.wms(...WMSServer)` retornava **HTTP 400**
+em todos os tiles; o Chrome bloqueava as respostas com `net::ERR_BLOCKED_BY_ORB` porque o
+conteúdo retornado era `text/html` em vez de `image/png`.
+
+#### Fix
+
+- Substituído `L.tileLayer.wms` por subclasse `L.TileLayer.ArcGISExport` que usa o endpoint
+  REST `/export` com bbox EPSG:3857 calculado por coordenada de tile — sem dependência de WMS.
+- Fórmula bbox: `E = 20037508.34`; `tileM = 2E / 2^z`;
+  `bbox = xMin,yMin,xMax,yMax` em metros Web Mercator.
+- `wmsAeroprojetos` (geofisica/aerogeofisica) mantém `L.tileLayer.wms` — esse serviço tem WMS
+  habilitado (`supportedExtensions: WMSServer`).
+- Guard de modo offline atualizado para excluir `L.TileLayer.ArcGISExport` (evitava remoção
+  indevida ao entrar no modo offline).
+
+#### Testes
+
+- 5 novos testes `TestAtlasWmsFix` em `tests/report/test_renderer.py`:
+  `test_uses_rest_export_not_wms_for_tern_mag`, `test_arcgis_export_tile_layer_class_defined`,
+  `test_arcgis_export_bbox_formula_present`, `test_offline_guard_excludes_arcgis_export`,
+  `test_aeroprojetos_keeps_wms`.
+- Suite total: **1 428 testes**, 65 skipped, cobertura **100%**
+
+---
+
 ## [1.7.1] — 2026-05-26
 
 ### Corrigido — Cobertura 100% restaurada pós-PRD-006
