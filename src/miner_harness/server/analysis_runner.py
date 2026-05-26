@@ -108,7 +108,7 @@ class AnalysisRunner(Orchestrator):
             step_end = time.monotonic()
             step_start = getattr(self, "_step_start_t", step_end)
             duration = step_end - step_start
-            if not hasattr(self, "_step_durations"):
+            if not hasattr(self, "_step_durations"):  # pragma: no cover
                 self._step_durations = []
             self._step_durations.append(duration)
             ch.send(

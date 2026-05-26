@@ -1397,6 +1397,53 @@ class TestCmdAnalyzeNewParams:
         assert result == 0
         assert len(on_step_calls) == 1  # callback foi chamado
 
+    @pytest.mark.asyncio
+    async def test_analyze_with_no_aeromag_and_grid_n(self, tmp_path: Path) -> None:
+        """Linhas 110,112: --no-aeromag desativa aeromag; --aeromag-grid-n define grid."""
+        bbox = BoundingBox(lon_min=-51.0, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0)
+        report = _make_report(bbox)
+        storage = StorageConfig(miner_home=tmp_path / ".miner")
+
+        with (
+            patch("miner_harness.cli.commands.MinerHarnessConfig") as mock_cfg,
+            patch("miner_harness.connectors.geosgb.connector.GeoSGBConnector"),
+            patch("miner_harness.cli.commands.CacheManager"),
+            patch("miner_harness.connectors.ollama.client.OllamaClient") as mock_llm_cls,
+            patch("miner_harness.orchestrator.orchestrator.Orchestrator") as mock_orch_cls,
+            patch("miner_harness.cli.commands._render_html_report"),
+            patch("miner_harness.cli.commands._load_user_drillholes") as mock_load_dh,
+        ):
+            config_obj = MagicMock()
+            config_obj.storage = storage
+            config_obj.orchestrator.model = "qwen3:8b"
+            config_obj.orchestrator.min_data_sources = 1
+            config_obj.orchestrator.num_ctx = 4096
+            config_obj.orchestrator.effective_max_records = 50
+            config_obj.orchestrator.effective_max_chars = 8000
+            mock_cfg.return_value = config_obj
+
+            mock_llm = AsyncMock()
+            mock_llm.health = AsyncMock(return_value=True)
+            mock_llm_cls.return_value = mock_llm
+            mock_orch = AsyncMock()
+            mock_orch.analyze_region = AsyncMock(return_value=report)
+            mock_orch_cls.return_value = mock_orch
+            mock_load_dh.return_value = []
+
+            result = await cmd_analyze(
+                region="carajas",
+                bbox=(-51.0, -7.0, -49.0, -5.0),
+                no_html=True,
+                no_aeromag=True,
+                aeromag_grid_n=6,
+            )
+
+        assert result == 0
+        # Linha 110: --no-aeromag → aeromag desativado
+        assert config_obj.aeromag.enabled is False
+        # Linha 112: --aeromag-grid-n → grid_n definido
+        assert config_obj.aeromag.grid_n == 6
+
 
 # ---------------------------------------------------------------------------
 # TestExportDocx — linhas 232-242

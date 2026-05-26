@@ -648,7 +648,8 @@ class Orchestrator:
             for feat in geojson.get("features", []):
                 props = feat.get("properties", {})
                 geom = feat.get("geometry", {})
-                coords = geom.get("coordinates", [[]])[0]
+                raw_coords = geom.get("coordinates", [[]])
+                coords = raw_coords[0] if raw_coords else []
                 if not coords:
                     continue
                 # Centro do polígono = média dos vértices (excluindo o repetido)

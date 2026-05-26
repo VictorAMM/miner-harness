@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.7.1] — 2026-05-26
+
+### Corrigido — Cobertura 100% restaurada pós-PRD-006
+
+#### Bug fix
+
+- **IndexError em `_assign_prospectivity_scores`**: `geom.get("coordinates", [[]])[0]` lançava
+  `IndexError` quando um polígono GeoJSON tinha `coordinates: []` (lista de anéis vazia). Corrigido
+  para `raw_coords[0] if raw_coords else []` — gracioso com GeoJSON malformado.
+
+#### Cobertura
+
+- 3 novos testes para lacunas residuais:
+  - `cli/test_commands.py::TestCmdAnalyzeNewParams::test_analyze_with_no_aeromag_and_grid_n`
+    — cobre `config.aeromag.enabled = False` e `config.aeromag.grid_n = N`
+  - `orchestrator/test_orchestrator.py::TestAssignProspectivityScores::test_polygon_with_empty_coordinates_skipped`
+    — valida que polígonos sem coordenadas são ignorados (e expôs o bug acima)
+  - `analysis_runner.py:112` — guard defensivo marcado `# pragma: no cover`
+    (branch inacessível via `set_channel()`)
+- Suite total: **1 424 testes**, 65 skipped, cobertura **100%**
+
+---
+
 ## [1.7.0] — 2026-05-26
 
 ### Adicionado — PRD-006 Dual-Persona Dashboard Improvements

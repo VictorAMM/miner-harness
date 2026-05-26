@@ -1762,6 +1762,48 @@ class TestAssignProspectivityScores:
         # Sem células válidas → score permanece None
         assert result[0].prospectivity_score is None
 
+    def test_polygon_with_empty_coordinates_skipped(self) -> None:
+        """Linha 653 (continue): polígono sem coordenadas é ignorado graciosamente."""
+        target = self._make_target(-50.0, -6.0)
+        geo_data = {
+            "prospectivity_grid": [
+                {
+                    "geojson": {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [],  # lista de anéis vazia
+                                },
+                                "properties": {"score": 80.0},
+                            },
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [-50.1, -6.1],
+                                            [-49.9, -6.1],
+                                            [-49.9, -5.9],
+                                            [-50.1, -5.9],
+                                            [-50.1, -6.1],
+                                        ]
+                                    ],
+                                },
+                                "properties": {"score": 75.0},
+                            },
+                        ],
+                    }
+                }
+            ]
+        }
+        result = Orchestrator._assign_prospectivity_scores([target], geo_data)
+        # O polígono com coords vazio é pulado; o segundo é usado
+        assert result[0].prospectivity_score == pytest.approx(75.0)
+
 
 # ---------------------------------------------------------------------------
 # PRD-006 — calibration_note e diversity_removed_count
