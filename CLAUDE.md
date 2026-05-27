@@ -123,9 +123,12 @@ PRD-006 Dual-Persona Dashboard — 13 melhorias: aeromag local layer, TMA popup,
 Coverage 100% + bug fix — IndexError corrigido em _assign_prospectivity_scores (coordinates=[]); pragma:no cover guard defensivo analysis_runner; 2 novos testes; 1 423 testes, 0 missing ✅ CONCLUÍDA (2026-05-26) [v1.7.1]
 Atlas WMS fix — Mapas_Tern_Mag_MIL1 não tem WMS; L.TileLayer.ArcGISExport usa REST /export com bbox EPSG:3857; guard offline atualizado; 5 novos testes ✅ CONCLUÍDA (2026-05-26) [v1.7.2]
 Atlas WMS fix 2 — geofisica/aerogeofisica só suporta EPSG:4326 no WMS; todos os 3 overlays agora usam L.TileLayer.ArcGISExport; 1 428 testes ✅ CONCLUÍDA (2026-05-26) [v1.7.3]
+PRD-007 T1 Atlas badge — span#atlas-warn + listeners tileerror/tileload em 3 camadas ArcGISExport; feedback visual de indisponibilidade ✅ CONCLUÍDA (2026-05-26) [v1.8.0]
+PRD-007 T2 DOCX fields — calibration_note + diversity_removed_count adicionados a types.py e exportados pelo docx_exporter; 4 novos testes ✅ CONCLUÍDA (2026-05-26) [v1.8.0]
+PRD-007 T3 Health GeoSGB — check_geosgb() probe leve ao endpoint ocorrencias_minerais; run_health_checks agora 5 checks; 4+1 novos testes; 1 438 testes ✅ CONCLUÍDA (2026-05-26) [v1.8.0]
 ```
 
-**Status**: v1.7.3 em produção. PRD-004 + PRD-005 + PRD-006 entregues. Suite: 1 428 testes, 0 missing statements.
+**Status**: v1.8.0 em produção. PRD-007 entregue. Suite: 1 438 testes, 0 missing statements.
 
 ## Grafo de Rastreabilidade
 
