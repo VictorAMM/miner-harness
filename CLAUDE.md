@@ -126,9 +126,12 @@ Atlas WMS fix 2 — geofisica/aerogeofisica só suporta EPSG:4326 no WMS; todos 
 PRD-007 T1 Atlas badge — span#atlas-warn + listeners tileerror/tileload em 3 camadas ArcGISExport; feedback visual de indisponibilidade ✅ CONCLUÍDA (2026-05-26) [v1.8.0]
 PRD-007 T2 DOCX fields — calibration_note + diversity_removed_count adicionados a types.py e exportados pelo docx_exporter; 4 novos testes ✅ CONCLUÍDA (2026-05-26) [v1.8.0]
 PRD-007 T3 Health GeoSGB — check_geosgb() probe leve ao endpoint ocorrencias_minerais; run_health_checks agora 5 checks; 4+1 novos testes; 1 438 testes ✅ CONCLUÍDA (2026-05-26) [v1.8.0]
+PRD-008 T1 empty_sources — ProspectionReport.empty_sources propagado do ContextBuilder; dashboard banner tripartite (missing/bbox_filtered/empty); DOCX seção 6 atualizada ✅ CONCLUÍDA (2026-05-26) [v1.9.0]
+PRD-008 T2 Aeromag Retry — _get_with_retry() backoff exponencial 1s/2s/4s para 503/429; 5 novos testes ✅ CONCLUÍDA (2026-05-26) [v1.9.0]
+PRD-008 T3 Health Timeout — --geosgb-timeout CLI + geosgb_timeout_s em run_health_checks + geosgb_timeout em cmd_health; 3 novos testes; 1 458 testes ✅ CONCLUÍDA (2026-05-26) [v1.9.0]
 ```
 
-**Status**: v1.8.0 em produção. PRD-007 entregue. Suite: 1 438 testes, 0 missing statements.
+**Status**: v1.9.0 em produção. PRD-008 entregue. Suite: 1 458 testes, 0 missing statements.
 
 ## Grafo de Rastreabilidade
 
