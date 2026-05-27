@@ -230,11 +230,14 @@ class Orchestrator:
             )
 
         # Resumo de fontes antes do pipeline LLM
+        empty_sources = self._context_builder.empty_sources
         avail_str = ", ".join(f"{k}({len(geological_data[k])})" for k in active_sources)
         print(f"\nFontes ativas ({len(active_sources)}): {avail_str}", flush=True)
         truly_unavailable = [k for k in unavailable if k not in bbox_filtered]
         if bbox_filtered:
             print(f"Fontes filtradas (fora do bbox): {', '.join(bbox_filtered)}", flush=True)
+        if empty_sources:
+            print(f"Fontes sem dados na área: {', '.join(empty_sources)}", flush=True)
         if truly_unavailable:
             print(f"Fontes indisponíveis: {', '.join(truly_unavailable)}", flush=True)
 
@@ -290,6 +293,7 @@ class Orchestrator:
             model_used=self._config.orchestrator.model,
             missing_sources=[k for k in unavailable if k not in bbox_filtered],
             bbox_filtered_sources=list(bbox_filtered),
+            empty_sources=list(empty_sources),
             geological_data=geological_data,
             diversity_removed_count=diversity_removed,
         )

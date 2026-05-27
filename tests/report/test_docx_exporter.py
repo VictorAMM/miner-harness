@@ -495,3 +495,73 @@ class TestDocxPrd006Fields:
         DocxReportExporter().export(report, path)
         text = self._get_full_text(path)
         assert "Nota de diversidade" not in text
+
+
+# ---------------------------------------------------------------------------
+# TestDocxPrd008EmptySources — empty_sources na seção 6 (PRD-008 T1)
+# ---------------------------------------------------------------------------
+
+
+class TestDocxPrd008EmptySources:
+    """Testes PRD-008 T1: empty_sources no exportador DOCX."""
+
+    def _get_full_text(self, path: Path) -> str:
+        from docx import Document
+
+        doc = Document(str(path))
+        return "\n".join(p.text for p in doc.paragraphs)
+
+    def _make_report(self, empty: list[str] | None = None) -> ProspectionReport:
+        return ProspectionReport(
+            region_name="Teste",
+            bbox=BoundingBox(lon_min=-52.0, lat_min=-8.0, lon_max=-50.0, lat_max=-6.0),
+            analysis_date=datetime(2026, 5, 26, 0, 0, 0, tzinfo=timezone.utc),
+            steps=[],
+            targets=[],
+            integrated_summary="",
+            caveats=[],
+            data_quality_score=0.5,
+            total_duration_ms=0,
+            model_used="qwen3:8b",
+            empty_sources=empty or [],
+        )
+
+    def test_empty_sources_appear_in_caveats(self, tmp_path: Path) -> None:
+        """Fontes em empty_sources aparecem na seção 6 com nota específica."""
+        report = self._make_report(empty=["gravimetria", "geocronologia"])
+        path = tmp_path / "r.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "gravimetria" in text
+        assert "geocronologia" in text
+        assert "0 registros" in text
+
+    def test_empty_sources_absent_when_empty_list(self, tmp_path: Path) -> None:
+        """Com empty_sources=[], texto '0 registros' não aparece na seção 6."""
+        report = self._make_report(empty=[])
+        path = tmp_path / "r.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "0 registros" not in text
+
+    def test_empty_sources_separate_from_missing_sources(self, tmp_path: Path) -> None:
+        """empty_sources e missing_sources geram textos distintos na seção 6."""
+        report = ProspectionReport(
+            region_name="Teste2",
+            bbox=BoundingBox(lon_min=-52.0, lat_min=-8.0, lon_max=-50.0, lat_max=-6.0),
+            analysis_date=datetime(2026, 5, 26, 0, 0, 0, tzinfo=timezone.utc),
+            steps=[],
+            targets=[],
+            integrated_summary="",
+            caveats=[],
+            data_quality_score=0.5,
+            total_duration_ms=0,
+            model_used="qwen3:8b",
+            missing_sources=["aerogeofisica"],
+            empty_sources=["gravimetria"],
+        )
+        path = tmp_path / "r2.docx"
+        DocxReportExporter().export(report, path)
+        text = self._get_full_text(path)
+        assert "falha de conectividade" in text  # missing_sources
+        assert "0 registros" in text  # empty_sources

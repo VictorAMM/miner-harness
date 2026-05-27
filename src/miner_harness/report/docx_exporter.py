@@ -300,13 +300,21 @@ class DocxReportExporter:
         """Seção 6 — Limitações e Ressalvas."""
         doc.add_heading("6. Limitações e Ressalvas", level=1)
 
-        if report.missing_sources or report.bbox_filtered_sources:
+        if report.missing_sources or report.bbox_filtered_sources or report.empty_sources:
             doc.add_paragraph().add_run("Fontes indisponíveis ou sem dados na área:").bold = True
             for s in report.missing_sources:
-                doc.add_paragraph(f"{s} — sem dados retornados", style="List Bullet")
+                doc.add_paragraph(
+                    f"{s} — sem dados retornados (falha de conectividade)",
+                    style="List Bullet",
+                )
             for s in report.bbox_filtered_sources:
                 doc.add_paragraph(
                     f"{s} — dados disponíveis mas fora do bbox de análise", style="List Bullet"
+                )
+            for s in report.empty_sources:
+                doc.add_paragraph(
+                    f"{s} — API respondeu com sucesso mas 0 registros para esta área",
+                    style="List Bullet",
                 )
             doc.add_paragraph()
 

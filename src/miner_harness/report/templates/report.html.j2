@@ -1169,15 +1169,21 @@ function renderHeader(r) {
   document.getElementById('h-meta').textContent = date;
   document.getElementById('h-model').textContent = '🤖 ' + r.model_used;
 
-  // Banner de cobertura — visível quando há fontes indisponíveis
-  const missing = r.missing_sources || [];
+  // Banner de cobertura — triagem tripartite: falha / bbox-filtrado / vazio
+  const missing  = r.missing_sources       || [];
+  const bboxFilt = r.bbox_filtered_sources || [];
+  const empty    = r.empty_sources         || [];
+  const allProblematic = missing.length + bboxFilt.length + empty.length;
   const banner = document.getElementById('coverage-banner');
-  if (missing.length > 0) {
-    // D3: usar total fixo (serviços GeoSGB conhecidos), não Object.keys() que inclui derivados
+  if (allProblematic > 0) {
     const total = KNOWN_GEO_SOURCES.length;
-    const available = total - missing.length;
+    const available = total - missing.length - bboxFilt.length - empty.length;
+    var parts = [];
+    if (missing.length)  parts.push(missing.length  + ' indisponível(is): '   + missing.join(', '));
+    if (bboxFilt.length) parts.push(bboxFilt.length + ' fora do bbox: '       + bboxFilt.join(', '));
+    if (empty.length)    parts.push(empty.length    + ' sem dados na área: '  + empty.join(', '));
     document.getElementById('coverage-banner-text').textContent =
-      missing.length + ' de ' + total + ' fontes sem dados na área: ' + missing.join(', ') +
+      allProblematic + ' de ' + total + ' fontes com cobertura parcial — ' + parts.join(' | ') +
       '. Confiança dos passos geofísicos/geoquímicos pode estar limitada — revisar badges ⚠ nos steps.';
     document.getElementById('coverage-banner-hint').textContent =
       '💡 Dica: re-execute o comando ou use --min-sources ' + available +
@@ -2539,6 +2545,7 @@ function renderDadosTab(r) {
   var el = document.getElementById('tab-dados');
   var geo = r.geological_data || {};
   var bboxFiltered = new Set(r.bbox_filtered_sources || []);
+  var emptySources  = new Set(r.empty_sources        || []);
   var anm = geo['anm'] || [];
   var usgs = geo['usgs'] || [];
 
@@ -2653,6 +2660,8 @@ function renderDadosTab(r) {
   if (!aerogeo.length) {
     if (bboxFiltered.has('aerogeofisica')) {
       html += '<p style="color:#d97706">⚠ Dados retornados pela API mas todos os projetos estão fora da área de interesse (coordenadas de sede/centróide em outra região). Consulte as ressalvas.</p>';
+    } else if (emptySources.has('aerogeofisica')) {
+      html += '<p style="color:#6b7280">ℹ️ API respondeu mas não há projetos aerogeofísicos cadastrados para esta área.</p>';
     } else {
       html += '<p style="color:#6b7280">Sem projetos aerogeofísicos para esta região.</p>';
     }
@@ -2790,6 +2799,8 @@ function renderDadosTab(r) {
   if (!lito.length) {
     if (bboxFiltered.has('litoestratigrafia')) {
       html += '<p style="color:#d97706">⚠ Dados retornados pela API mas todas as unidades estão fora da área de interesse. Consulte as ressalvas.</p>';
+    } else if (emptySources.has('litoestratigrafia')) {
+      html += '<p style="color:#6b7280">ℹ️ API respondeu mas não há unidades litoestratigráficas cadastradas para esta área.</p>';
     } else {
       html += '<p style="color:#6b7280">Sem unidades litoestratigráficas para esta região.</p>';
     }
