@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.8.0] — 2026-05-26
+
+### Adicionado — PRD-007: Qualidade DOCX + Observabilidade + Resiliência Atlas
+
+#### T1 — Atlas tile error badge (dashboard)
+
+- Elemento `<span id="atlas-warn">` adicionado ao lado do título da seção Atlas.
+- Listeners `tileerror` / `tileload` registrados nas 3 camadas `ArcGISExport`
+  (wmsAtlasMag, wmsAtlasTern, wmsAeroprojetos): badge ativa quando tile falha,
+  some ao primeiro tile carregado com sucesso.
+- Usuário recebe feedback imediato quando REST `/export` do SGB está indisponível.
+
+#### T2 — DOCX: campos PRD-006 ausentes (docx_exporter)
+
+- `StepResult.calibration_note` adicionado a `core/types.py` (str | None, default None).
+- `ProspectionReport.diversity_removed_count` adicionado a `core/types.py` (int, default 0).
+- `_add_step_section()`: exibe "Nota de calibração: ..." quando `calibration_note` presente.
+- `_add_caveats()`: exibe nota de diversidade espacial quando `diversity_removed_count > 0`.
+
+#### T3 — Health: check de conectividade GeoSGB
+
+- Nova função `check_geosgb(timeout_s=5.0)` — probe ao endpoint `ocorrencias_minerais`
+  com 1 feature (~1 KB): HEALTHY / DEGRADED (HTTP != 200) / UNHEALTHY (ConnectError).
+- `run_health_checks()` agora retorna **5 checks** (ollama, cache, index, disk_space, **geosgb**).
+- `miner-harness health` detecta problemas de rede com a principal fonte de dados.
+
+#### Testes
+
+- Suite total: **1 438 testes**, 65 skipped, cobertura **100%**
+
+---
+
 ## [1.7.3] — 2026-05-26
 
 ### Corrigido — Aeroprojetos WMS → ArcGIS REST export (EPSG:4326 incompatível)

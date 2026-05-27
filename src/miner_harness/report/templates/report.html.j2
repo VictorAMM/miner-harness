@@ -902,6 +902,8 @@ aside {
       <div class="map-group collapsed" id="map-group-atlas">
         <div class="map-group-header" onclick="toggleMapGroup('map-group-atlas')">
           <span>🛰 Atlas SGB/CPRM</span>
+          <span id="atlas-warn" style="display:none;color:#f59e0b;font-size:0.72rem;margin-left:6px"
+                title="Tiles do Atlas com erro — verificar conexão">⚠ indisponível</span>
           <span class="map-group-chevron">▼</span>
         </div>
         <div class="map-group-body">
@@ -1331,6 +1333,19 @@ L.TileLayer.ArcGISExport = L.TileLayer.extend({
 let wmsAtlasMag  = new L.TileLayer.ArcGISExport(_REST_TERN_MAG, { layerId: 1, opacity: 0.70, attribution: _WMS_ATTR });
 let wmsAtlasTern = new L.TileLayer.ArcGISExport(_REST_TERN_MAG, { layerId: 0, opacity: 0.70, attribution: _WMS_ATTR });
 let wmsAeroprojetos = new L.TileLayer.ArcGISExport(_REST_AEROPROJ, { layerId: '0,1,2,3', opacity: 0.50, attribution: _WMS_ATTR });
+
+// Feedback visual de erro nos tiles do Atlas (⚠ indisponível no cabeçalho do grupo)
+[wmsAtlasMag, wmsAtlasTern, wmsAeroprojetos].forEach(function(layer) {
+    layer.on('tileerror', function() {
+        var w = document.getElementById('atlas-warn');
+        if (w) w.style.display = 'inline';
+    });
+    layer.on('tileload', function() {
+        var w = document.getElementById('atlas-warn');
+        if (w) w.style.display = 'none';
+    });
+});
+
 let atlasMagVisible  = false;
 let atlasTernVisible = false;
 let aeroprojVisible  = false;

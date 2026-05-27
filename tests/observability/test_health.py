@@ -17,6 +17,7 @@ from miner_harness.observability.health import (
     HealthStatus,
     check_cache,
     check_disk_space,
+    check_geosgb,
     check_index,
     check_ollama,
     run_health_checks,
@@ -220,19 +221,80 @@ class TestCheckOllamaExtraBranches:
         assert result.status == HealthStatus.UNHEALTHY
 
 
+class TestCheckGeosgb:
+    """Testes PRD-007 T3: check_geosgb — conectividade GeoSGB."""
+
+    @pytest.mark.asyncio
+    async def test_geosgb_healthy_when_200_with_features(self) -> None:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = '{"features": [{"attributes": {}}]}'
+
+        async def mock_get(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            return mock_resp
+
+        with patch("httpx.AsyncClient.get", new=mock_get):
+            result = await check_geosgb()
+        assert result.status == HealthStatus.HEALTHY
+        assert result.name == "geosgb"
+
+    @pytest.mark.asyncio
+    async def test_geosgb_degraded_when_non_200(self) -> None:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 503
+        mock_resp.text = "Service Unavailable"
+
+        async def mock_get(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            return mock_resp
+
+        with patch("httpx.AsyncClient.get", new=mock_get):
+            result = await check_geosgb()
+        assert result.status == HealthStatus.DEGRADED
+        assert "503" in result.message
+
+    @pytest.mark.asyncio
+    async def test_geosgb_unhealthy_on_connect_error(self) -> None:
+        import httpx
+
+        async def mock_get(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            raise httpx.ConnectError("connection refused")
+
+        with patch("httpx.AsyncClient.get", new=mock_get):
+            result = await check_geosgb()
+        assert result.status == HealthStatus.UNHEALTHY
+        assert "verificar conexão de rede" in result.message
+
+    @pytest.mark.asyncio
+    async def test_geosgb_unhealthy_on_unexpected_exception(self) -> None:
+        async def mock_get(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            raise ValueError("unexpected")
+
+        with patch("httpx.AsyncClient.get", new=mock_get):
+            result = await check_geosgb()
+        assert result.status == HealthStatus.UNHEALTHY
+        assert "ValueError" in result.message
+
+
 class TestRunHealthChecks:
     """Test aggregated health checks."""
 
     @pytest.mark.asyncio
     async def test_run_all_checks(self, tmp_path: Path) -> None:
-        with patch(
-            "miner_harness.observability.health.check_ollama",
-            return_value=CheckResult(name="ollama", status=HealthStatus.HEALTHY, message="OK"),
+        with (
+            patch(
+                "miner_harness.observability.health.check_ollama",
+                return_value=CheckResult(name="ollama", status=HealthStatus.HEALTHY, message="OK"),
+            ),
+            patch(
+                "miner_harness.observability.health.check_geosgb",
+                return_value=CheckResult(name="geosgb", status=HealthStatus.HEALTHY, message="OK"),
+            ),
         ):
             report = await run_health_checks(tmp_path)
-            assert len(report.checks) == 4
+            assert len(report.checks) == 5
             names = [c.name for c in report.checks]
             assert "ollama" in names
             assert "cache" in names
             assert "index" in names
             assert "disk_space" in names
+            assert "geosgb" in names
