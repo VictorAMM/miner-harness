@@ -212,7 +212,7 @@ class AeromagConnector:
             "returnGeometry": "false",
         }
         try:
-            resp = await client.get(_IDENTIFY_URL, params=params)
+            resp = await self._get_with_retry(client, _IDENTIFY_URL, params=params)
             resp.raise_for_status()
             data = resp.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -225,6 +225,35 @@ class AeromagConnector:
             return None
 
         return self._parse_identify(data, lon, lat)
+
+    @staticmethod
+    async def _get_with_retry(
+        client: httpx.AsyncClient,
+        url: str,
+        params: dict[str, Any],
+        max_attempts: int = 3,
+        base_delay_s: float = 1.0,
+    ) -> httpx.Response:
+        """GET com retry exponencial para erros transientes (429 / 503).
+
+        Retenta até ``max_attempts`` vezes com delay 1s, 2s, 4s… para status
+        429 (Too Many Requests) e 503 (Service Unavailable). Outros erros são
+        relançados imediatamente.
+        """
+        _retryable = {429, 503}
+        for attempt in range(1, max_attempts + 1):
+            resp = await client.get(url, params=params)
+            if resp.status_code not in _retryable or attempt == max_attempts:
+                return resp
+            delay = base_delay_s * (2 ** (attempt - 1))
+            logger.warning(
+                "aeromag_retry",
+                attempt=attempt,
+                status=resp.status_code,
+                delay_s=delay,
+            )
+            await asyncio.sleep(delay)
+        return resp  # pragma: no cover — loop sempre retorna antes
 
     @staticmethod
     def _parse_identify(
