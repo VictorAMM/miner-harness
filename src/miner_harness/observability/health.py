@@ -178,6 +178,47 @@ def check_index(index_dir: Path) -> CheckResult:
         )
 
 
+_GEOSGB_PROBE_URL = (
+    "https://services.sgb.gov.br/mapa/rest/services"
+    "/ocorrencias_minerais/MapServer/0/query"
+    "?where=1%3D1&resultRecordCount=1&f=json"
+)
+
+
+async def check_geosgb(timeout_s: float = 5.0) -> CheckResult:
+    """Check GeoSGB connectivity via a lightweight probe query."""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
+            resp = await client.get(_GEOSGB_PROBE_URL)
+            if resp.status_code == 200 and "features" in resp.text:
+                return CheckResult(
+                    name="geosgb",
+                    status=HealthStatus.HEALTHY,
+                    message="GeoSGB acessível",
+                )
+            return CheckResult(
+                name="geosgb",
+                status=HealthStatus.DEGRADED,
+                message=f"Resposta inesperada: HTTP {resp.status_code}",
+                details={"status_code": resp.status_code},
+            )
+    except httpx.ConnectError:
+        return CheckResult(
+            name="geosgb",
+            status=HealthStatus.UNHEALTHY,
+            message="Sem conexão com GeoSGB — verificar conexão de rede",
+            details={"url": _GEOSGB_PROBE_URL},
+        )
+    except Exception as e:  # noqa: BLE001
+        return CheckResult(
+            name="geosgb",
+            status=HealthStatus.UNHEALTHY,
+            message=f"Erro: {type(e).__name__}",
+        )
+
+
 def check_disk_space(miner_home: Path) -> CheckResult:
     """Check available disk space."""
     import shutil
@@ -232,6 +273,9 @@ async def run_health_checks(
 
     disk_result = check_disk_space(miner_home)
     report.checks.append(disk_result)
+
+    geosgb_result = await check_geosgb()
+    report.checks.append(geosgb_result)
 
     logger.info(
         "health_check_complete",
