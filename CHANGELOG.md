@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.9.0] — 2026-05-26
+
+### Adicionado — PRD-008: Triagem de Fontes + Resiliência Atlas + Health Configurável
+
+#### T1 — `empty_sources` propagado ao ProspectionReport e dashboard
+
+- `ProspectionReport.empty_sources: list[str]` — rastreia APIs que responderam com 0 registros.
+- Orquestrador propaga `ContextBuilder.empty_sources` ao relatório e imprime aviso no terminal.
+- Dashboard: banner de cobertura passa de binário a tripartite
+  (`missing` | `bbox_filtered` | `empty`); aba Dados exibe mensagem distinta por categoria.
+- DOCX seção 6 lista cada fonte com rótulo apropriado ("0 registros para esta área").
+
+#### T2 — Retry exponencial 429/503 no `AeromagConnector`
+
+- Novo método estático `_get_with_retry()`: até 3 tentativas com backoff 1 s / 2 s / 4 s
+  para status 503 (Service Unavailable) e 429 (Too Many Requests).
+- Outros status são retornados imediatamente sem retry.
+
+#### T3 — Flag `--geosgb-timeout` no comando `health`
+
+- `run_health_checks(geosgb_timeout_s=5.0)` repassa timeout ao `check_geosgb()`.
+- `cmd_health(geosgb_timeout=5.0)` encaminha o parâmetro.
+- CLI: `miner-harness health --geosgb-timeout <SECONDS>` permite ajustar o probe
+  em redes lentas.
+
+#### Testes
+
+- Suite total: **1 458 testes**, 65 skipped, cobertura **100%**
+
+---
+
 ## [1.8.0] — 2026-05-26
 
 ### Adicionado — PRD-007: Qualidade DOCX + Observabilidade + Resiliência Atlas

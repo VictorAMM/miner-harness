@@ -797,6 +797,24 @@ class TestCmdHealth:
             result = await cmd_health()
         assert result == 1
 
+    @pytest.mark.asyncio
+    async def test_health_passes_geosgb_timeout(self, tmp_path: Path) -> None:
+        """cmd_health encaminha geosgb_timeout para run_health_checks (PRD-008 T3)."""
+
+        mock_report = MagicMock()
+        mock_report.is_healthy = True
+        mock_report.checks = []
+
+        mock_run = AsyncMock(return_value=mock_report)
+        with (
+            patch("miner_harness.cli.commands.StorageConfig") as mock_cfg,
+            patch("miner_harness.observability.health.run_health_checks", new=mock_run),
+        ):
+            mock_cfg.return_value = StorageConfig(miner_home=tmp_path / ".miner")
+            await cmd_health(geosgb_timeout=8.0)
+        _, kwargs = mock_run.call_args
+        assert kwargs.get("geosgb_timeout_s") == 8.0
+
 
 class TestProfileFlag:
     """Testes da flag --profile no CLI."""

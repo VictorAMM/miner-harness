@@ -402,3 +402,94 @@ class TestRestApiUrl:
         """URL deve apontar para o serviço Mapas_Tern_Mag_MIL1."""
         assert "Mapas_Tern_Mag_MIL1" in _IDENTIFY_URL
         assert "MapServer/identify" in _IDENTIFY_URL
+
+
+# ---------------------------------------------------------------------------
+# TestGetWithRetry — retry 429/503 com backoff exponencial (PRD-008 T2)
+# ---------------------------------------------------------------------------
+
+
+class TestGetWithRetry:
+    """Testes para _get_with_retry: retry automático em 429/503."""
+
+    @pytest.mark.asyncio
+    async def test_returns_immediately_on_200(self) -> None:
+        """Status 200 retorna sem retry."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=mock_resp)
+
+        result = await AeromagConnector._get_with_retry(client, "http://x", {})
+        assert result.status_code == 200
+        assert client.get.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retries_on_503_twice_then_succeeds(self) -> None:
+        """503 nas primeiras 2 tentativas → 3ª tentativa com 200."""
+        resp_503 = MagicMock()
+        resp_503.status_code = 503
+        resp_200 = MagicMock()
+        resp_200.status_code = 200
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=[resp_503, resp_503, resp_200])
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            result = await AeromagConnector._get_with_retry(
+                client, "http://x", {}, base_delay_s=0.001
+            )
+        assert result.status_code == 200
+        assert client.get.call_count == 3
+        assert mock_sleep.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_returns_last_response_after_max_attempts(self) -> None:
+        """Se todas as tentativas forem 429, retorna a última resposta."""
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=resp_429)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await AeromagConnector._get_with_retry(
+                client, "http://x", {}, max_attempts=3, base_delay_s=0.001
+            )
+        assert result.status_code == 429
+        assert client.get.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_status_returns_immediately(self) -> None:
+        """Status 404 (não retryable) retorna imediatamente sem sleep."""
+        resp_404 = MagicMock()
+        resp_404.status_code = 404
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=resp_404)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            result = await AeromagConnector._get_with_retry(client, "http://x", {})
+        assert result.status_code == 404
+        assert client.get.call_count == 1
+        mock_sleep.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_exponential_backoff_delay(self) -> None:
+        """Delay deve crescer exponencialmente: base, base×2, base×4…"""
+        resp_503 = MagicMock()
+        resp_503.status_code = 503
+        resp_200 = MagicMock()
+        resp_200.status_code = 200
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=[resp_503, resp_503, resp_200])
+        base = 0.5
+        delays: list[float] = []
+
+        async def capture_sleep(d: float) -> None:
+            delays.append(d)
+
+        with patch("asyncio.sleep", new=capture_sleep):
+            await AeromagConnector._get_with_retry(
+                client, "http://x", {}, max_attempts=3, base_delay_s=base
+            )
+        assert len(delays) == 2
+        assert delays[0] == pytest.approx(base * 1)  # attempt 1: 0.5s
+        assert delays[1] == pytest.approx(base * 2)  # attempt 2: 1.0s

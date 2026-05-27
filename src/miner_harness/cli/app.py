@@ -293,9 +293,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # --- health ---
-    subparsers.add_parser(
+    health_parser = subparsers.add_parser(
         "health",
-        help="Run system health checks (Ollama, cache, index, disk)",
+        help="Run system health checks (Ollama, cache, index, disk, GeoSGB)",
+    )
+    health_parser.add_argument(
+        "--geosgb-timeout",
+        type=float,
+        default=5.0,
+        metavar="SECONDS",
+        help="Timeout em segundos para o probe GeoSGB (padrão: 5.0)",
     )
 
     return parser
@@ -396,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.parse_args(["index", "--help"])  # pragma: no cover
             return 1  # pragma: no cover
         if args.command == "health":
-            return asyncio.run(cmd_health())
+            return asyncio.run(cmd_health(geosgb_timeout=args.geosgb_timeout))
     except KeyboardInterrupt:
         print("\nInterrupted.")
         return 130

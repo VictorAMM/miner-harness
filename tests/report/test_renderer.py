@@ -957,3 +957,69 @@ class TestAtlasWmsFix:
         assert "tileerror" in html
         assert "tileload" in html
         assert "atlas-warn" in html
+
+
+# ---------------------------------------------------------------------------
+# TestPrd008EmptySources — triagem tripartite no banner e aba Dados (PRD-008 T1)
+# ---------------------------------------------------------------------------
+
+
+class TestPrd008EmptySources:
+    """Testes PRD-008 T1: empty_sources no banner de cobertura e aba Dados."""
+
+    def _make_report(self, **overrides: object) -> ProspectionReport:
+        step = StepResult(
+            step=AnalysisStep.TECTONIC_HISTORY,
+            agent="geo",
+            summary="s",
+            findings=[],
+            confidence=Confidence.HIGH,
+            data_sources_used=[],
+            data_gaps=[],
+            raw_reasoning="",
+            duration_ms=0,
+        )
+        base: dict[str, object] = {
+            "region_name": "R",
+            "bbox": BoundingBox(lon_min=-52.0, lat_min=-8.0, lon_max=-50.0, lat_max=-6.0),
+            "analysis_date": datetime(2026, 5, 26, 0, 0, 0, tzinfo=timezone.utc),
+            "steps": [step],
+            "targets": [],
+            "integrated_summary": "",
+            "caveats": [],
+            "data_quality_score": 0.5,
+            "total_duration_ms": 0,
+            "model_used": "qwen3:8b",
+        }
+        base.update(overrides)
+        return ProspectionReport(**base)  # type: ignore[arg-type]
+
+    def test_empty_sources_in_report_json(self) -> None:
+        """empty_sources deve aparecer no JSON injetado no HTML."""
+        report = self._make_report(empty_sources=["gravimetria"])
+        html = HtmlReportRenderer().render(report)
+        assert "empty_sources" in html
+        assert "gravimetria" in html
+
+    def test_empty_sources_js_variable_present(self) -> None:
+        """Variável JS emptySources deve estar presente no template."""
+        html = HtmlReportRenderer().render(self._make_report())
+        assert "emptySources" in html or "empty_sources" in html
+
+    def test_banner_shows_empty_category(self) -> None:
+        """Banner de cobertura deve distinguir 'sem dados na área' de outras categorias."""
+        html = HtmlReportRenderer().render(self._make_report())
+        # A lógica JS usa r.empty_sources — verifica que a variável está no template
+        assert "r.empty_sources" in html
+
+    def test_tripartite_banner_logic_present(self) -> None:
+        """Lógica JS tripartite: missing + bboxFilt + empty."""
+        html = HtmlReportRenderer().render(self._make_report())
+        assert "bboxFilt" in html
+        assert "empty" in html
+        assert "allProblematic" in html
+
+    def test_dados_tab_uses_empty_sources_set(self) -> None:
+        """Aba Dados deve usar emptySources para distinguir de 'sem dados' genérico."""
+        html = HtmlReportRenderer().render(self._make_report())
+        assert "emptySources" in html

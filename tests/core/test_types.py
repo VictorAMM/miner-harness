@@ -357,3 +357,49 @@ class TestProspectionReportDiversityCount:
         data = report.model_dump()
         restored = ProspectionReport.model_validate(data)
         assert restored.diversity_removed_count == 2
+
+
+class TestProspectionReportEmptySources:
+    """Testes PRD-008 T1: campo empty_sources no ProspectionReport."""
+
+    def _make_report(self, **overrides: object) -> ProspectionReport:
+        base: dict[str, object] = {
+            "region_name": "Carajás",
+            "bbox": BoundingBox(lon_min=-51.5, lat_min=-7.0, lon_max=-49.0, lat_max=-5.0),
+            "analysis_date": datetime.now(tz=timezone.utc),
+            "steps": [],
+            "targets": [],
+            "integrated_summary": "",
+            "caveats": [],
+            "data_quality_score": 0.5,
+            "total_duration_ms": 0,
+            "model_used": "qwen3:8b",
+        }
+        base.update(overrides)
+        return ProspectionReport(**base)  # type: ignore[arg-type]
+
+    def test_empty_sources_defaults_to_empty_list(self) -> None:
+        """empty_sources deve ser [] por padrão."""
+        report = self._make_report()
+        assert report.empty_sources == []
+
+    def test_empty_sources_stores_values(self) -> None:
+        """empty_sources armazena lista de fontes sem dados."""
+        report = self._make_report(empty_sources=["gravimetria", "geocronologia"])
+        assert report.empty_sources == ["gravimetria", "geocronologia"]
+
+    def test_empty_sources_roundtrip(self) -> None:
+        """empty_sources sobrevive a serialização model_dump/model_validate."""
+        report = self._make_report(empty_sources=["gravimetria"])
+        data = report.model_dump()
+        restored = ProspectionReport.model_validate(data)
+        assert restored.empty_sources == ["gravimetria"]
+
+    def test_empty_sources_independent_of_missing_sources(self) -> None:
+        """empty_sources e missing_sources são listas independentes."""
+        report = self._make_report(
+            empty_sources=["gravimetria"],
+            missing_sources=["aerogeofisica"],
+        )
+        assert "gravimetria" not in report.missing_sources
+        assert "aerogeofisica" not in report.empty_sources

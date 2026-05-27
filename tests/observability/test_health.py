@@ -298,3 +298,21 @@ class TestRunHealthChecks:
             assert "index" in names
             assert "disk_space" in names
             assert "geosgb" in names
+
+    @pytest.mark.asyncio
+    async def test_run_health_checks_passes_geosgb_timeout(self, tmp_path: Path) -> None:
+        """geosgb_timeout_s é repassado ao check_geosgb (PRD-008 T3)."""
+        from unittest.mock import AsyncMock
+
+        mock_check_geosgb = AsyncMock(
+            return_value=CheckResult(name="geosgb", status=HealthStatus.HEALTHY, message="OK")
+        )
+        with (
+            patch(
+                "miner_harness.observability.health.check_ollama",
+                return_value=CheckResult(name="ollama", status=HealthStatus.HEALTHY, message="OK"),
+            ),
+            patch("miner_harness.observability.health.check_geosgb", new=mock_check_geosgb),
+        ):
+            await run_health_checks(tmp_path, geosgb_timeout_s=12.5)
+        mock_check_geosgb.assert_called_once_with(timeout_s=12.5)
