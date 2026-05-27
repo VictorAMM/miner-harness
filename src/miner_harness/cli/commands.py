@@ -588,12 +588,12 @@ def cmd_install(
     return runner.run()
 
 
-async def cmd_health() -> int:
+async def cmd_health(geosgb_timeout: float = 5.0) -> int:
     """Run system health checks."""
     from miner_harness.observability.health import HealthStatus, run_health_checks
 
     config = StorageConfig()
-    report = await run_health_checks(config.miner_home)
+    report = await run_health_checks(config.miner_home, geosgb_timeout_s=geosgb_timeout)
 
     status_icons = {
         HealthStatus.HEALTHY: "[OK]",

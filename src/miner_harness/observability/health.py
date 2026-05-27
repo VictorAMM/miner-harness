@@ -258,6 +258,7 @@ def check_disk_space(miner_home: Path) -> CheckResult:
 async def run_health_checks(
     miner_home: Path,
     ollama_url: str = "http://localhost:11434",
+    geosgb_timeout_s: float = 5.0,
 ) -> HealthReport:
     """Run all health checks and return aggregated report."""
     report = HealthReport()
@@ -274,7 +275,7 @@ async def run_health_checks(
     disk_result = check_disk_space(miner_home)
     report.checks.append(disk_result)
 
-    geosgb_result = await check_geosgb()
+    geosgb_result = await check_geosgb(timeout_s=geosgb_timeout_s)
     report.checks.append(geosgb_result)
 
     logger.info(

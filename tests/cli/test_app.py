@@ -75,6 +75,16 @@ class TestMainCLI:
             result = main(["health"])
         assert result == 0
 
+    def test_health_geosgb_timeout_flag(self) -> None:
+        """--geosgb-timeout é parseado e repassado ao cmd_health (PRD-008 T3)."""
+        from unittest.mock import AsyncMock, patch
+
+        mock_health = AsyncMock(return_value=0)
+        with patch("miner_harness.cli.app.cmd_health", new=mock_health):
+            result = main(["health", "--geosgb-timeout", "8.5"])
+        assert result == 0
+        mock_health.assert_called_once_with(geosgb_timeout=8.5)
+
     def test_ensure_utf8_streams_wraps_non_utf8(self) -> None:
         """_ensure_utf8_streams substitui streams com encoding != utf-8 (linha 153)."""
         import sys
